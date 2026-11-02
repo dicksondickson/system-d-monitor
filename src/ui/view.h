@@ -1,0 +1,63 @@
+#pragma once
+#include <math.h>
+#include <stdint.h>
+
+// Everything the pages draw, already derived (spec.md §5). The poller fills
+// one of these per poll; pages only read it. NaN = no data. Arduino-free.
+
+constexpr int RING_LEN = 60;  // 120 s at 2 s per sample
+constexpr int MAX_STREAMS = 8;
+
+enum class ServerState : uint8_t { IDLE, BUSY, WARMING, RESTART, STALE, DOWN, NO_WIFI, UNKNOWN };
+
+enum class StreamState : uint8_t { NO_DATA, IDLE, PREFILL, DECODING };
+
+struct StreamView {
+  uint8_t id = 0;
+  StreamState state = StreamState::NO_DATA;
+  float ctx_pct = NAN;
+  float tokens = NAN;
+  float ttft_s = NAN;
+  float tg = NAN;  // tok/s
+};
+
+struct View {
+  // Header (row 1)
+  char clock[9] = "";     // HH:MM:SS, empty until NTP
+  char ip[16] = "";
+  int8_t wifi_bars = -1;  // 0–4, -1 = no link
+
+  // Server rule (row 2)
+  char engine[12] = "";   // "TensorFold", "vLLM", "???"
+  char model[48] = "";
+  ServerState state = ServerState::UNKNOWN;
+
+  // Throughput
+  float tg_live = NAN, tg_avg = NAN, tg_eng = NAN;
+  float pp_live = NAN, pp_avg = NAN, pp_eng = NAN;
+  float running = NAN, max_batch = NAN, waiting = NAN;
+
+  // Cache
+  float kv_pct = NAN, kv_tokens = NAN, ctx_window = NAN;
+
+  // Streams
+  StreamView streams[MAX_STREAMS];
+  uint8_t n_streams = 0;
+
+  // Averages
+  float ttft_cum = NAN, ttft_live = NAN, lat_cum = NAN, n_requests = NAN;
+  float mtp_pct = NAN, mtp_accepted = NAN, mtp_drafted = NAN;
+  float cache_hit_pct = NAN;
+
+  // 120 s rings, oldest first; NaN = gap (missed poll / restart).
+  float tg_hist[RING_LEN];
+  float pp_hist[RING_LEN];
+  float kv_hist[RING_LEN];
+
+  // Footer rule (row 24): poll status or error reason.
+  char status[40] = "";
+
+  View() {
+    for (int i = 0; i < RING_LEN; i++) tg_hist[i] = pp_hist[i] = kv_hist[i] = NAN;
+  }
+};

@@ -271,29 +271,48 @@ Not `no data`: a real idle 0.0, and blank TTFT/TG on `idle` stream rows
 
 ## 6. Renderer
 
+Built in M2 (2026-11-01); code in `src/gfx/`, `src/ui/`, `src/hw/screen.cpp`.
+
 - **Grid:** 48 × 24 cells of 10 × 20 px = exactly 480 × 480.
-  Each cell = `{uint16 glyph, uint8 fg, uint8 bg}` (palette index).
-  There are two grids, front and back. A frame renders into the back grid,
-  then only cells that differ are blitted into the framebuffer.
-- **Font:** Terminus 10×20 (`ter-u20n`, SIL OFL), subset to ASCII plus `· …`,
-  converted to a C array by `tools/mkfont.py`. Bold = a second Terminus
-  weight (`ter-u20b`) for section titles and the server state.
+  Each cell = `{uint16 codepoint, uint8 fg, uint8 bg, uint8 attr}`, with
+  colours stored as theme roles. Pages draw the whole screen into a `Grid`.
+  `screen::present()` diffs it against what's shown and repaints only the
+  changed cells.
+- **Font:** Terminus 10×20 (`ter-u20n` regular, `ter-u20b` bold for titles,
+  the server state and the hero; SIL OFL, `third_party/terminus/`).
+  `tools/font/mkfont.py` converts it into `src/gfx/font_ter10x20.h`: ASCII,
+  `· — … ● ○`, box drawing `─│┌┐└┘├┤┬┴┼`, blocks `▁▂▃▄▅▆▇█░` and the full
+  braille range U+2800–28FF. That's 376 regular + 97 bold glyphs, ~19 KB.
+  Terminus's box and block glyphs tile exactly in the 10×20 cell, so nothing
+  is drawn procedurally except the hero.
 - **Hero text:** `ter-u20b` glyphs pixel-doubled to 20 × 40, each covering a
-  2 × 2 block of cells. The grid marks these cells as one "big glyph" so the
-  diff-blit redraws them together. Used only for TG live.
-- **Procedural glyphs** (drawn as rects/dots, no font needed): box drawing
-  `─│┤├┌┐└┘`, blocks `▁▂▃▄▅▆▇█░`, and braille U+2800–28FF.
-- **Sparklines** (overview), scaled to the window max, gap = `·`:
+  2 × 2 block of cells (`ATTR_BIG` + quadrant). Used only for TG live.
+- **Sparklines** (overview), scaled to the window max, gap = dim `·`:
   - PP: 30 block cells, each = max of 2 samples → 120 s at 8 levels.
   - TG (next to the hero): 20 cells × 2 rows, each cell = max of 3 samples
     → 120 s at 16 levels.
 - **Graphs** (graphs page): braille, one cell = 2 samples × 4 levels, so
-  30 columns = 60 samples = 120 s. A gap is one dim baseline dot.
-- Redraw at most 10 Hz: after each poll, on touch, and once a second for the
-  clock. The poller never touches the grid.
-- Tearing risk: the RGB panel scans continuously. If cell updates visibly
-  tear, switch to double framebuffers with a swap on VSYNC (`num_fbs = 2`,
-  another 450 KB PSRAM).
+  30 columns = 60 samples = 120 s. A gap leaves its dot column empty.
+- **Blit:** the dirty cells of each cell row are rasterised into a 19 KB
+  band buffer in internal SRAM. The span from the first to the last dirty
+  column is then copied to the PSRAM framebuffer, and that band is written
+  back out of the CPU cache, since the RGB DMA reads PSRAM directly.
+- **Speed on the board** (`-O2`, font tables in DRAM and raster code in
+  IRAM, `gfx/platform.h`):
+
+  | Operation | Time |
+  |---|---|
+  | Full-page repaint (theme or page switch) | ~28 ms |
+  | Clock tick (1 cell) | ~0.3 ms |
+  | Laying out a page into the grid | ~1.5 ms |
+
+  The full repaint is bound by PSRAM bandwidth (~10 ms copy + ~8.5 ms cache
+  writeback), which the LCD DMA shares, so the original ≤ 10 ms target isn't
+  reachable this way.
+- Redraw on change only: after each poll, on touch, and once a second for
+  the clock. The poller never touches the grid.
+- Tearing: not visible in testing. If it shows up, switch to double
+  framebuffers with a swap on VSYNC (`num_fbs = 2`, another 450 KB PSRAM).
 
 ### Themes (hold 0.7 s to cycle, saved in NVS)
 
@@ -307,7 +326,7 @@ Not `no data`: a real idle 0.0, and blank TTFT/TG on `idle` stream rows
 | good / warn / bad | `#00cd00` / `#cdcd00` / `#cd0000` | `#77ca9b` / `#cbc06c` / `#dc4c4c` |
 | **decode** (TG hero, TG spark/graph) | bright green `#00ff5f` | `#77ca9b` |
 | **prefill** (PP numbers, spark/graph) | magenta `#cd00cd` | `#4897d4` |
-| graph fill (KV) | value colour | vertical gradient good → warn → bad |
+| graph fill (KV) | `good` | `good` (a vertical good → warn → bad gradient is a later option) |
 
 Tune the colours on the real panel, because RGB565 shifts them.
 
@@ -315,45 +334,51 @@ Tune the colours on the real panel, because RGB565 shifts them.
 
 ## 7. Screens (48 × 24)
 
-The layout follows the 2026-11-01 sketch:
-- btop-style section rules `─┤ Title ───`, with status on the right of a
-  rule (`OK BUSY ┤`);
-- `│ … │` rows;
+The layout follows the 2026-11-01 sketch, closed into one btop-style frame
+(chosen on the panel, 2026-11-01):
+- corners `┌ ┐ └ ┘` on the top and bottom rules, and `├─┤ Title ├───┤`
+  junctions on every section rule;
+- an optional right-hand label in brackets (`┤ OK BUSY ├─┤`);
+- `│ … │` on every other row, blank ones included, so both edges are
+  continuous;
 - a 2× "hero" decode number;
 - a per-stream table (nv-monitor style).
+
+The mockups below are the real renders of the demo data: the golden files
+in `test/test_render/golden.h`, checked by `pio test -e native`.
 
 Values are illustrative, and assume TensorFold already exports Appendix A.
 
 ### 7.1 Overview
 
 ```
-─┤ SYSTEM-D 12:47:33  LAN 192.168.50.57 ▂▄▆ ────
-─┤ TensorFold · deepseek-v4.1-flash… ─ OK BUSY ┤
-─┤ Throughput ──────────────────────────────────
-│ TG １００．９ tok/s    █▇▅▃▁▂▃▅▇█ ▇▆▅▂▂▂     │
+┌─┤ SYSTEM-D 12:47:33  LAN 192.168.50.57 ▂▄▆█ ├┐
+├─┤ TensorFold · deepseek-v4.1-… ├─┤ OK BUSY ├─┤
+├─┤ Throughput ├───────────────────────────────┤
+│ TG １０１．３ tok/s    █▆▄▄▅▆███▆ ▄▄▅▇██     │
 │                live ▁▁▁██████████·██████     │
-│ PP 1,331/s  avg 1,290  · eng 6,802/s         │
-│ PP ▁▁▁▁▁▁▁█▁▁▁▁▁▁▄▁▁▁▁▁▁▁█▁▁▁▁▁▁▁ 6.8K       │
+│ PP 1,331/s  avg 1,290 · eng 6,802/s          │
+│ PP ▁▁▁▁▁▁▁█▁▁▁▁▁▁▄▁▁▁▁··▁█▁▁▁▁▁▁▂ 6.8K       │
 │ run 2/4 · wait 1 · TG avg 95.1 · eng 91.2    │
-─┤ Cache ───────────────────────────────────────
+├─┤ Cache ├────────────────────────────────────┤
 │ KV 31.4% █████░░░░░░░░░░░ · 329K/1.0M tok    │
-─┤ Streams ─────────────────────────────────────
+├─┤ Streams ├──────────────────────────────────┤
 │  #  state        ctx tokens   TTFT      TG   │
 │  0  decoding   31.4%   329K   1.2s  62.7/s   │
 │  1  prefill     2.0%    21K  no data         │
 │  2  idle        0.0%      0                  │
 │  3  idle        0.0%      0                  │
-─┤ Averages ────────────────────────────────────
+├─┤ Averages ├─────────────────────────────────┤
 │ TTFT 1.85s · MTP 48.9% · cache-hit 75.4%     │
 │ live TTFT 1.42s · lat 8.16s · n=42           │
-
-
-
-
-─┤ poll 2s · ok 0.4s ago ───────── tap: graphs ┤
+│                                              │
+│                                              │
+│                                              │
+│                                              │
+└─┤ poll 2s · ok 0.4s ago ├────┤ tap: graphs ├─┘
 ```
 
-(The hero `１００．９` is written in fullwidth digits to show its width. On the
+(The hero `１０１．３` is written in fullwidth digits to show its width. On the
 device it is drawn at 2× and spans rows 4–5, 2 columns per character.)
 
 | Rows | Section | Content |
@@ -382,30 +407,30 @@ rates can't be confused at a glance.
 ### 7.2 Graphs
 
 ```
-─┤ SYSTEM-D 12:47:33  LAN 192.168.50.57 ▂▄▆ ────
-─┤ TensorFold · deepseek-v4.1-flash… ─ OK BUSY ┤
-─┤ TG live tok/s ──────────────────────── 120s ┤
-│ ⠀⠀⠀⠀⢸⣿⣦⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣄⣴⠀⠀⣤⡀⠀⠀⠀⠀⠀⠀⠀  now 100.9    │
-│ ⠀⠀⠀⠀⢸⣿⣿⣦⡀⠀⠀⠀⠀⠀⠀⢀⣾⣿⣿⠀⠀⣿⣿⣦⡀⠀⠀⠀⠀⠀  avg  95.1    │
-│ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣦⡀⠀⠀⢀⢠⣾⣿⣿⣿⠀⠀⣿⣿⣿⣧⡀⠀⠀⠀⢀  max 104.2    │
-│ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣧⣤⣶⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣷⣾⣤⣾  min   0.0    │
+┌─┤ SYSTEM-D 12:47:33  LAN 192.168.50.57 ▂▄▆█ ├┐
+├─┤ TensorFold · deepseek-v4.1-… ├─┤ OK BUSY ├─┤
+├─┤ TG live tok/s ├───────────────────┤ 120s ├─┤
+│ ⠀⠀⠀⠀⢸⣀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣾⣿⣧⡀⠀⠀⠀⠀⠀⠀⠀⣰⣷⣿⣿  now 101.3    │
+│ ⠀⠀⠀⠀⢸⣿⣷⡄⠀⠀⠀⢀⣶⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⣠⣼⣿⣿⣿⣿  avg  73.7    │
+│ ⠀⠀⠀⠀⢸⣿⣿⣿⣶⣶⣴⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣶⣦⣾⣿⣿⣿⣿⣿⣿  max 102.0    │
+│ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿  min   0.0    │
 │ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
 │ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
 │ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
 │ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
-─┤ PP live tok/s ──────────────────────── 120s ┤
+├─┤ PP live tok/s ├───────────────────┤ 120s ├─┤
 │ ⠀⠀⠀⠀⠀⠀⠀⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀  now 1,331    │
-│ ⠀⠀⠀⠀⠀⠀⠀⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀  avg 1,290    │
+│ ⠀⠀⠀⠀⠀⠀⠀⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀  avg 666.6    │
 │ ⠀⠀⠀⠀⠀⠀⠀⣿⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀  max 6,800    │
-│ ⠀⠀⠀⠀⠀⠀⠀⣿⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀  min     0    │
-│ ⠀⠀⠀⠀⢀⣀⣀⣿⣀⣀⣀⣀⣀⣀⣇⣀⣀⣀⣀⣀⣀⣀⣇⣀⣀⣀⣀⣀⣀⣀               │
-─┤ KV % ───────────────────────────────── 120s ┤
-│ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣠⣤⣶⣶⣿⣿⣿  now 11.6%    │
-│ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣠⣤⣴⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿  max 44.0%    │
-│ ⠀⠀⠀⠀⠀⠀⠀⠀⣀⣠⣤⣴⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
-│ ⠀⠀⠀⠀⢰⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
-
-─┤ poll 2s · ok 0.4s ago ─────── tap: overview ┤
+│ ⠀⠀⠀⠀⠀⠀⠀⣿⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀  min   0.0    │
+│ ⠀⠀⠀⠀⢀⣀⣀⣿⣀⣀⣀⣀⣀⣀⣇⣀⣀⣀⣀⠀⠀⣀⣇⣀⣀⣀⣀⣀⣀⣸               │
+├─┤ KV % ├────────────────────────────┤ 120s ├─┤
+│ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀  now 31.4%    │
+│ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀  max 31.4%    │
+│ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣀⣀               │
+│ ⠀⠀⠀⠀⢀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣶⣶⣶⣶⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
+│                                              │
+└─┤ poll 2s · ok 0.4s ago ├──┤ tap: overview ├─┘
 ```
 
 (Monospace terminals render braille at varying widths, so the mockup may
@@ -512,23 +537,26 @@ allocation in steady state, so a 24 h soak should show flat free heap.
 ### Layout
 
 ```
-platformio.ini            env:board + env:native (host tests)
-include/config.example.h
+platformio.ini            env:board, env:diag (archived diagnostics), env:native (host tests)
+include/board_pins.h      pin map
+include/config.example.h  (M3) Wi-Fi + server; copy to config.h (gitignored)
 src/main.cpp
-src/hw/       panel.cpp  touch_gt911.cpp  backlight.cpp
-src/gfx/      grid.cpp   glyphs.cpp (procedural)  font_ter10x20.h  theme.cpp
-src/net/      wifi.cpp   http_get.cpp  poller.cpp
-src/metrics/  prom.cpp (line parser + suffix table)  tf_health.cpp
-              sample.h   derive.cpp   ring.h   fmt.cpp
-src/ui/       widgets.cpp (section rule, row, hero, bar, sparkline, table, braille graph)
-              page_overview.cpp  page_graphs.cpp  boot.cpp
+src/hw/       panel.cpp (ST7701 + RGB bus)  backlight.cpp  touch_gt911.cpp
+              screen.cpp (diff + band blit to the PSRAM framebuffer)
+src/gfx/      grid.cpp  raster.cpp  font.cpp  font_ter10x20.h (generated)
+              theme.cpp  platform.h (FAST_DATA / FAST_CODE)
+src/net/      (M3) wifi.cpp  http_get.cpp  poller.cpp
+src/metrics/  (M3–M4) prom.cpp  tf_health.cpp  sample.h  derive.cpp  ring.h
+src/ui/       view.h  fmt.cpp  widgets.cpp  chrome.cpp  page_overview.cpp
+              page_graphs.cpp  demo_view.cpp
 test/fixtures/tensorfold-1.1.8-idle/  metrics.txt health.json v1_models.json
-test/test_prom/  test_derive/  test_render/   (PlatformIO native, Unity)
-tools/mkfont.py  tools/capture.sh
+test/test_render/ (golden page dumps)  test/test_fmt/   (PlatformIO native, Unity)
+tools/font/mkfont.py  tools/update_golden.py  tools/display-diag/  tools/capture.sh (M3)
+third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
 ```
 
-- `ui/widgets` holds the §7 visual language: `─┤ title ───` rules with an
-  optional right-hand status, `│ … │` rows, the 2× hero, bars, 1- and 2-row
+- `ui/widgets` holds the §7 visual language: the closed `├─┤ title ├──┤`
+  frame with an optional right-hand label, `│ … │` rows, the 2× hero, bars, 1- and 2-row
   sparklines, the stream table and braille graphs. Pages only compose
   widgets.
 - `metrics/`, `gfx/grid` and `ui/` compile without Arduino headers, so they
@@ -547,7 +575,7 @@ tools/mkfont.py  tools/capture.sh
 |---|---|---|
 | M0 | Hardware sanity | Factory demo shows UI, touch responds (data cable) |
 | M1 ✅ 2026-11-01 | Skeleton | `platformio.ini` pinned; colour bars show **R/G/B in the right places**; backlight PWM works; touch dot follows the finger; serial log at 115200 |
-| M2 | Renderer | Font + procedural glyphs + widgets; static §7.1 / §7.2 on the panel in both themes; full-page diff-blit ≤ 10 ms |
+| M2 ✅ 2026-11-01 | Renderer | Font + widgets; static §7.1 / §7.2 on the panel in both themes; tap/hold gestures; host golden tests. Full-page repaint ~28 ms (PSRAM-bound, §6), incremental < 1 ms |
 | M3 | Data in | Wi-Fi + SNTP; streaming HTTP; parser passes native tests on the idle fixture + a load capture; engine identification passes tests for TensorFold (real fixture), vLLM (synthetic `/metrics` + `/version`) and UNKNOWN (an HTML page, an empty body); serial prints parsed samples from dgx042 |
 | M3a | TensorFold exports (in the TensorFold repo) | Appendix A metrics live on dgx042; a load capture with ≥ 2 concurrent requests saved as `test/fixtures/tensorfold-<ver>-load/` |
 | M4 | Derive | Rates, window, rings, restart detection; native tests on captured sequences, including a server restart |

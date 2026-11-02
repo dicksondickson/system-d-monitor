@@ -6,7 +6,8 @@
 namespace touch {
 
 struct Point {
-  bool down;
+  bool fresh;  // the GT911 had a new report (false: nothing new, keep last state)
+  bool down;   // finger on the panel (only meaningful when fresh)
   uint16_t x, y;
 };
 

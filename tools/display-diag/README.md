@@ -17,6 +17,10 @@ The script copies the round into `src/diag/` (gitignored), builds
 `env:diag` (`platformio.ini`), and deletes `src/diag/` again. Flash the
 normal firmware afterwards with `pio run -t upload`.
 
+`tools/display-diag/run.sh panel upload` flashes `panel_test.cpp`, the M1
+bring-up screen: colour bars, RGB ramps, a 1 px border and touch dots. It's
+the quickest check that panel, backlight and touch are healthy.
+
 ## Rounds
 
 | File | Tests | Result (2026-11-01) |

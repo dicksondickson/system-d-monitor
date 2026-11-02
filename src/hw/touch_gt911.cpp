@@ -61,11 +61,12 @@ bool begin(Info* info) {
 }
 
 Point read() {
-  Point p = {false, 0, 0};
+  Point p = {false, false, 0, 0};
   if (!g_addr) return p;
   uint8_t status;
   if (!readRegs(REG_STATUS, &status, 1)) return p;
   if (!(status & 0x80)) return p;  // no fresh data yet
+  p.fresh = true;
   uint8_t n = status & 0x0F;
   if (n > 0 && n <= 5) {
     uint8_t b[4];

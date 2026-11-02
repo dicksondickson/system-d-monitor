@@ -20,6 +20,7 @@ dot lands under the finger.
 | PSRAM | `memory_type = qio_opi`, `psram_type = opi`, `-DBOARD_HAS_PSRAM` | `platformio.ini` |
 | Serial | CH340 at `/dev/cu.usbserial-110`, `-DARDUINO_USB_CDC_ON_BOOT=0`, monitor 115200 | `platformio.ini` |
 | **Upload speed** | **460800**. 921600 gives "Invalid head of packet" on this link | `platformio.ini` |
+| **Optimisation** | **`-O2` in `build_flags`**. The platform passes none, so the default is `-O0` (§2.5) | `platformio.ini` |
 | RGB pins | R0–R4 = 11,12,13,14,0 · G0–G5 = 8,20,3,46,9,10 · B0–B4 = 4,5,6,7,15 | `include/board_pins.h` |
 | Control pins | DE 18, VSYNC 17, HSYNC 16, PCLK 21; init SPI CS 39 / SCK 48 / MOSI 47 (`Arduino_SWSPI`) | `include/board_pins.h` |
 | Timing | PCLK 12 MHz; HSYNC pol 1 / fp 10 / pw 8 / bp 50; VSYNC pol 1 / fp 10 / pw 8 / bp 20 | `src/hw/panel.cpp` |
@@ -93,7 +94,23 @@ ready — touch the screen
 - **Fix:** `upload_speed = 460800`. Flashing at 460800 takes ~6 s for the
   ~450 KB app.
 
-### 2.5 Smaller notes
+### 2.5 Build is unoptimised by default (`-O0`)
+
+- **Symptom (M2):** everything ran ~4× slower than it should. Rasterising
+  a 10×20 cell took ~37 µs (≈45 cycles per pixel), a full-page repaint took
+  62 ms, and even `Grid::clear()` was slow.
+- **Cause:** with `platformio/espressif32@8.0.0`, the Arduino build passes
+  **no `-O` flag at all**. The core's `flags/cpp_flags` has none, so GCC
+  defaults to `-O0`. Check with `pio run -v` and look for `-O` on a
+  compile line.
+- **Fix:** `-O2` in `build_flags` (`platformio.ini`). The full repaint went
+  from 62 → 28 ms and a 1-cell update from 1.2 → 0.3 ms.
+- **Related:** flash and PSRAM share one bus, and the LCD DMA keeps PSRAM
+  busy, so code or data fetched from flash stalls on cache misses. The font
+  tables live in internal DRAM and the raster code in IRAM (`FAST_DATA` /
+  `FAST_CODE` in `src/gfx/platform.h`).
+
+### 2.6 Smaller notes
 
 - `-DCORE_DEBUG_LEVEL=…` in `build_flags` triggers a redefinition warning
   on every file. The platform already defines it, so don't add it.

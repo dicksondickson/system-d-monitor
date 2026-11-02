@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 # Build (and optionally flash) an archived display diagnostic round.
-#   tools/display-diag/run.sh <1-6> [upload] [port]
+#   tools/display-diag/run.sh <1-6|panel> [upload] [port]
+# "panel" is the M1 panel test (colour bars, ramps, border, touch dots).
 # Copies the round into src/diag/ for the build and removes it afterwards.
 set -euo pipefail
 
-round="${1:?usage: run.sh <1-6> [upload] [port]}"
+round="${1:?usage: run.sh <1-6|panel> [upload] [port]}"
 action="${2:-build}"
 port="${3:-/dev/cu.usbserial-110}"
 
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
-src=( "$here"/round"$round"_*.cpp )
+if [[ "$round" == panel ]]; then src=( "$here/panel_test.cpp" ); else src=( "$here"/round"$round"_*.cpp ); fi
 [[ -f "${src[0]}" ]] || { echo "no round $round in $here" >&2; exit 1; }
 
 pio="$(command -v pio || echo "$HOME/.local/bin/pio")"
