@@ -3,7 +3,7 @@
 // printed dump, and paste it here.
 #pragma once
 
-static const char* GOLDEN_OVERVIEW = R"GOLDEN(╭─┐SYSTEM-D 12:47:33 PM┌────────────────┐▂▄▆█┌─╮
+static const char* GOLDEN_OVERVIEW = R"GOLDEN(╭─┐SYSTEM-D┌─┐12:47:33 PM┌──────────────┐▂▄▆█┌─╮
 │ dgx042 · 192.168.50.192              OK BUSY │
 │ TensorFold · deepseek-v4.1-flash-1017        │
 ╰──────────────────────────────────────────────╯
@@ -25,7 +25,7 @@ static const char* GOLDEN_OVERVIEW = R"GOLDEN(╭─┐SYSTEM-D 12:47:33 PM┌�
 ╰─┘≡└─┘poll 2s · ok 0.4s ago└────┘tap: graphs└─╯
 )GOLDEN";
 
-static const char* GOLDEN_GRAPHS = R"GOLDEN(╭─┐SYSTEM-D 12:47:33 PM┌────────────────┐▂▄▆█┌─╮
+static const char* GOLDEN_GRAPHS = R"GOLDEN(╭─┐SYSTEM-D┌─┐12:47:33 PM┌──────────────┐▂▄▆█┌─╮
 │ dgx042 · 192.168.50.192              OK BUSY │
 │ TensorFold · deepseek-v4.1-flash-1017        │
 ╰──────────────────────────────────────────────╯

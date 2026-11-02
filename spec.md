@@ -391,7 +391,7 @@ Values are illustrative, and assume TensorFold already exports Appendix A.
 ### 7.1 Overview
 
 ```
-╭─┐SYSTEM-D 12:47:33 PM┌────────────────┐▂▄▆█┌─╮
+╭─┐SYSTEM-D┌─┐12:47:33 PM┌──────────────┐▂▄▆█┌─╮
 │ dgx042 · 192.168.50.192              OK BUSY │
 │ TensorFold · deepseek-v4.1-flash-1017        │
 ╰──────────────────────────────────────────────╯
@@ -418,7 +418,7 @@ device it is drawn at 2× and spans rows 4–5, 2 columns per character.)
 
 | Rows | Box | Content |
 |---|---|---|
-| 1–4 | header (BORDER) | top edge: `┐SYSTEM-D 7:42:10 PM┌` and the Wi-Fi bars `┐▂▄▆█┌` in the top-right notch (RSSI ≥ −55/−67/−75/−85 dBm → 4/3/2/1 lit); row 2: **server name · IP** (the resolved address), state right-aligned (§8); row 3: **engine · model**; bottom edge |
+| 1–4 | header (BORDER) | top edge: `┐SYSTEM-D┌─┐7:42:10 PM┌` (two notches; the border between them is the divider) and the Wi-Fi bars `┐▂▄▆█┌` in the top-right notch (RSSI ≥ −55/−67/−75/−85 dBm → 4/3/2/1 lit); row 2: **server name · IP** (the resolved address), state right-aligned (§8); row 3: **engine · model**; bottom edge |
 | 5–11 | Throughput (BOX2) | hero TG live at 2× + 2-row 120 s sparkline; `PP last 3,354/s · prefilling 12s`; `run x/max · wait n · TG avg … · max …` (since start, §5); `KV 31.4% ████░░ · 329K/1.0M tok` (Cache folded in) |
 | 12–17 | Streams (BOX3) | column labels `ctx tokens TTFT TG` in the top edge over their columns; 4 stream rows (dgx042's batch size) |
 | 18–20 | Averages (BOX4) | `TTFT · MTP · cache-hit`; bottom edge = footer: `┘≡└` settings notch, `┘poll 2s · ok 0.4s ago└` (or the problem, §8), `┘tap: graphs└` or `┘‹ 1/2 ›└` |
@@ -438,7 +438,7 @@ rates can't be confused at a glance.
 ### 7.2 Graphs
 
 ```
-╭─┐SYSTEM-D 12:47:33 PM┌────────────────┐▂▄▆█┌─╮
+╭─┐SYSTEM-D┌─┐12:47:33 PM┌──────────────┐▂▄▆█┌─╮
 │ dgx042 · 192.168.50.192              OK BUSY │
 │ TensorFold · deepseek-v4.1-flash-1017        │
 ╰──────────────────────────────────────────────╯
