@@ -1,6 +1,14 @@
 # System-D Monitor
 
-A 4″ touchscreen desk dashboard for your LLM inference servers. It shows live
+```
+  ██████   ██  ██     ██████   ██████   ████████   ██      ██            ██████
+██         ██  ██   ██           ██     ██         ████  ████            ██    ██
+  ████       ██       ████       ██     ██████     ██  ██  ██   ██████   ██    ██
+      ██     ██           ██     ██     ██         ██      ██            ██    ██
+██████       ██     ██████       ██     ████████   ██      ██            ██████
+```
+
+System-D is a 4″ touchscreen desk dashboard for your LLM inference servers. It shows live
 decode and prefill speed, KV cache, queues, streams, TTFT and speculative-decoding
 acceptance for **vLLM** and **TensorFold**, in a terminal-style look, on an
 inexpensive ESP32-S3 display board.
