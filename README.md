@@ -149,7 +149,7 @@ Theme, refresh rate, brightness, page and server survive a reboot. `ROTATE_S` in
 | **KV peak** | the highest KV reading in the recent history (the last 60 polls: 60 s at a 1 s refresh, 2 min at 2 s), so you can still see how full the cache got after a request finishes |
 | **Streams** | per-request slots (TensorFold). Columns read `no data` unless the server exports per-stream metrics (`spec.md`, Appendix A). When a request finishes, its row stays for **10 s** marked `done`, showing its final values, so you can still read it |
 | **TTFT · MTP · cache-hit** | mean time to first token · speculative-decoding acceptance (accepted ÷ drafted tokens) · prompt tokens served from the prefix cache |
-| **header** | `SYSTEM-D`, the time and the board's Wi-Fi signal as braille bars `⣀⣤⣶⣿` (top right); then server name · IP with its state (`CONNECTING` just after boot, `OK IDLE`, `OK BUSY`, `STALE`, `DOWN`, `NO WIFI`, `UNKNOWN`); then engine · model |
+| **header** | `SYSTEM-D`, the date (MM-DD-YY) and time, and the board's Wi-Fi signal as braille bars `⣀⣤⣶⣿` (top right); then server name · IP with its state (`CONNECTING` just after boot, `OK IDLE`, `OK BUSY`, `STALE`, `DOWN`, `NO WIFI`, `UNKNOWN`); then engine · model |
 | **footer** | `≡` (settings), then `poll 2s · ok 0.4s ago`, or the problem (`timeout · retry 8s`, `dns gpu-box.lan`, `not TensorFold or vLLM`, …) |
 | **no data** | not exported, not received yet, or nothing happened in the window |
 

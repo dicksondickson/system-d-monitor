@@ -50,7 +50,7 @@ void truncate(char* dst, size_t n, const char* src, int cols) {
 }  // namespace
 
 // Rows 1–4, one btop box (spec.md §7):
-//   ╭─┐SYSTEM-D┌─┐7:42:10 PM┌───────────┐⣀⣤⣶⣿┌─╮
+//   ╭─┐SYSTEM-D┌──────┐11-02-26 7:42:10 PM┌─┐⣀⣤⣶⣿┌─╮
 //   │ gpu-box · 192.168.1.50            OK IDLE │
 //   │ TensorFold · deepseek-v4.1-flash-1017     │
 //   ╰───────────────────────────────────────────╯
@@ -60,12 +60,16 @@ int chrome(Grid& g, const View& v) {
   const uint8_t box = theme::BORDER;
   const char* bars = "\xE2\xA3\x80\xE2\xA3\xA4\xE2\xA3\xB6\xE2\xA3\xBF";
 
-  // Top edge: "SYSTEM-D" and the clock in two notches with the border
+  // Top edge: "SYSTEM-D" and the date + time in two notches with the border
   // between them as the divider (btop style), Wi-Fi bars in the right one.
+  // The date + time sits one "─" left of the Wi-Fi notch, so the divider
+  // takes the rest: 5–6 columns (user request: more space after SYSTEM-D).
   int col = edgeStart(g, 0, Edge::TOP, box);
   col = notch(g, 0, col, Edge::TOP, box, "SYSTEM-D", theme::BRAND, ATTR_BOLD);  // red in every theme
   if (v.clock[0]) {
-    g.put(col++, 0, 0x2500, box);  // ─ divider
+    const int bars_notch = GRID_COLS - 1 - (utf8Columns(bars) + 3);  // its ┐
+    const int clock_notch = bars_notch - 1 - (utf8Columns(v.clock) + 2);
+    for (; col < clock_notch; col++) g.put(col, 0, 0x2500, box);  // ─ divider
     col = notch(g, 0, col, Edge::TOP, box, v.clock, theme::VALUE);
   }
   edgeEnd(g, 0, col, Edge::TOP, box, bars, theme::DIM);

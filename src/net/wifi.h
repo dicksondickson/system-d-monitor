@@ -25,7 +25,8 @@ void info(char* ip, size_t ip_len, int8_t* bars);
 // Raw signal strength in dBm (0 when down).
 int rssi();
 
-// 12-hour "2:47:33 PM", or "" until SNTP has set the time.
+// Date and 12-hour time, "11-02-26 2:47:33 PM" (MM-DD-YY, user request), or
+// "" until SNTP has set the time.
 void clock(char* out, size_t len);
 
 }  // namespace net

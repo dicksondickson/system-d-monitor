@@ -5,7 +5,7 @@
 
 View demoView() {
   View v;
-  strcpy(v.clock, "12:47:33 PM");
+  strcpy(v.clock, "11-02-26 12:47:33 PM");
   strcpy(v.server, "gpu-box");
   strcpy(v.server_ip, "192.168.1.50");
   strcpy(v.ip, "192.168.1.42");
