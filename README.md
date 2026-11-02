@@ -25,9 +25,10 @@ Theme, page and server survive a reboot.
 |---|---|
 | **TG** / **PP** | decode (token generation) / prefill (prompt processing), in tokens per second. Always two different colours |
 | **live** | tokens the server produced per real (wall-clock) second, summed over every request running at once: the throughput you see from outside. Updates every poll |
-| **eng** | *engine-time* rate: tokens ÷ the seconds the engine actually spent decoding (or prefilling) them, from the server's per-request timers. Roughly single-request speed. Only updates when a request finishes, so it often reads `no data`. With several requests batched, live > eng |
-| **avg** | live rate over the last ~30 s (first vs last of 15 polls) |
-| **PP last** | prefill speed of the most recently finished request (engine-time). Neither engine reports prefill progress live, so there's no live PP |
+| **TG avg** | average live TG since the monitor started (or the server restarted), over the polls where it was generating. Idle time doesn't count |
+| **TG max** | highest live TG over the same span |
+| *eng* (serial log only) | *engine-time* rate: tokens ÷ the seconds the engine spent decoding them, from the server's per-request timers. Roughly single-request speed, and only updates when a request finishes. Taken off the screen because it was confusing next to live |
+| **PP last** | prefill speed of the most recently finished request (prompt tokens ÷ its prefill seconds). Neither engine reports prefill progress live, so there's no live PP |
 | **prefilling Ns** | a request is running, no tokens have been generated yet, and its KV cache is filling: it's in prefill, N seconds so far |
 | **run x/max · wait n** | requests running (of the batch limit, TensorFold only) and queued |
 | **KV** | KV-cache use. vLLM: the shared pool (`used/pool tok`). TensorFold: the busiest stream's share of its context window |

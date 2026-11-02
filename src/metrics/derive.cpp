@@ -81,6 +81,9 @@ bool Deriver::onSample(const Sample& s, const Identity& id, const ServerInfo& in
   }
   if (restart) {  // new baseline: rates restart from scratch, gap in the rings
     n_ = 0;
+    tg_peak_ = NAN;  // the server's counters reset, so do its peak and average
+    tg_sum_ = 0;
+    tg_busy_polls_ = 0;
     restarted_ = true;
     restart_ms_ = s.t_ms;
   }
@@ -105,6 +108,11 @@ bool Deriver::onSample(const Sample& s, const Identity& id, const ServerInfo& in
   }
   // Prefilling: a request is running, nothing has been generated since the
   // last poll, and its KV cache is in use (spec.md §5).
+  if (!isnan(tg) && (isnan(tg_peak_) || tg > tg_peak_)) tg_peak_ = tg;
+  if (tg > 0) {  // idle polls don't count, or the average would mostly measure idle time
+    tg_sum_ += tg;
+    tg_busy_polls_++;
+  }
   const bool prefilling = per_request && s.get(F_RUNNING) > 0 && tg == 0 && kvPct(s) > 0;
   if (prefilling && !prefilling_) prefill_since_ms_ = s.t_ms;
   prefilling_ = prefilling;
@@ -168,10 +176,7 @@ void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, bool wifi_ok,
 
       const Sample& first = at(0);
       const float span = (cur.t_ms - first.t_ms) / 1000.0f;
-      if (span > 0) {
-        v.tg_avg = ratio(genLive(cur, e) - genLive(first, e), span);
-        v.pp_avg = ratio(cur.get(F_PROMPT_TOKENS) - first.get(F_PROMPT_TOKENS), span);
-      }
+      if (span > 0) v.pp_avg = ratio(cur.get(F_PROMPT_TOKENS) - first.get(F_PROMPT_TOKENS), span);
 
       // Per-stream TG while the same request keeps the slot.
       for (int i = 0; i < SAMPLE_STREAMS; i++) {
@@ -181,6 +186,8 @@ void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, bool wifi_ok,
       }
     }
 
+    v.tg_max = tg_peak_;
+    v.tg_avg = tg_busy_polls_ ? (float)(tg_sum_ / tg_busy_polls_) : NAN;
     v.pp_per_request = e != Engine::UNKNOWN;
     v.pp_last = last_pp_eng_;
     if (prefilling_) v.prefilling_s = (now_ms - prefill_since_ms_) / 1000.0f;

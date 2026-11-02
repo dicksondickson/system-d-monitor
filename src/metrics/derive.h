@@ -45,7 +45,13 @@ class Deriver {
   bool restarted_ = false;
   uint32_t restart_ms_ = 0;
 
-  // Per-request prefill (TensorFold, see View::pp_per_request)
+  // Live TG since boot / the last restart: peak, and the sum + count of the
+  // polls where it was generating (TG > 0), for the "since start" average.
+  float tg_peak_ = NAN;
+  double tg_sum_ = 0;
+  uint32_t tg_busy_polls_ = 0;
+
+  // Per-request prefill (see View::pp_per_request)
   float last_pp_eng_ = NAN;
   bool prefilling_ = false;
   uint32_t prefill_since_ms_ = 0;

@@ -223,12 +223,14 @@ response end) plus the values above. `prev` is the previous good sample and
 | Shown as | Formula |
 |---|---|
 | **TG live** (hero) | Δ(`generation_tokens_total` + `generation_tokens_running`) / Δt, so in-flight tokens count. Verified under load (§12 Q1) |
-| TG eng ("engine-time") | Δ finished-request tokens / Δ`request_decode_time_seconds_sum`: tokens per second of the engine's own decode time for the requests that finished this poll, i.e. roughly single-request speed. Finished-request tokens = `request_generation_tokens_sum` (vLLM) or `generation_tokens_total` (TensorFold, which only counts finished requests). vLLM's `generation_tokens_total` moves live, so pairing it with the finish-time decode sum would mix timings |
+| TG eng ("engine-time"; **serial log only**, removed from the screen 2026-11-01 because it was confusing) | Δ finished-request tokens / Δ`request_decode_time_seconds_sum`: tokens per second of the engine's own decode time for the requests that finished this poll, i.e. roughly single-request speed. Finished-request tokens = `request_generation_tokens_sum` (vLLM) or `generation_tokens_total` (TensorFold, which only counts finished requests). vLLM's `generation_tokens_total` moves live, so pairing it with the finish-time decode sum would mix timings |
 | PP live | Δ`prompt_tokens_total` / Δt. **Not shown on either engine:** TensorFold counts prompt tokens at request end (§12 Q2), vLLM when the prefill completes, so it reads 0 during a prefill and then spikes |
 | PP eng | Δ finished-request prompt tokens (`request_prompt_tokens_sum` on vLLM, else `prompt_tokens_total`) / Δ`request_prefill_time_seconds_sum`: prefill speed of the request(s) that finished in this poll |
 | **PP last** | the most recent non-`no data` PP eng, kept until the next request finishes |
 | **prefilling Ns** | shown while `num_requests_running` > 0, live TG = 0 and KV > 0; N = seconds since the first poll that matched. On vLLM a prefill alongside other decoding requests isn't flagged (TG > 0) |
-| `avg` | first-vs-last over `win` |
+| **TG avg** | mean of live TG over the polls where it was > 0, **since the monitor started or the server last restarted**. Idle polls are excluded, or the number would mostly measure idle time (user request, 2026-11-01; it was a 30 s window before) |
+| **TG max** | highest live TG over the same span |
+| PP `avg` | first-vs-last over `win` (not shown in per-request PP mode) |
 | run / wait | `num_requests_running` / `max_batch_size` (`/health`) · `num_requests_waiting` |
 | **KV** | TensorFold: max over pools of `kv_cache_usage_ratio`; vLLM: `kv_cache_usage_perc` (one shared pool); × 100 |
 | KV tokens | KV ratio × capacity / capacity. Capacity = `kv_cache_size_tokens` (vLLM pool) or `context_length` (TensorFold, whose ratio is per stream) |
@@ -370,14 +372,15 @@ Values are illustrative, and assume TensorFold already exports Appendix A.
 ### 7.1 Overview
 
 ```
-┌─┤ SYSTEM-D 12:47:33  dgx042 ▂▄▆█ ├───────────┐
+┌─┤ SYSTEM-D 12:47:33 PM  dgx042 ▂▄▆█ ├────────┐
 ├─┤ TensorFold · deepseek-v4.1-… ├─┤ OK BUSY ├─┤
 ├─┤ Throughput ├───────────────────────────────┤
 │ TG １０１．３ tok/s    █▆▄▄▅▆███▆ ▄▄▅▇██     │
 │                live ▁▁▁██████████·██████     │
 │ PP last 3,354/s · prefilling 12s             │
 │ PP ▁▁▁▁▁▁▁█▁▁▁▁▁▁▄▁▁▁▁··▁▄▁▁▁▁▁▁▁ 6.8K       │
-│ run 2/4 · wait 1 · TG avg 95.1 · eng 91.2    │
+│ run 2/4 · wait 1                             │
+│ TG avg 95.1 · max 104.2                      │
 ├─┤ Cache ├────────────────────────────────────┤
 │ KV 31.4% █████░░░░░░░░░░░ · 329K/1.0M tok    │
 ├─┤ Streams ├──────────────────────────────────┤
@@ -392,7 +395,6 @@ Values are illustrative, and assume TensorFold already exports Appendix A.
 │                                              │
 │                                              │
 │                                              │
-│                                              │
 └─┤ poll 2s · ok 0.4s ago ├────┤ tap: graphs ├─┘
 ```
 
@@ -401,12 +403,12 @@ device it is drawn at 2× and spans rows 4–5, 2 columns per character.)
 
 | Rows | Section | Content |
 |---|---|---|
-| 1 | header | `SYSTEM-D`, clock `HH:MM:SS` (SNTP, `TZ_POSIX`), **server name** (`SERVER_NAME`, default `SERVER_HOST` up to the first dot, e.g. `dgx042`) and the monitor's Wi-Fi signal bars `▂▄▆█` from `WiFi.RSSI()` (≥ −55 / −67 / −75 / −85 dBm → 4/3/2/1 bars, none = no link). The monitor's own IP goes to the serial log only |
+| 1 | header | `SYSTEM-D`, 12-hour clock `2:47:33 PM` (SNTP, `TZ_POSIX`), **server name** (`SERVER_NAME`, default `SERVER_HOST` up to the first dot, e.g. `dgx042`) and the monitor's Wi-Fi signal bars `▂▄▆█` from `WiFi.RSSI()` (≥ −55 / −67 / −75 / −85 dBm → 4/3/2/1 bars, none = no link). The monitor's own IP goes to the serial log only |
 | 2 | server | **detected engine, spelled out** (`TensorFold` or `vLLM`, §4.3) · model id, state on the right (§8). The model id is cut with `…` to fit; the boot screen shows it in full |
-| 3–8 | Throughput | **hero: TG live** at 2× in the decode colour + 2-row, 20-cell sparkline (3 samples per cell = 120 s, 16 levels); the PP row (`PP last 3,354/s · prefilling 12s`, both engines); the PP 30-cell sparkline; `run x/max · wait n` + TG avg and engine rate |
-| 9–10 | Cache | KV bar + used / window tokens |
-| 11–16 | Streams | header + one row per stream slot, up to `max_batch_size` (4 now; spare rows 20–23 allow up to 8): id, state, ctx %, tokens, TTFT, TG |
-| 17–19 | Averages | cumulative TTFT · MTP acceptance · cache-hit; then live TTFT · e2e latency · `n` |
+| 3–9 | Throughput | **hero: TG live** at 2× in the decode colour + 2-row, 20-cell sparkline (3 samples per cell = 120 s, 16 levels); the PP row (`PP last 3,354/s · prefilling 12s`, both engines); the PP 30-cell sparkline; `run x/max · wait n`; `TG avg … · max …` (since start, §5) |
+| 10–11 | Cache | KV bar + used / window tokens |
+| 12–19 | Streams | header + one row per stream slot, up to 7 (the rows left above Averages): id, state, ctx %, tokens, TTFT, TG |
+| after Streams | Averages | cumulative TTFT · MTP acceptance · cache-hit; then live TTFT · e2e latency · `n` |
 | 20–23 | spare | stream overflow; otherwise blank |
 | 24 | footer rule | poll status (or error reason, §8) · touch hint |
 
@@ -425,7 +427,7 @@ rates can't be confused at a glance.
 ### 7.2 Graphs
 
 ```
-┌─┤ SYSTEM-D 12:47:33  dgx042 ▂▄▆█ ├───────────┐
+┌─┤ SYSTEM-D 12:47:33 PM  dgx042 ▂▄▆█ ├────────┐
 ├─┤ TensorFold · deepseek-v4.1-… ├─┤ OK BUSY ├─┤
 ├─┤ TG live tok/s ├───────────────────┤ 120s ├─┤
 │ ⠀⠀⠀⠀⢸⣀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣾⣿⣧⡀⠀⠀⠀⠀⠀⠀⠀⣰⣷⣿⣿ now  101.3    │
@@ -652,6 +654,10 @@ third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
   this for TensorFold, over keeping Δprompt/Δt and over a per-request-only
   display. It was extended to vLLM when dick6000 was added, because vLLM
   also counts prompt tokens only when a prefill completes.
+- **Throughput row 9 is `TG avg · max`**, both since start (§5). The
+  engine-time `eng` rate is off the screen (user: "eng is kind of
+  confusing"); it's still in the serial log.
+- **Clock is 12-hour** (`2:47:33 PM`).
 - **Multiple servers (2026-11-01):** up to 4 in `SERVERS`, one poller task
   each, left/right thirds to switch, `‹ n/N ›` in the footer.
 

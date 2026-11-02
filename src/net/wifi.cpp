@@ -43,7 +43,9 @@ void clock(char* out, size_t len) {
   out[0] = '\0';
   struct tm t;
   if (!g_enabled || !getLocalTime(&t, 0) || t.tm_year < 2024 - 1900) return;
-  strftime(out, len, "%H:%M:%S", &t);
+  char buf[16];
+  strftime(buf, sizeof buf, "%I:%M:%S %p", &t);  // "02:47:33 PM"
+  snprintf(out, len, "%s", buf[0] == '0' ? buf + 1 : buf);  // drop the leading zero
 }
 
 }  // namespace net

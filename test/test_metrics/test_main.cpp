@@ -231,6 +231,21 @@ static void test_rates() {
   TEST_ASSERT_EQUAL_STRING("TensorFold", v.engine);
   TEST_ASSERT_EQUAL_STRING("deepseek-v4.1-flash-1017", v.model);
   TEST_ASSERT_FLOAT_WITHIN(1e-3, 110, v.tg_hist[RING_LEN - 1]);  // newest ring slot
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 110, v.tg_max);
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 110, v.tg_avg);  // one generating poll so far
+
+  // A slower poll doesn't lower the peak; the average covers both.
+  r.d.onSample(r.at(14000, 250, 10, 3000, 3.0f, 0.5f, 1), r.id, r.info);
+  v = r.view(14000);
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 20, v.tg_live);  // (250 + 10) − (200 + 20) = 40 / 2 s
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 110, v.tg_max);
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 65, v.tg_avg);   // (110 + 20) / 2
+
+  // Idle polls don't drag the average down.
+  r.d.onSample(r.at(16000, 250, 10, 3000, 3.0f, 0.5f, 0), r.id, r.info);
+  v = r.view(16000);
+  TEST_ASSERT_EQUAL_FLOAT(0, v.tg_live);
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 65, v.tg_avg);
 }
 
 static void test_idle_wall_rate_is_zero_engine_rate_no_data() {
@@ -254,6 +269,8 @@ static void test_restart_detected() {
   TEST_ASSERT_EQUAL(ServerState::RESTART, v.state);
   TEST_ASSERT_TRUE(std::isnan(v.tg_live));  // new baseline
   TEST_ASSERT_EQUAL_STRING("restarted 1s ago", v.status);
+  TEST_ASSERT_TRUE(std::isnan(v.tg_max));  // peak and average reset with the server
+  TEST_ASSERT_TRUE(std::isnan(v.tg_avg));
   v = r.view(4000 + Deriver::RESTART_SHOW_MS + 1000);
   TEST_ASSERT_NOT_EQUAL(ServerState::RESTART, v.state);
 }

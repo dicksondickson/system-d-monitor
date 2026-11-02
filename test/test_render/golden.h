@@ -3,14 +3,15 @@
 // printed dump, and paste it here.
 #pragma once
 
-static const char* GOLDEN_OVERVIEW = R"GOLDEN(┌─┤ SYSTEM-D 12:47:33  dgx042 ▂▄▆█ ├───────────┐
+static const char* GOLDEN_OVERVIEW = R"GOLDEN(┌─┤ SYSTEM-D 12:47:33 PM  dgx042 ▂▄▆█ ├────────┐
 ├─┤ TensorFold · deepseek-v4.1-… ├─┤ OK BUSY ├─┤
 ├─┤ Throughput ├───────────────────────────────┤
 │ TG １０１．３ tok/s    █▆▄▄▅▆███▆ ▄▄▅▇██     │
 │                live ▁▁▁██████████·██████     │
 │ PP last 3,354/s · prefilling 12s             │
 │ PP ▁▁▁▁▁▁▁█▁▁▁▁▁▁▄▁▁▁▁··▁▄▁▁▁▁▁▁▁ 6.8K       │
-│ run 2/4 · wait 1 · TG avg 95.1 · eng 91.2    │
+│ run 2/4 · wait 1                             │
+│ TG avg 95.1 · max 104.2                      │
 ├─┤ Cache ├────────────────────────────────────┤
 │ KV 31.4% █████░░░░░░░░░░░ · 329K/1.0M tok    │
 ├─┤ Streams ├──────────────────────────────────┤
@@ -25,11 +26,10 @@ static const char* GOLDEN_OVERVIEW = R"GOLDEN(┌─┤ SYSTEM-D 12:47:33  dgx04
 │                                              │
 │                                              │
 │                                              │
-│                                              │
 └─┤ poll 2s · ok 0.4s ago ├────┤ tap: graphs ├─┘
 )GOLDEN";
 
-static const char* GOLDEN_GRAPHS = R"GOLDEN(┌─┤ SYSTEM-D 12:47:33  dgx042 ▂▄▆█ ├───────────┐
+static const char* GOLDEN_GRAPHS = R"GOLDEN(┌─┤ SYSTEM-D 12:47:33 PM  dgx042 ▂▄▆█ ├────────┐
 ├─┤ TensorFold · deepseek-v4.1-… ├─┤ OK BUSY ├─┤
 ├─┤ TG live tok/s ├───────────────────┤ 120s ├─┤
 │ ⠀⠀⠀⠀⢸⣀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣾⣿⣧⡀⠀⠀⠀⠀⠀⠀⠀⣰⣷⣿⣿ now  101.3    │

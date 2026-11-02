@@ -5,7 +5,7 @@
 
 View demoView() {
   View v;
-  strcpy(v.clock, "12:47:33");
+  strcpy(v.clock, "12:47:33 PM");
   strcpy(v.server, "dgx042");
   strcpy(v.ip, "192.168.50.57");
   v.wifi_bars = 3;
@@ -25,6 +25,7 @@ View demoView() {
   v.tg_live = v.tg_hist[RING_LEN - 1];
   v.tg_avg = 95.1f;
   v.tg_eng = 91.2f;
+  v.tg_max = 104.2f;
   v.pp_live = 1331.0f;
   v.pp_avg = 1290.0f;
   v.pp_eng = 6802.0f;

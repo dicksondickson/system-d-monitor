@@ -23,7 +23,7 @@ struct StreamView {
 
 struct View {
   // Header (row 1)
-  char clock[9] = "";     // HH:MM:SS, empty until NTP
+  char clock[12] = "";    // "2:47:33 PM", empty until NTP
   char server[24] = "";   // server name, e.g. "dgx042"
   char ip[16] = "";       // the monitor's own IP (serial log only)
   int8_t wifi_bars = -1;  // 0–4, -1 = no link
@@ -34,7 +34,10 @@ struct View {
   ServerState state = ServerState::UNKNOWN;
 
   // Throughput
+  // tg_avg / tg_max: live TG since the monitor started or the server last
+  // restarted; the average covers only polls where it was generating.
   float tg_live = NAN, tg_avg = NAN, tg_eng = NAN;
+  float tg_max = NAN;
   float pp_live = NAN, pp_avg = NAN, pp_eng = NAN;
   // Neither engine counts prompt tokens while prefilling (TensorFold: at
   // request end; vLLM: when the prefill completes), so a live prefill rate
