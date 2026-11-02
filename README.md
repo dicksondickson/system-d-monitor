@@ -1,12 +1,6 @@
 # System-D Monitor
 
-```
-  ██████   ██  ██     ██████   ██████   ████████   ██      ██            ██████
-██         ██  ██   ██           ██     ██         ████  ████            ██    ██
-  ████       ██       ████       ██     ██████     ██  ██  ██   ██████   ██    ██
-      ██     ██           ██     ██     ██         ██      ██            ██    ██
-██████       ██     ██████       ██     ████████   ██      ██            ██████
-```
+![SYSTEM-D](docs/images/system-d-logo.jpeg)
 
 System-D is a 4″ touchscreen desk dashboard for your LLM inference servers. It shows live
 decode and prefill speed, KV cache, queues, streams, TTFT and speculative-decoding
