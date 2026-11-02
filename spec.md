@@ -40,7 +40,7 @@ metrics that matter at a glance on a 4″ screen are shown. Not carried over:
 totals, engine-time totals, multi-prefill, kept prompts, spill tier,
 latency percentiles, model card, process/VRAM memory.
 
-**Later:** an all-servers summary page, web or SD config, OTA, p50/p99
+**Later:** an all-servers summary page, web config, OTA, p50/p99
 from histogram buckets, auto-dim on idle. (vLLM support and multiple
 servers with left/right navigation and optional auto-rotate were "later"
 items; both landed 2026-11-01.) §10 keeps
@@ -716,6 +716,10 @@ third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
   engine-time `eng` rate is off the screen (user: "eng is kind of
   confusing"); it's still in the serial log.
 - **Clock is 12-hour** (`2:47:33 PM`).
+- **No SD card (2026-11-01):** the microSD slot (SPI: CS 42, MOSI 47,
+  SCK 48, MISO 41) shares MOSI/SCK with the ST7701 init bus, and the board
+  guide reports it as finicky. The user decided to leave it out as
+  unreliable, so config stays in `config.h` and Settings stay in NVS.
 - **btop boxes + btop themes + Settings (2026-11-01):** separate rounded
   boxes with notched titles instead of `├─┤` dividers; all 42 btop themes
   (btop's Default renamed System-D and made the default; EngineMetrics
