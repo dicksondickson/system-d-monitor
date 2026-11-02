@@ -3,11 +3,10 @@
 
 // Colour roles and themes (spec.md §6). Grid cells store a Role; the theme
 // maps it to RGB565 at blit time, so switching theme is a full repaint with
-// no re-layout. Theme 0 is the EngineMetrics palette
-// (https://github.com/0rand/EngineMetrics); the rest are btop's Default +
-// bundled themes (https://github.com/aristocratos/btop, Apache-2.0; by
-// aristocratos and the theme authors), converted by
-// tools/themes/import_btop.py. Arduino-free.
+// no re-layout. The themes are btop's Default + bundled themes
+// (https://github.com/aristocratos/btop, Apache-2.0; by aristocratos and the
+// theme authors), converted by tools/themes/import_btop.py. The default,
+// "System-D", is btop's built-in Default palette. Arduino-free.
 namespace theme {
 
 enum Role : uint8_t {
@@ -34,9 +33,13 @@ struct Theme {
   uint16_t rgb565[ROLE_COUNT];
 };
 
+// btop's built-in Default palette, renamed; used on first boot and for an
+// unknown saved name.
+constexpr const char* DEFAULT_NAME = "System-D";
+
 int count();
 const Theme& get(int index);           // wraps around
-int find(const char* name);            // index, or 0 if unknown
+int find(const char* name);            // index; DEFAULT_NAME's if unknown
 
 constexpr uint16_t rgb565(uint32_t rgb) {
   return (uint16_t)((((rgb >> 16) & 0xF8) << 8) | (((rgb >> 8) & 0xFC) << 3) |

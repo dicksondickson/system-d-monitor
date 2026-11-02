@@ -17,9 +17,8 @@ are btop's. See [Credits](#credits).
   to install on the GPU box, no Prometheus, no cloud.
 - **vLLM and TensorFold**, detected automatically, **up to 4 servers**; tap
   left or right to switch between them.
-- **43 colour themes:** all of [btop](https://github.com/aristocratos/btop)'s
-  themes, plus the original
-  [EngineMetrics](https://github.com/0rand/EngineMetrics) palette.
+- **42 colour themes** from [btop](https://github.com/aristocratos/btop).
+  The default, **System-D**, is btop's own Default palette.
 - **Honest numbers:** anything not exported, not received yet, or not
   measurable reads `no data`, never a made-up 0.
 

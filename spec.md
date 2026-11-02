@@ -351,9 +351,12 @@ Built in M2 (2026-11-01); code in `src/gfx/`, `src/ui/`, `src/hw/screen.cpp`.
 
 ### Themes (chosen in Settings, saved in NVS by name)
 
-43 themes: **EngineMetrics** (the original curses palette, theme 0), then
-btop's built-in **Default** and its **41 bundled themes** (nord, gruvbox,
-dracula, tokyo-night, solarized, …). The btop themes are vendored in
+42 themes, all from btop: its built-in **Default** palette, shown as
+**System-D** (first in the list, and the default on first boot or for an
+unknown saved name), and its **41 bundled themes** (nord, gruvbox, dracula,
+tokyo-night, solarized, …). The EngineMetrics palette was removed and
+`Default` was renamed `System-D`, both at the user's request (2026-11-01). A
+board with either old name saved falls back to System-D. The btop themes are vendored in
 `third_party/btop/` (Apache-2.0, commit in `SOURCE.txt`) and converted into
 `src/gfx/themes_btop.h` by `tools/themes/import_btop.py`. As in btop, any key
 a theme doesn't set comes from Default; `"#gg"` is grey shorthand and an
@@ -566,7 +569,7 @@ the new baseline (so it can trigger restart detection).
 | tap right third (x ≥ 320) | next server (with > 1 server) |
 | tap centre (anywhere with 1 server) | overview ↔ graphs |
 | tap bottom-left corner (`≡`, row 20, x < 120) | Settings (§7.3) |
-| hold ≥ 0.7 s | nothing (it used to cycle the theme; with 43 themes that moved to Settings) |
+| hold ≥ 0.7 s | nothing (it used to cycle the theme; with 42 themes that moved to Settings) |
 | `ROTATE_S > 0` | auto-advance to the next server every N s; any touch pauses it for 60 s |
 
 A tap is a press and release within 500 ms, with movement < 24 px.
@@ -715,7 +718,8 @@ third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
 - **Clock is 12-hour** (`2:47:33 PM`).
 - **btop boxes + btop themes + Settings (2026-11-01):** separate rounded
   boxes with notched titles instead of `├─┤` dividers; all 42 btop themes
-  plus EngineMetrics; a Settings screen (bottom-left `≡`) for theme and
+  (btop's Default renamed System-D and made the default; EngineMetrics
+  palette removed); a Settings screen (bottom-left `≡`) for theme and
   refresh rate.
 - **Header (user, 2026-11-01):** Wi-Fi bars pinned top-right; server
   name + IP on their own line with the state right-justified; engine +

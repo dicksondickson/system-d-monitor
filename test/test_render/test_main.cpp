@@ -97,11 +97,14 @@ static void test_brand_is_red_in_every_theme() {
 }
 
 static void test_themes_and_hits() {
-  TEST_ASSERT_EQUAL_INT(43, theme::count());  // EngineMetrics + btop Default + 41
-  TEST_ASSERT_EQUAL_INT(0, theme::find("EngineMetrics"));
-  TEST_ASSERT_EQUAL_STRING("Default", theme::get(1).name);
-  TEST_ASSERT_TRUE(theme::find("tokyo-night") > 1);
+  TEST_ASSERT_EQUAL_INT(42, theme::count());  // btop Default + 41 bundled
+  TEST_ASSERT_EQUAL_STRING("System-D", theme::get(0).name);  // btop's Default, renamed
+  TEST_ASSERT_TRUE(theme::find("tokyo-night") > 0);
+  // Unknown names (first boot, the removed EngineMetrics theme, the old
+  // "Default" name) → System-D.
   TEST_ASSERT_EQUAL_INT(0, theme::find("no-such-theme"));
+  TEST_ASSERT_EQUAL_INT(0, theme::find("EngineMetrics"));
+  TEST_ASSERT_EQUAL_INT(0, theme::find("Default"));
   TEST_ASSERT_EQUAL_INT(2, pages::themePages());
 
   pages::Settings s{2000, 0, 0};

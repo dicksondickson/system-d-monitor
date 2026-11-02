@@ -13,11 +13,11 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 OUT = os.path.join(ROOT, "docs", "images")
 
 SHOTS = [  # (file, page, theme)
-    ("overview.png", "overview", "Default"),
-    ("graphs.png", "graphs", "Default"),
-    ("settings.png", "settings", "Default"),
+    ("overview.png", "overview", "System-D"),  # the default theme
+    ("graphs.png", "graphs", "System-D"),
+    ("settings.png", "settings", "System-D"),
 ]
-GALLERY = ("themes.png", "overview", ["EngineMetrics", "nord", "gruvbox_dark", "tokyo-night"])
+GALLERY = ("themes.png", "overview", ["elementarish", "nord", "gruvbox_dark", "tokyo-night"])
 
 
 def read_ppm(path):

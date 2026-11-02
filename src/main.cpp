@@ -188,7 +188,7 @@ void setup() {
   screen::begin(gfx);
 
   prefs.begin("sysd", false);
-  theme_index = theme::find(prefs.getString("theme", "EngineMetrics").c_str());
+  theme_index = theme::find(prefs.getString("theme", theme::DEFAULT_NAME).c_str());
   const uint32_t poll_ms = prefs.getUInt("poll_ms", POLL_MS);
   page = prefs.getUChar("page", 0) ? pages::Page::GRAPHS : pages::Page::OVERVIEW;
   server = prefs.getUChar("server", 0) % kServerCount;
