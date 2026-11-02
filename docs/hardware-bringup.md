@@ -15,7 +15,7 @@ dot lands under the finger.
 
 | Item | Setting | Where |
 |---|---|---|
-| Board / chip | ESP32-S3 rev 0.2, 16 MB flash, 8 MB embedded PSRAM (AP_3v3), MAC 28:84:85:85:46:a4 | — |
+| Board / chip | ESP32-S3 rev 0.2, 16 MB flash, 8 MB embedded PSRAM (AP_3v3) | — |
 | Toolchain | PlatformIO Core 6.2.0 (`uv tool install --python 3.12 platformio`), platform `espressif32@8.0.0` (Arduino core 3.3.x), Arduino_GFX `1.6.9` | `platformio.ini` |
 | PSRAM | `memory_type = qio_opi`, `psram_type = opi`, `-DBOARD_HAS_PSRAM` | `platformio.ini` |
 | Serial | CH340 at `/dev/cu.usbserial-110`, `-DARDUINO_USB_CDC_ON_BOOT=0`, monitor 115200 | `platformio.ini` |
@@ -81,7 +81,7 @@ ready — touch the screen
 
 ### 2.3 R/B pin order: the guide's snippet was wrong
 
-- The display snippet in `esp32-4848s040-guide.md` §3 passed R0–R4 =
+- The display snippet in `docs/board-guide.md` §3 passed R0–R4 =
   4,5,6,7,15 and B0–B4 = 11,12,13,14,0. Swapping the pins to that order
   (with INVOFF in) made **red show as blue and blue as red**. The correct
   order is R = 11–14,0 and B = 4–7,15, as in the guide's own pin table, the

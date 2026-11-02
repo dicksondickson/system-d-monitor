@@ -24,7 +24,7 @@ struct StreamView {
 struct View {
   // Header (row 1)
   char clock[12] = "";    // "2:47:33 PM", empty until NTP
-  char server[24] = "";     // server name, e.g. "dgx042"
+  char server[24] = "";     // server name, e.g. "gpu-box"
   char server_ip[16] = "";  // the address the poller resolved and connects to
   char ip[16] = "";         // the monitor's own IP (serial log only)
   int8_t wifi_bars = -1;  // 0–4, -1 = no link

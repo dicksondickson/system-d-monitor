@@ -1,8 +1,9 @@
 # System-D Monitor
 
 A 4.0″ desk dashboard (Guition **ESP32-S3-4848S040**, 480×480 touch) that
-shows live **TensorFold** inference metrics — decode/prefill tok/s, context
-fill, per-stream state, request queue, MTP acceptance, TTFT. The screen is a
+shows live **vLLM** and **TensorFold** inference metrics (decode/prefill
+tok/s, KV/context fill, per-stream state, request queue, MTP acceptance,
+TTFT) for up to 4 servers. The screen is a
 btop-style character TUI using the metric vocabulary of
 [EngineMetrics](https://github.com/0rand/EngineMetrics) (layout in §7).
 
@@ -10,8 +11,11 @@ No broker, no exporter, no cloud: the ESP32 polls the engine's own HTTP
 endpoints every 2 s and works out rates on the device from the change
 between polls (delta-sampling).
 
-**Status:** spec only, no firmware yet. Decisions recorded 2026-11-01 are
-in §12.
+**Status:** working (M1–M4 done, M5 in progress). This is the design
+document; for setup see [`README.md`](README.md). It was written for the
+author's two servers (`dgx042`: TensorFold, `dick6000`: vLLM), which appear
+as worked examples throughout. Decisions are in §12 and history is in
+[`docs/devlog.md`](docs/devlog.md).
 
 ---
 
@@ -60,7 +64,7 @@ Never: auth/HTTPS (the server is plain HTTP on the LAN), battery operation.
 > Verified on the panel 2026-11-01 (bring-up log: `docs/hardware-bringup.md`).
 > Red is GPIO 11–14,0 and blue is 4–7,15, matching the vendor demo and
 > Arduino_GFX's 86BOX config. The display snippet in
-> `esp32-4848s040-guide.md` §3 originally had them swapped (now corrected).
+> `docs/board-guide.md` §3 originally had them swapped (now corrected).
 
 | Function | GPIO |
 |---|---|

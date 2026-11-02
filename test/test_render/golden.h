@@ -4,7 +4,7 @@
 #pragma once
 
 static const char* GOLDEN_OVERVIEW = R"GOLDEN(╭─┐SYSTEM-D┌─┐12:47:33 PM┌──────────────┐▂▄▆█┌─╮
-│ dgx042 · 192.168.50.192              OK BUSY │
+│ gpu-box · 192.168.1.50               OK BUSY │
 │ TensorFold · deepseek-v4.1-flash-1017        │
 ╰──────────────────────────────────────────────╯
 ╭─┐Throughput┌─────────────────────────────────╮
@@ -26,7 +26,7 @@ static const char* GOLDEN_OVERVIEW = R"GOLDEN(╭─┐SYSTEM-D┌─┐12:47:33
 )GOLDEN";
 
 static const char* GOLDEN_GRAPHS = R"GOLDEN(╭─┐SYSTEM-D┌─┐12:47:33 PM┌──────────────┐▂▄▆█┌─╮
-│ dgx042 · 192.168.50.192              OK BUSY │
+│ gpu-box · 192.168.1.50               OK BUSY │
 │ TensorFold · deepseek-v4.1-flash-1017        │
 ╰──────────────────────────────────────────────╯
 ╭─┐TG live tok/s┌───────────────────────┐120s┌─╮

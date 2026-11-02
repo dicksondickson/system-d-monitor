@@ -23,7 +23,7 @@ using Sink = void (*)(const char* data, size_t len, void* ctx);
 Result get(const char* host, uint16_t port, const char* path, Sink sink, void* ctx,
            uint32_t connect_ms, uint32_t read_ms);
 
-// Short reason for the footer: "dns dgx042.lan", "refused", "timeout", "http 503", …
+// Short reason for the footer: "dns gpu-box.lan", "refused", "timeout", "http 503", …
 void describe(const Result& r, const char* host, char* out, size_t len);
 
 }  // namespace http

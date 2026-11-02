@@ -1,115 +1,247 @@
 # System-D Monitor
 
-A desk dashboard for TensorFold inference metrics, running on a Guition
-ESP32-S3-4848S040 (4″ 480×480 touch panel). The design is in
-[`spec.md`](spec.md).
+A 4″ touchscreen desk dashboard for your LLM inference servers. It shows live
+decode and prefill speed, KV cache, queues, streams, TTFT and speculative-decoding
+acceptance for **vLLM** and **TensorFold**, in a [btop](https://github.com/aristocratos/btop)-style
+terminal look, on an inexpensive ESP32-S3 display board.
 
-**Status:** live (2026-11-01). The board polls two servers over Wi-Fi
-every 2 s: dgx042 (TensorFold) and dick6000 (vLLM). It shows throughput,
-cache, streams and averages. M3 + M4 are done; M5 (every error state, the
-boot screen) is in progress. History: [`docs/devlog.md`](docs/devlog.md).
+![Overview](docs/images/overview.png) ![Graphs](docs/images/graphs.png)
+
+- **No server-side setup.** The board polls each engine's own `/metrics`
+  endpoint over Wi-Fi every few seconds and works out rates itself. Nothing
+  to install on the GPU box, no Prometheus, no cloud.
+- **vLLM and TensorFold**, detected automatically, **up to 4 servers**; tap
+  left or right to switch between them.
+- **43 colour themes:** all of btop's, plus the original
+  [EngineMetrics](https://github.com/0rand/EngineMetrics) palette.
+- **Honest numbers:** anything not exported, not received yet, or not
+  measurable reads `no data`, never a made-up 0.
+
+![Themes](docs/images/themes.png)
+
+<sub>Screenshots are rendered from the firmware's own drawing code with demo data (`tools/render/screens.py`).</sub>
+
+---
+
+## What you need
+
+| | |
+|---|---|
+| **Board** | **Guition ESP32-S3-4848S040** (also listed as "JCZN" / "ESP32-4848S040" / "4 inch 86 box smart display"): ESP32-S3-WROOM-1 **N16R8** (16 MB flash, 8 MB PSRAM), 480×480 ST7701 IPS panel, GT911 touch. The variants with or without relays and the bottom shell all work |
+| **Cable** | USB-C **data** cable (a charge-only cable won't show up as a serial port) |
+| **Computer** | macOS, Linux or Windows, with Python 3.9+ for PlatformIO |
+| **Wi-Fi** | a **2.4 GHz** network (the ESP32-S3 has no 5 GHz radio) on the same LAN as your servers |
+| **Servers** | vLLM (V1 metrics; tested with 0.33) or TensorFold (tested with 1.1.8), reachable over plain HTTP with no auth on `/metrics` |
+
+The board connects through a CH340 USB-serial chip. macOS and Linux have the
+driver built in. On Windows, install the
+[CH340 driver](https://www.wch-ic.com/downloads/CH341SER_EXE.html) if no COM
+port appears.
+
+## Quick start
+
+**1. Install PlatformIO Core** (any one of these):
+
+```sh
+pipx install platformio     # or: uv tool install platformio   /   pip install platformio
+```
+
+Or install the PlatformIO extension for VS Code.
+
+**2. Get the code:**
+
+```sh
+git clone https://github.com/dicksondickson/system-d-monitor.git
+cd system-d-monitor
+```
+
+**3. Configure.** Copy the template. Your copy is gitignored, so your Wi-Fi
+password never gets committed.
+
+```sh
+cp include/config.example.h include/config.h
+```
+
+Then edit `include/config.h`:
+
+```cpp
+#define WIFI_SSID   "your-2.4GHz-network"
+#define WIFI_PASS   "your-password"
+#define TZ_POSIX    "PST8PDT,M3.2.0,M11.1.0"   // your timezone as a POSIX TZ string
+
+#define SERVERS {                                                          \
+    {nullptr, "gpu-box.lan", 8000},    /* vLLM */                          \
+    {"dgx",   "192.168.1.60", 40000},  /* TensorFold, with a custom label */ \
+}
+```
+
+- Each entry in `SERVERS` is `{label, host, port}`, and there can be 1–4.
+  A `nullptr` label shows the host up to its first dot.
+- Use a host name your router's DNS resolves (`gpu-box.lan`) or an IP
+  address. The ESP32 has no DNS search domain, so a bare `gpu-box` won't
+  resolve.
+- **Time zone:** the last line of `/usr/share/zoneinfo/<Area>/<City>` on
+  macOS or Linux, or see this
+  [list of POSIX TZ strings](https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv).
+  For example, `Europe/London` is `GMT0BST,M3.5.0/1,M10.5.0`.
+
+**4. Build and flash.** Plug the board in, then:
+
+```sh
+pio run -t upload           # builds, finds the serial port, flashes (~30 s)
+pio device monitor          # optional: serial log at 115200
+```
+
+If it picks the wrong port, add `--upload-port <port>` (and `-p <port>` for
+the monitor). Typical port names:
+
+- macOS: `/dev/cu.usbserial-*`
+- Linux: `/dev/ttyUSB0` (add yourself to the `dialout` group)
+- Windows: `COM3`
+
+**5. Done.** The board joins your Wi-Fi and starts polling. The serial log
+shows every poll:
+
+```
+[gpu-box] /metrics    ok, 67420 B, 198 ms, vLLM, 511 lines (19 used)
+[gpu-box]   tg 52.6 (eng 61.0) pp last 3354.0 run 1 wait 0 kv 12.0% ttft 2.48s mtp 60.5% rssi -40 dBm
+```
+
+Without an `include/config.h`, the firmware still builds (from the template,
+with Wi-Fi off) and shows `NO WIFI` with `no include/config.h`.
 
 ## Using it
 
 | Touch | Does |
 |---|---|
-| tap the left / right third | previous / next server (footer shows which, e.g. `1/2`) |
-| tap the centre | overview ↔ graphs |
-| tap the bottom-left corner (`≡`) | **Settings**: refresh rate (1–30 s) and theme (43: EngineMetrics + all of btop's) |
+| tap the **left / right third** | previous / next server (the footer shows which, e.g. `1/2`) |
+| tap the **centre** | overview ↔ graphs |
+| tap the **bottom-left corner** (`≡`) | **Settings**: refresh rate (1, 2, 3, 5, 10 or 30 s) and theme. Tap a theme to apply it; `done` returns |
 
-Theme, refresh rate, page and server survive a reboot. The screens use
-btop's look: separate rounded boxes with titles in notches.
+Theme, refresh rate, page and server survive a reboot. `ROTATE_S` in
+`config.h` auto-advances between servers.
+
+![Settings](docs/images/settings.png)
 
 ## Reading the screen
 
 | Term | Meaning |
 |---|---|
-| **TG** / **PP** | decode (token generation) / prefill (prompt processing), in tokens per second. Always two different colours |
-| **live** | tokens the server produced per real (wall-clock) second, summed over every request running at once: the throughput you see from outside. Updates every poll |
-| **TG avg** | average live TG since the monitor started (or the server restarted), over the polls where it was generating. Idle time doesn't count |
-| **TG max** | highest live TG over the same span |
-| *eng* (serial log only) | *engine-time* rate: tokens ÷ the seconds the engine spent decoding them, from the server's per-request timers. Roughly single-request speed, and only updates when a request finishes. Taken off the screen because it was confusing next to live |
+| **TG** / **PP** | decode (token generation) / prefill (prompt processing), in tokens per second. Always shown in two different colours |
+| **live** | tokens the server produced per real second, summed over every request running at once: throughput as seen from outside. Updates every poll |
+| **TG avg / max** | average and peak live TG since the monitor started (or the server restarted), counting only polls where it was generating |
 | **PP last** | prefill speed of the most recently finished request (prompt tokens ÷ its prefill seconds). Neither engine reports prefill progress live, so there's no live PP |
-| **prefilling Ns** | a request is running, no tokens have been generated yet, and its KV cache is filling: it's in prefill, N seconds so far |
-| **run x/max · wait n** | requests running (of the batch limit, TensorFold only) and queued |
+| **prefilling Ns** | a request is running, no tokens have been generated yet and its KV cache is filling, so it's in prefill, N seconds so far |
+| **run x/max · wait n** | requests running (out of the batch limit; TensorFold only) and queued |
 | **KV** | KV-cache use. vLLM: the shared pool (`used/pool tok`). TensorFold: the busiest stream's share of its context window |
-| **Streams** | per-request slots (TensorFold). Columns read `no data` until TensorFold exports the per-stream metrics in spec Appendix A; vLLM doesn't export them at all |
-| **TTFT / lat / n** | mean time to first token / end-to-end latency since the server started, over n requests; `live TTFT` = requests finished in the last poll |
-| **MTP** | speculative-decoding acceptance: accepted ÷ drafted tokens |
-| **cache-hit** | prompt tokens served from the prefix cache ÷ all prompt tokens (vLLM; TensorFold after Appendix A) |
-| **no data** | not exported, not received yet, or nothing happened in the window. Never a fake 0 |
-| header box | top edge: `SYSTEM-D`, the time and the Wi-Fi bars (top right); then server name · IP, with its state (`OK IDLE`, `OK BUSY`, `DOWN`, …) on the right; then engine · model |
-| footer (bottom edge) | `≡` = settings; `poll 2s · ok 0.4s ago`, or the problem: `stale`, `timeout · retry 8s`, `dns …`, `not TensorFold or vLLM`, `wifi lost` |
+| **Streams** | per-request slots (TensorFold). Columns read `no data` unless the server exports per-stream metrics (`spec.md`, Appendix A) |
+| **TTFT · MTP · cache-hit** | mean time to first token · speculative-decoding acceptance (accepted ÷ drafted tokens) · prompt tokens served from the prefix cache |
+| **header** | `SYSTEM-D`, the time and the board's Wi-Fi signal (top right); then server name · IP with its state (`OK IDLE`, `OK BUSY`, `STALE`, `DOWN`, `NO WIFI`, `UNKNOWN`); then engine · model |
+| **footer** | `≡` (settings), then `poll 2s · ok 0.4s ago`, or the problem (`timeout · retry 8s`, `dns gpu-box.lan`, `not TensorFold or vLLM`, …) |
+| **no data** | not exported, not received yet, or nothing happened in the window |
 
-## Configure
+## Supported servers
 
-```sh
-cp include/config.example.h include/config.h   # gitignored
+The board polls these endpoints. Nothing needs enabling on the server; they
+just have to be reachable on the LAN without auth.
+
+| | vLLM | TensorFold |
+|---|---|---|
+| metrics | `GET /metrics` (`vllm:*`, V1 names) | `GET /metrics` (`tensorfold:*`, vLLM-style names) |
+| identity | `GET /version` | `Server: TensorFold` header, `GET /health` |
+| model | `GET /v1/models` | `GET /v1/models` |
+
+The engine is identified by its metric prefix. A server that is neither
+shows `UNKNOWN · not TensorFold or vLLM`. [`spec.md`](spec.md) §4–5 lists
+the exact metrics read and the formula behind every number. If your server's
+output looks different, `tools/capture.sh host:port N name` saves its
+responses as a test fixture.
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+|---|---|
+| No serial port appears | Charge-only cable, or (Windows) the CH340 driver is missing |
+| Upload fails with "Invalid head of packet" | USB link noise. Upload already runs at 460800; try another cable or USB port |
+| Screen stays black but serial says `panel ok` | Backlight; see [`docs/hardware-bringup.md`](docs/hardware-bringup.md) §2.1 |
+| `NO WIFI` | Wrong SSID or password, or a 5 GHz-only network |
+| `dns …` in the footer | The host name doesn't resolve on the ESP32. Use `name.lan` or the IP |
+| `refused` / `timeout` | Wrong port, a firewall, or the server only listens on localhost (check its `--host`) |
+| `UNKNOWN · not TensorFold or vLLM` | Something answers on that port, but it isn't an inference server's `/metrics` |
+| Inverted colours, shifted image, flicker | See [`docs/hardware-bringup.md`](docs/hardware-bringup.md): every board quirk we hit, and its fix |
+
+## How it works
+
+```
+GPU server(s) ── HTTP /metrics every N s ──▶ one poller task per server (core 0)
+                                               streaming Prometheus parser,
+                                               engine detection, rate derivation
+                                                     │
+                                                     ▼
+                                                   View ──▶ UI loop (core 1)
+                                                            page → 48×20 character grid
+                                                            → diff → only the changed cells
+                                                              are drawn (Terminus font) into
+                                                              the PSRAM framebuffer
 ```
 
-Set `WIFI_SSID` / `WIFI_PASS` (a 2.4 GHz network), `TZ_POSIX` (e.g.
-`MST7` for Vancouver), and `SERVERS`: 1–4 `{name, host, port}` entries,
-where `name` = `nullptr` uses the host up to the first dot. Use names the
-router's DNS knows (`dgx042.lan`). Optional `ROTATE_S` auto-advances
-between servers. Without `config.h` the firmware still builds, with Wi-Fi
-off.
+- **Rates** come from the change in counters between polls. A counter that
+  goes down means the server restarted, and rates start again from a new
+  baseline.
+- **Drawing:** a custom character-grid renderer (not LVGL). A full repaint
+  takes ~28 ms; a typical update is under 1 ms.
+- **Host tests:** parsing, rate maths and screen layouts are plain C++ with
+  no Arduino dependency, so they're tested on your computer.
 
-## Build and flash
+| Doc | What's in it |
+|---|---|
+| [`spec.md`](spec.md) | The full design: data sources, metrics and formulas, screens, states, architecture, decisions |
+| [`docs/hardware-bringup.md`](docs/hardware-bringup.md) | The verified board configuration, and every problem hit bringing up this board (black screen, inverted colours, `-O0` builds, flicker, glitches), with fixes |
+| [`docs/board-guide.md`](docs/board-guide.md) | General ESP32-4848S040 reference: pinout, toolchains, vendor resources |
+| [`docs/devlog.md`](docs/devlog.md) | Development history: what was built when, and why |
+| [`THIRD_PARTY.md`](THIRD_PARTY.md) | Fonts, themes and libraries used, with their licences |
 
-PlatformIO Core is installed with uv (keeps it off the system Python):
+## Development
 
 ```sh
-uv tool install --python 3.12 platformio
+pio test -e native                     # host tests: parser, derivation, layouts, touch hit-testing
+pio run                                # firmware build (no board needed)
+tools/render/screens.py                # re-render docs/images/*.png
+tools/update_golden.py                 # after an intentional layout change: refresh the test goldens
+tools/font/mkfont.py                   # regenerate the font from third_party/terminus/
+tools/themes/import_btop.py            # regenerate the themes from third_party/btop/
+tools/display-diag/run.sh panel upload # flash a panel + touch test screen
 ```
-
-Plug the board in with a **data** USB-C cable. It shows up as
-`/dev/cu.usbserial-*` (CH340).
-
-```sh
-pio run                                              # build
-pio run -t upload --upload-port /dev/cu.usbserial-110   # flash (460800 baud)
-pio device monitor -p /dev/cu.usbserial-110          # serial log, 115200
-pio test -e native                                   # host tests (layout, parsing, derivation)
-tools/capture.sh dgx042:40000 30 my-capture          # record /metrics every 2 s as a fixture
-```
-
-The serial log prints one line per poll, e.g.
-`tg 52.6 (eng nan) pp 0.0 (eng nan) run 1 wait 0 kv 12.0% ttft 2.48s mtp 60.5% rssi -40 dBm`.
-
-After an intentional layout change, run `tools/update_golden.py` and review
-the diff of `test/test_render/golden.h`.
-
-On a healthy boot the log shows `psram 8192 KB`, `panel ok` and
-`touch GT911 … addr=0x5D`.
-
-## Layout
 
 | Path | What |
 |---|---|
-| `spec.md` | Full design: data sources, screens, architecture, milestones |
-| `docs/devlog.md` | What was built when, decisions, measurements |
-| `docs/hardware-bringup.md` | Verified board config + the problems found bringing it up (read this if the screen misbehaves) |
-| `esp32-4848s040-guide.md` | General reference for the board (corrected where bring-up proved it wrong) |
+| `include/config.example.h` | Configuration template (copy to `config.h`) |
 | `include/board_pins.h` | Pin map |
-| `src/hw/` | Panel (ST7701 + RGB bus), backlight (LEDC 1 kHz), GT911 touch, screen blit |
-| `src/gfx/` | 48×20 cell grid (10×24 px cells), Terminus font, themes, cell rasteriser |
-| `src/ui/` | View model, number formatting, widgets, overview + graphs pages, demo data |
-| `src/metrics/` | `/metrics` parser, `/health` + `/v1/models`, engine identification, rate derivation |
-| `src/net/` | Wi-Fi + SNTP, streaming HTTP GET, poller task |
-| `src/main.cpp` | App: live dashboard, tap/hold gestures, NVS-saved theme/page |
-| `include/config.example.h` | Config template (copy to `config.h`) |
-| `tools/display-diag/` | Archived display diagnostics + the M1 panel test; `run.sh <round\|panel> upload` |
-| `tools/font/mkfont.py` | Regenerates `src/gfx/font_ter10x20.h` from `third_party/terminus/` |
-| `tools/themes/import_btop.py` | Regenerates `src/gfx/themes_btop.h` from `third_party/btop/` (btop's themes, Apache-2.0) |
-| `test/fixtures/` | Captured responses from dgx042 (TensorFold) and dick6000 (vLLM), for parser tests |
-| `reference/` | Vendor download pack (datasheets, demos, tools). **Not in git** (295 MB, re-downloadable; link in the guide §1) |
+| `src/hw/` | Panel (ST7701 + RGB bus with bounce buffers), backlight, GT911 touch, screen blit |
+| `src/gfx/` | Character grid, font, themes, cell rasteriser |
+| `src/ui/` | View model, number formatting, widgets, the overview / graphs / settings pages |
+| `src/metrics/` | `/metrics` parser, server info and engine identification, rate derivation |
+| `src/net/` | Wi-Fi + SNTP, streaming HTTP GET, per-server poller tasks |
+| `test/` | Host tests, and real server captures in `test/fixtures/` |
+| `tools/` | Font and theme converters, screenshot renderer, capture script, display diagnostics |
+| `third_party/` | Terminus font and btop themes, with their licences |
 
-## Board gotchas (details in `docs/hardware-bringup.md`)
+Board quirks to know before you change anything (details in
+[`docs/hardware-bringup.md`](docs/hardware-bringup.md)):
 
-- Backlight PWM must be **1 kHz**. At 20 kHz the screen stays black.
-- The panel needs an explicit **`0x20` INVOFF**, or colours are inverted.
-- R/B pins: R = 11,12,13,14,0 and B = 4,5,6,7,15.
-- Upload at **460800**. 921600 corrupts over the CH340.
-- Build with **`-O2`**. The platform passes no optimisation flag, so the default is `-O0`.
-- **Bounce buffers** (2 × 20 lines) on the RGB panel, and no cache writeback after drawing. Without them the screen flickers or glitches when Wi-Fi is busy (bring-up §2.7, §2.9).
-- Bring the panel up **before** Wi-Fi, and never block on the connection. Black-screen-with-Wi-Fi causes are in bring-up §2.8.
+- **Backlight PWM:** must be **1 kHz**. At 20 kHz the screen stays black.
+- **Colours:** the panel needs an explicit **`0x20` INVOFF**, or the colours
+  are inverted.
+- **RGB pins:** R = 11,12,13,14,0 and B = 4,5,6,7,15.
+- **Uploads:** use **460800** baud; 921600 corrupts over the CH340.
+- **Build flags:** build with **`-O2`**. This PlatformIO platform passes no
+  optimisation flag, which means `-O0`.
+- **Bounce buffers:** use 2 × 20 lines, and no cache writeback after
+  drawing. Otherwise the screen flickers or glitches when Wi-Fi is busy.
+- **Start-up order:** start the panel **before** Wi-Fi, and never block
+  waiting for the connection.
+
+## License
+
+[MIT](LICENSE) © 2026 Dickson Chow. Bundled third-party components keep
+their own licences; see [`THIRD_PARTY.md`](THIRD_PARTY.md).

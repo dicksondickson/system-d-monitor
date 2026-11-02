@@ -50,7 +50,7 @@ void truncate(char* dst, size_t n, const char* src, int cols) {
 
 // Rows 1–4, one btop box (spec.md §7):
 //   ╭─┐SYSTEM-D┌─┐7:42:10 PM┌───────────┐▂▄▆█┌─╮
-//   │ dgx042 · 192.168.50.192           OK IDLE │
+//   │ gpu-box · 192.168.1.50            OK IDLE │
 //   │ TensorFold · deepseek-v4.1-flash-1017     │
 //   ╰───────────────────────────────────────────╯
 int chrome(Grid& g, const View& v) {

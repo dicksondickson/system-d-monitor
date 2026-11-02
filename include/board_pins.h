@@ -1,7 +1,7 @@
 #pragma once
 // Guition ESP32-S3-4848S040 pin map (spec.md §2, docs/hardware-bringup.md).
 // R/B order matches the vendor demo and Arduino_GFX's 86BOX config; the
-// snippet in esp32-4848s040-guide.md §3 has them swapped (verified on the
+// snippet in docs/board-guide.md §3 has them swapped (verified on the
 // panel 2026-11-01: with R=4–7,15 red and blue come out swapped).
 
 namespace pins {

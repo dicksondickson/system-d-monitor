@@ -2,7 +2,7 @@
 # Record a sequence of server responses as a test fixture (spec.md §10).
 #
 #   tools/capture.sh <host:port> <count> [name] [interval_s]
-#   tools/capture.sh dgx042:40000 30 tensorfold-1.1.8-load
+#   tools/capture.sh gpu-box.lan:8000 30 vllm-load
 #
 # Writes test/fixtures/<name>/ with health.json and v1_models.json (once),
 # then NN-metrics.txt every interval (default 2 s), plus times.txt (epoch ms

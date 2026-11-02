@@ -6,9 +6,9 @@
 View demoView() {
   View v;
   strcpy(v.clock, "12:47:33 PM");
-  strcpy(v.server, "dgx042");
-  strcpy(v.server_ip, "192.168.50.192");
-  strcpy(v.ip, "192.168.50.57");
+  strcpy(v.server, "gpu-box");
+  strcpy(v.server_ip, "192.168.1.50");
+  strcpy(v.ip, "192.168.1.42");
   v.wifi_bars = 3;
   strcpy(v.engine, "TensorFold");
   strcpy(v.model, "deepseek-v4.1-flash-1017");

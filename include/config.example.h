@@ -10,10 +10,11 @@
 #define TZ_POSIX    "PST8PDT,M3.2.0,M11.1.0"   // header clock; POSIX TZ string
 
 // Servers to monitor, 1–4: { name, host, port }. name nullptr = host up to
-// the first dot. Use host names the router's DNS knows ("dgx042.lan"): the
-// ESP32 has no DNS search domain, so a bare "dgx042" won't resolve.
-#define SERVERS {                                \
-    {nullptr, "dgx042.lan", 40000},              \
+// the first dot. Use a host name your router's DNS knows (e.g. "gpu-box.lan")
+// or an IP: the ESP32 has no DNS search domain, so a bare "gpu-box" won't
+// resolve. Engines are detected automatically (vLLM or TensorFold).
+#define SERVERS {                                            \
+    {nullptr, "gpu-box.lan", 8000},     /* e.g. vLLM (default port 8000) */ \
 }
 #define ROTATE_S    0             // auto-advance to the next server every N s (0 = off)
 
