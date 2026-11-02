@@ -556,7 +556,9 @@ the footer rule (row 24).
 | RESTART | counter went down (§5), for 30 s | `OK RESTART` warn | `restarted 12s ago` | windows reset |
 | STALE | last good sample > 3 × poll ago | `STALE` warn | `stale 9s · <reason>` | values dim |
 | DOWN | 3 consecutive failures | `DOWN` bad | `<reason> · retry 8s` | last values dim |
-| NO WIFI | `WiFi.status() != WL_CONNECTED` | `NO WIFI` bad | `wifi lost · retry` | values dim; header shows no bars |
+| CONNECTING | after boot, Wi-Fi not joined yet, within `net::JOIN_GRACE_MS` (20 s) | `CONNECTING` warn | `wifi connecting…` | `no data`; header shows no bars. Was `NO WIFI`, which read like an error on every boot (user request, 2026-11-02) |
+| NO WIFI | never joined within 20 s, or no SSID configured | `NO WIFI` bad | `check SSID / password` | values dim; header shows no bars |
+| NO WIFI | was connected, then `WiFi.status() != WL_CONNECTED` | `NO WIFI` bad | `wifi lost · retry` | values dim; header shows no bars |
 | UNKNOWN | responds, but isn't TensorFold or vLLM (§4.3) | `??? · host:port` … `UNKNOWN` bad | `not TensorFold or vLLM` | all `no data` |
 
 Reasons are short: `dns dgx042.lan`, `refused`, `timeout`, `http 503`,

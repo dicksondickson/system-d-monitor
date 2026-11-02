@@ -183,7 +183,7 @@ void Deriver::onFailure(uint32_t t_ms, const char* reason) {
   pushRings(NAN, NAN, NAN);
 }
 
-void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, bool wifi_ok,
+void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, WifiLink link,
                    uint32_t retry_ms) const {
   // Start from a fresh View so nothing from the previous poll lingers; the
   // header belongs to the caller.
@@ -279,7 +279,13 @@ void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, bool wifi_ok,
   const float ago = (now_ms - last_ok_ms_) / 1000.0f;
   const unsigned retry_s = (retry_ms + 999) / 1000;
   const char* dot = " \xC2\xB7 ";
-  if (!wifi_ok) {
+  if (link == WifiLink::JOINING) {  // just booted: not an error yet (user request)
+    v.state = ServerState::CONNECTING;
+    snprintf(v.status, sizeof v.status, "wifi connecting\xE2\x80\xA6");
+  } else if (link == WifiLink::CANT_JOIN) {
+    v.state = ServerState::NO_WIFI;
+    snprintf(v.status, sizeof v.status, "check SSID / password");
+  } else if (link == WifiLink::LOST) {
     v.state = ServerState::NO_WIFI;
     snprintf(v.status, sizeof v.status, "wifi lost%sretry", dot);
   } else if (!ever_ok_ && failures_ < 3) {

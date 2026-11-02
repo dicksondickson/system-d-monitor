@@ -76,7 +76,7 @@ void refreshView() {
   net::info(view.ip, sizeof view.ip, &view.wifi_bars);
   view.server_index = (uint8_t)server;
   view.server_count = (uint8_t)kServerCount;
-  poller::snapshot(server, view, net::up());
+  poller::snapshot(server, view, net::link());
   if (!CONFIG_PRESENT) snprintf(view.status, sizeof view.status, "no include/config.h");
 }
 

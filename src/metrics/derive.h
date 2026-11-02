@@ -25,7 +25,7 @@ class Deriver {
 
   // Fills everything except the header (clock, IP, Wi-Fi bars), which the
   // caller owns. retry_ms: time until the next attempt while failing.
-  void fill(View& v, uint32_t now_ms, uint32_t poll_ms, bool wifi_ok, uint32_t retry_ms) const;
+  void fill(View& v, uint32_t now_ms, uint32_t poll_ms, WifiLink link, uint32_t retry_ms) const;
 
   int consecutiveFailures() const { return failures_; }
 

@@ -8,6 +8,8 @@ namespace net {
 
 namespace {
 bool g_enabled = false;
+bool g_ever_up = false;
+uint32_t g_begin_ms = 0;
 }
 
 void begin(const char* ssid, const char* pass, const char* tz) {
@@ -20,11 +22,22 @@ void begin(const char* ssid, const char* pass, const char* tz) {
   WiFi.setAutoReconnect(true);
   WiFi.setSleep(false);  // lower latency for 2 s polls; we're on USB power
   WiFi.begin(ssid, pass);
+  g_begin_ms = millis();
   configTzTime(tz, "pool.ntp.org", "time.cloudflare.com");
   Serial.printf("wifi: connecting to \"%s\"\n", ssid);
 }
 
 bool up() { return g_enabled && WiFi.status() == WL_CONNECTED; }
+
+WifiLink link() {
+  if (!g_enabled) return WifiLink::CANT_JOIN;
+  if (up()) {
+    g_ever_up = true;
+    return WifiLink::UP;
+  }
+  if (g_ever_up) return WifiLink::LOST;
+  return millis() - g_begin_ms < JOIN_GRACE_MS ? WifiLink::JOINING : WifiLink::CANT_JOIN;
+}
 
 void info(char* ip, size_t ip_len, int8_t* bars) {
   if (!up()) {

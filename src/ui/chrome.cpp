@@ -27,6 +27,7 @@ StateLabel stateLabel(ServerState s) {
     case ServerState::STALE: return {"STALE", theme::WARN};
     case ServerState::DOWN: return {"DOWN", theme::BAD};
     case ServerState::NO_WIFI: return {"NO WIFI", theme::BAD};
+    case ServerState::CONNECTING: return {"CONNECTING", theme::WARN};
     default: return {"UNKNOWN", theme::BAD};
   }
 }

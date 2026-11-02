@@ -8,7 +8,12 @@
 constexpr int RING_LEN = 60;  // 120 s at 2 s per sample
 constexpr int MAX_STREAMS = 8;
 
-enum class ServerState : uint8_t { IDLE, BUSY, WARMING, RESTART, STALE, DOWN, NO_WIFI, UNKNOWN };
+enum class ServerState : uint8_t { IDLE, BUSY, WARMING, RESTART, STALE, DOWN, NO_WIFI, UNKNOWN, CONNECTING };
+
+// The board's own Wi-Fi link (net::link()). JOINING: first connection after
+// boot, still within the grace period; CANT_JOIN: never connected after it
+// (or no SSID configured); LOST: was connected, dropped.
+enum class WifiLink : uint8_t { UP, JOINING, CANT_JOIN, LOST };
 
 // DONE: the request just finished; the row keeps its last values for a few
 // seconds (Deriver::STREAM_LINGER_MS) so it can still be read.

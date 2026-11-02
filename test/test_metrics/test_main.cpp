@@ -203,7 +203,7 @@ struct Rig {
   }
   View view(uint32_t now, bool wifi = true, uint32_t retry = 0) {
     View v;
-    d.fill(v, now, 2000, wifi, retry);
+    d.fill(v, now, 2000, wifi ? WifiLink::UP : WifiLink::LOST, retry);
     return v;
   }
 };
@@ -290,6 +290,23 @@ static void test_failures_stale_down_nowifi() {
   TEST_ASSERT_TRUE(std::isnan(v.tg_hist[RING_LEN - 1]));  // failures are gaps
   v = r.view(8000, false);
   TEST_ASSERT_EQUAL(ServerState::NO_WIFI, v.state);
+  TEST_ASSERT_EQUAL_STRING("wifi lost \xC2\xB7 retry", v.status);
+}
+
+static void test_wifi_connecting_at_boot() {
+  // Right after boot the link isn't up yet: that's "connecting", not an error.
+  Deriver d;
+  View v;
+  d.fill(v, 1000, 2000, WifiLink::JOINING, 0);
+  TEST_ASSERT_EQUAL(ServerState::CONNECTING, v.state);
+  TEST_ASSERT_EQUAL_STRING("wifi connecting\xE2\x80\xA6", v.status);
+  Grid g;
+  pages::overview(g, v);
+  TEST_ASSERT_TRUE(g.dump().find("CONNECTING") != std::string::npos);
+  // Never joined within the grace period: an error, with a hint.
+  d.fill(v, 30000, 2000, WifiLink::CANT_JOIN, 0);
+  TEST_ASSERT_EQUAL(ServerState::NO_WIFI, v.state);
+  TEST_ASSERT_EQUAL_STRING("check SSID / password", v.status);
 }
 
 static void test_not_an_engine() {
@@ -425,7 +442,7 @@ static void test_vllm_derived_view() {
   d.onSample(a, id, info);
   d.onSample(b, id, info);
   View v;
-  d.fill(v, 2000, 2000, true, 0);
+  d.fill(v, 2000, 2000, WifiLink::UP, 0);
   TEST_ASSERT_FLOAT_WITHIN(1e-3, 60, v.tg_live);    // 120 live tokens / 2 s
   TEST_ASSERT_FLOAT_WITHIN(1e-3, 80, v.tg_eng);     // 400 finished tokens / 5 s decode
   TEST_ASSERT_FLOAT_WITHIN(1e-3, 8000, v.pp_last);  // 20000 / 2.5 s prefill
@@ -493,5 +510,6 @@ int main() {
   RUN_TEST(test_footer_shows_server_position);
   RUN_TEST(test_derived_view_renders_cleanly);
   RUN_TEST(test_finished_stream_lingers);
+  RUN_TEST(test_wifi_connecting_at_boot);
   return UNITY_END();
 }

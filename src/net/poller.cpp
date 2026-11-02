@@ -72,7 +72,7 @@ bool fetchJson(Slot& s, const char* path, bool (*parse)(const char*, size_t, Ser
 void logValues(Slot& s) {
   View& v = s.log_view;
   xSemaphoreTake(s.lock, portMAX_DELAY);
-  s.deriver.fill(v, millis(), g_timing.poll_ms, true, 0);
+  s.deriver.fill(v, millis(), g_timing.poll_ms, WifiLink::UP, 0);
   xSemaphoreGive(s.lock);
   Serial.printf("[%s]   tg %.1f (eng %.1f) pp last %.1f%s run %.0f wait %.0f kv %.1f%% "
                 "ttft %.2fs mtp %.1f%% rssi %d dBm\n",
@@ -190,13 +190,13 @@ int count() { return g_count; }
 void setPollMs(uint32_t ms) { g_timing.poll_ms = ms; }
 uint32_t pollMs() { return g_timing.poll_ms; }
 
-void snapshot(int index, View& v, bool wifi_up) {
+void snapshot(int index, View& v, WifiLink link) {
   if (index < 0 || index >= g_count) return;
   Slot& s = *g_slots[index];
   const uint32_t now = millis();
   xSemaphoreTake(s.lock, portMAX_DELAY);
   const uint32_t retry = (int32_t)(s.retry_at - now) > 0 ? s.retry_at - now : 0;
-  s.deriver.fill(v, now, g_timing.poll_ms, wifi_up, retry);
+  s.deriver.fill(v, now, g_timing.poll_ms, link, retry);
   memcpy(v.server_ip, s.ip, sizeof v.server_ip);
   xSemaphoreGive(s.lock);
 }

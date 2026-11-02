@@ -23,7 +23,7 @@ uint32_t pollMs();
 
 // Fills v (except the header fields, which the caller sets) from server
 // `index`'s latest data. Safe to call from the UI task.
-void snapshot(int index, View& v, bool wifi_up);
+void snapshot(int index, View& v, WifiLink link);
 
 // Incremented after every poll attempt of server `index` (and while Wi-Fi
 // is down); redraw when the shown server's generation changes.

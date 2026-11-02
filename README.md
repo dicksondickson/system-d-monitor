@@ -149,7 +149,7 @@ Theme, refresh rate, brightness, page and server survive a reboot. `ROTATE_S` in
 | **KV peak** | the highest KV reading in the recent history (the last 60 polls: 60 s at a 1 s refresh, 2 min at 2 s), so you can still see how full the cache got after a request finishes |
 | **Streams** | per-request slots (TensorFold). Columns read `no data` unless the server exports per-stream metrics (`spec.md`, Appendix A). When a request finishes, its row stays for **10 s** marked `done`, showing its final values, so you can still read it |
 | **TTFT · MTP · cache-hit** | mean time to first token · speculative-decoding acceptance (accepted ÷ drafted tokens) · prompt tokens served from the prefix cache |
-| **header** | `SYSTEM-D`, the time and the board's Wi-Fi signal as braille bars `⣀⣤⣶⣿` (top right); then server name · IP with its state (`OK IDLE`, `OK BUSY`, `STALE`, `DOWN`, `NO WIFI`, `UNKNOWN`); then engine · model |
+| **header** | `SYSTEM-D`, the time and the board's Wi-Fi signal as braille bars `⣀⣤⣶⣿` (top right); then server name · IP with its state (`CONNECTING` just after boot, `OK IDLE`, `OK BUSY`, `STALE`, `DOWN`, `NO WIFI`, `UNKNOWN`); then engine · model |
 | **footer** | `≡` (settings), then `poll 2s · ok 0.4s ago`, or the problem (`timeout · retry 8s`, `dns gpu-box.lan`, `not TensorFold or vLLM`, …) |
 | **no data** | not exported, not received yet, or nothing happened in the window |
 
@@ -177,7 +177,8 @@ responses as a test fixture.
 | No serial port appears | Charge-only cable, or (Windows) the CH340 driver is missing |
 | Upload fails with "Invalid head of packet" | USB link noise. Upload already runs at 460800; try another cable or USB port |
 | Screen stays black but serial says `panel ok` | Backlight; see [`docs/hardware-bringup.md`](docs/hardware-bringup.md) §2.1 |
-| `NO WIFI` | Wrong SSID or password, or a 5 GHz-only network |
+| `CONNECTING` for more than a few seconds | Normal for the first seconds after boot. After 20 s without joining it turns into `NO WIFI` |
+| `NO WIFI` · `check SSID / password` | Wrong SSID or password, or a 5 GHz-only network (`wifi lost · retry` instead means it was connected and dropped) |
 | `dns …` in the footer | The host name doesn't resolve on the ESP32. Use `name.lan` or the IP |
 | `refused` / `timeout` | Wrong port, a firewall, or the server only listens on localhost (check its `--host`) |
 | `UNKNOWN · not TensorFold or vLLM` | Something answers on that port, but it isn't an inference server's `/metrics` |
