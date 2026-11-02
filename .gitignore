@@ -1,0 +1,5 @@
+.pio/
+include/config.h
+src/diag/
+reference/
+.DS_Store
