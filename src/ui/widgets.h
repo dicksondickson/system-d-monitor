@@ -62,12 +62,13 @@ class Writer {
 // "█████░░░░░" bar, filled part in `role`, rest dim. NaN → all dim.
 void bar(Grid& g, int col, int row, int width, float pct, uint8_t role);
 
-// Block sparkline: `cells` columns × `rows` rows (8 levels per row). Each
-// cell is the max of `per` consecutive samples; data is oldest first and
-// must hold cells × per samples. NaN samples are gaps (`·`). Returns the
-// scale (window max), NaN if the window is all gaps.
-float sparkline(Grid& g, int col, int row, int rows, int cells, int per, const float* data,
-                uint8_t role);
+// Bar sparkline at pixel resolution: `cells` columns × `rows` rows, one
+// ~3 px bar per sample (PIXBARS_PER_CELL per cell, 24 px of height per row),
+// so data (oldest first) must hold cells × PIXBARS_PER_CELL samples. Bars
+// aren't pooled, so the shape scrolls steadily instead of regrouping every
+// poll. Scaled to the window max; 0 is a 1 px baseline, NaN a gap (empty).
+// Returns the scale, NaN if the window is all gaps.
+float sparkline(Grid& g, int col, int row, int rows, int cells, const float* data, uint8_t role);
 
 // Braille area graph: `cols` columns × `rows` rows, 2 samples per column,
 // 4 levels per row; data holds cols × 2 samples, oldest first. Values are

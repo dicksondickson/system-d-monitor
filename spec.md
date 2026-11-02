@@ -316,13 +316,17 @@ Built in M2 (2026-11-01); code in `src/gfx/`, `src/ui/`, `src/hw/screen.cpp`.
   `· — … ● ○`, box drawing `─│┌┐└┘├┤┬┴┼`, blocks `▁▂▃▄▅▆▇█░` and the full
   braille range U+2800–28FF. That's 376 regular + 97 bold glyphs, ~19 KB.
   Terminus's box and block glyphs tile exactly in the 10×20 glyph box, so nothing
-  is drawn procedurally except the hero.
+  is drawn procedurally except the hero and the TG pixel bars.
 - **Hero text:** `ter-u20b` glyphs pixel-doubled to 20 × 40, each covering a
   2 × 2 block of cells (`ATTR_BIG` + quadrant). Used only for TG live.
-- **Sparklines** (overview), scaled to the window max, gap = dim `·`:
-  - PP: 30 block cells, each = max of 2 samples → 120 s at 8 levels.
-  - TG (next to the hero): 20 cells × 2 rows, each cell = max of 3 samples
-    → 120 s at 16 levels.
+- **TG sparkline** (overview, next to the hero): **pixel bars**, one bar per
+  sample (60 bars → 120 s), 3 bars per cell (3, 3, 4 px wide), 20 cells × 2
+  rows → 48 px = 48 levels, scaled to the window max. `ATTR_PIXBARS` packs
+  the three heights into the cell's `ch`; the rasteriser fills them from the
+  cell bottom; the text dump shows the block element for the tallest bar.
+  0 is a 1 px baseline and a gap (NaN) is empty. It replaced block cells
+  (each the max of 3 samples, 16 levels) because the regrouping every poll
+  made the shape wriggle "like a worm" (user, 2026-11-01).
 - **Graphs** (graphs page): braille, one cell = 2 samples × 4 levels, so
   30 columns = 60 samples = 120 s. A gap leaves its dot column empty.
 - **Blit:** the dirty cells of each cell row are rasterised into a 19 KB
@@ -364,7 +368,7 @@ empty `main_bg` means black.
 | Role | btop key | Used for |
 |---|---|---|
 | BG | `main_bg` | background |
-| VALUE / TITLE / LABEL / DIM | `main_fg` / `title` / `graph_text` / `inactive_fg` | text |
+| VALUE / TITLE / LABEL / DIM | `main_fg` / `title` / `graph_text` / `inactive_fg` | text; DIM and LABEL are lifted towards `main_fg` to at least 4.5:1 and 3.5:1 contrast on BG, because btop's `inactive_fg` (and often `graph_text`) is near-invisible (user request: secondary text was too faint, first in dracula) |
 | BORDER, BOX2, BOX3, BOX4 | `cpu_box`, `mem_box`, `net_box`, `proc_box` | the header / Throughput (and TG graph) / Streams (and PP graph) / Averages (and KV graph) boxes, one colour each as in btop |
 | GOOD / WARN / BAD | `cpu_start` / `cpu_mid` / `cpu_end` | thresholds and states (btop's low → high gradient) |
 | DECODE | `proc_misc` | TG numbers and graphs |
@@ -492,32 +496,33 @@ same corner or **done** goes back.
 
 ```
 ╭─┐Settings┌───────────────────────────────────╮
-│ Refresh   ‹  2 s  ›   tap ‹ or ›             │
+│ Refresh     ‹        2 s       ›             │
+│ Brightness  ‹        80%       ›             │
 │ TG 101.3 · PP 3,354 · KV ██░░ · OK BUSY DOWN │
 ╰──────────────────────────────────────────────╯
 ╭─┐Themes┌───────────────────────────────┐2/2┌─╮
-│  kanagawa-wave         tokyo-storm           │
-│  kyli0x                tomorrow-night        │
-│  matcha-dark-sea       twilight              │
-│  monokai               whiteout              │
-│  night-owl                                   │
+│  kanagawa-lotus        solarized_light       │
+│  kanagawa-wave         tokyo-night           │
+│  kyli0x                tokyo-storm           │
+│  matcha-dark-sea       tomorrow-night        │
+│  monokai               twilight              │
+│  night-owl             whiteout              │
 │ ▶nord                                        │
 │  onedark                                     │
 │  orange                                      │
 │  paper                                       │
 │  phoenix-night                               │
 │  solarized_dark                              │
-│  solarized_light                             │
-│  tokyo-night                                 │
 │ ‹ prev             done               next › │
 ╰─┘≡└─┘tap a theme to apply└───────────────────╯
 ```
 
 | Row | Tap | Does |
 |---|---|---|
-| 1–4 (the whole Settings box, 72 px) | left / right half | refresh rate down / up: **1, 2, 3, 5, 10, 30 s** (default `POLL_MS`). `‹` is drawn in the left half (col 15) and `›` in the right half (col 34), matching the zones. Saved in NVS (`poll_ms`); the poller tasks pick it up on their next cycle |
-| 3 | — | live preview of the current theme's roles |
-| 6–18 | a name | apply that theme immediately (screen repaints in it), saved in NVS by **name** (`theme`) so adding themes never shifts the choice. Two columns × 13 rows = 26 per page; `▶` marks the current one |
+| 1–2 (top edge + Refresh, 48 px) | left / right half | refresh rate down / up: **1, 2, 3, 5, 10, 30 s** (default `POLL_MS`). `‹` is drawn in the left half (col 15) and `›` in the right half (col 34), matching the zones. Saved in NVS (`poll_ms`); the poller tasks pick it up on their next cycle |
+| 3–5 (Brightness + preview + bottom edge, 72 px) | left / right half | backlight down / up: **60 … 100 % in 5 % steps** (default `BRIGHTNESS_PCT`, 100), applied at once and saved in NVS (`bright_pct`). The percentage is perceived brightness (CIE L\*), so the PWM duty runs 72, 87, 104, 123, 145, 168, 195, 223, 255 of 255. The floor is 60 % because at 50 % (duty 47) the screen was barely visible on the panel (user, 2026-11-01). The 1 kHz PWM is fixed (§2.1 of the bring-up notes) |
+| 4 | — | live preview of the current theme's roles |
+| 7–18 | a name | apply that theme immediately (screen repaints in it), saved in NVS by **name** (`theme`) so adding themes never shifts the choice. Two columns × 12 rows = 24 per page; `▶` marks the current one |
 | 19–20 (nav row + bottom edge, 48 px) | left / centre / right third | previous page / done / next page; the `≡` corner (row 20, x < 120) also closes Settings |
 
 ### 7.4 Boot
@@ -609,7 +614,7 @@ Settings action) for checking touch targets.
 #define POLL_MS     2000          // /metrics every 2 s
 #define CONNECT_MS  800
 #define READ_MS     1500
-#define BRIGHTNESS  200           // 0–255 backlight PWM
+#define BRIGHTNESS_PCT 100        // first-boot backlight, % (then set in Settings)
 ```
 
 `src/app_config.h` turns `SERVERS` into `kServers[]` (1–4 entries,

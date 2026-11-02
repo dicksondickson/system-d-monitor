@@ -11,22 +11,28 @@ enum class Page : uint8_t { OVERVIEW, GRAPHS, SETTINGS };
 void overview(Grid& g, const View& v);
 void graphs(Grid& g, const View& v);
 
-// Settings screen (page_settings.cpp): refresh rate + theme picker.
+// Settings screen (page_settings.cpp): refresh rate, brightness, theme picker.
 struct Settings {
   uint32_t poll_ms;
+  uint8_t brightness_pct;
   int theme;      // current theme index
   int list_page;  // which page of the theme list is shown
 };
-constexpr int THEMES_PER_PAGE = 26;  // 13 rows × 2 columns
+constexpr int THEMES_PER_PAGE = 24;  // 12 rows × 2 columns
 constexpr int POLL_OPTION_COUNT = 6;
 extern const uint32_t POLL_OPTIONS_MS[POLL_OPTION_COUNT];  // 1, 2, 3, 5, 10, 30 s
+constexpr int BRIGHTNESS_OPTION_COUNT = 9;
+extern const uint8_t BRIGHTNESS_OPTIONS_PCT[BRIGHTNESS_OPTION_COUNT];  // 60 … 100 % in 5 % steps
+// Backlight PWM duty (0–255) for a perceived brightness in percent: the
+// percentage is CIE L* lightness, so 50 % looks half as bright (duty 47).
+uint8_t brightnessDuty(int pct);
 int themePages();
 void settings(Grid& g, const Settings& s);
 
 // Touch → action on the settings screen (pixel coordinates).
 constexpr int CELL_PX_H = 24, GRID_PX_W = 480;
 struct SettingsHit {
-  enum Kind : uint8_t { NONE, POLL_PREV, POLL_NEXT, THEME, PAGE_PREV, PAGE_NEXT, DONE } kind;
+  enum Kind : uint8_t { NONE, POLL_PREV, POLL_NEXT, BRIGHT_PREV, BRIGHT_NEXT, THEME, PAGE_PREV, PAGE_NEXT, DONE } kind;
   int theme;
 };
 SettingsHit settingsHit(int x, int y, const Settings& s);

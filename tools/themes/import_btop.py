@@ -10,6 +10,7 @@ btop is Apache-2.0: third_party/btop/LICENSE.
 
 Role mapping (spec.md §6):
   BG main_bg · VALUE main_fg · TITLE title · LABEL graph_text · DIM inactive_fg
+  (DIM and LABEL lifted towards main_fg to their MIN_CONTRAST against BG if fainter)
   BORDER/BOX2/BOX3/BOX4 cpu_box/mem_box/net_box/proc_box (one per section box)
   GOOD/WARN/BAD cpu_start/cpu_mid/cpu_end (btop's low → high gradient)
   DECODE proc_misc · PREFILL temp_mid (falls back when too close to DECODE)
@@ -27,7 +28,15 @@ OUT = os.path.join(ROOT, "src", "gfx", "themes_btop.h")
 ROLES = ["BG", "BORDER", "TITLE", "LABEL", "VALUE", "DIM", "GOOD", "WARN", "BAD",
          "DECODE", "PREFILL", "BOX2", "BOX3", "BOX4", "BRAND"]  # order = enum theme::Role
 BRAND_RED = (0xFF, 0x3B, 0x30)
-DEFAULT_THEME_NAME = "System-D"  # btop's built-in Default palette, renamed  # "SYSTEM-D" is this red in every theme (user request)
+DEFAULT_THEME_NAME = "System-D"  # btop's built-in Default palette, renamed
+# btop's inactive_fg is for disabled items and is often barely visible, and
+# many themes' graph_text is nearly as faint; here they are secondary text
+# (DIM: units, "live", "idle", "poll 2s"; LABEL: "run", "wait", "TTFT"), so
+# each is lifted towards main_fg until it reaches this contrast ratio against
+# the background (WCAG formula). Was 2.75 for DIM only; raised to 3.5 and
+# applied to LABEL, then DIM to 4.5, because it was still too faint on the
+# panel (user).
+MIN_CONTRAST = {"DIM": 4.5, "LABEL": 3.5}
 KEYS = {"BG": "main_bg", "BORDER": "cpu_box", "TITLE": "title", "LABEL": "graph_text",
         "VALUE": "main_fg", "DIM": "inactive_fg", "GOOD": "cpu_start", "WARN": "cpu_mid",
         "BAD": "cpu_end", "DECODE": "proc_misc", "PREFILL": "temp_mid", "BOX2": "mem_box",
@@ -52,6 +61,31 @@ def dist(a, b):
     return sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
 
 
+def luminance(c):
+    def lin(x):
+        x /= 255
+        return x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4
+    r, g, b = map(lin, c)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast(a, b):
+    hi, lo = sorted((luminance(a), luminance(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def lift(c, towards, bg, target):
+    """Mix c towards `towards` just enough to reach `target` contrast on bg."""
+    if contrast(c, bg) >= target:
+        return c
+    mix = lambda t: tuple(round(x + (y - x) * t) for x, y in zip(c, towards))
+    lo, hi = 0.0, 1.0
+    for _ in range(20):
+        mid = (lo + hi) / 2
+        lo, hi = (lo, mid) if contrast(mix(mid), bg) >= target else (mid, hi)
+    return mix(hi)
+
+
 def resolve(theme, default):
     def get(key):
         c = rgb(theme.get(key, "")) or rgb(default[key])
@@ -60,6 +94,8 @@ def resolve(theme, default):
     out["BRAND"] = BRAND_RED
     if rgb(theme.get("main_bg", "")) is None:
         out["BG"] = (0, 0, 0)  # btop: empty main_bg = terminal background
+    for role, target in MIN_CONTRAST.items():
+        out[role] = lift(out[role], out["VALUE"], out["BG"], target)
     if dist(out["PREFILL"], out["DECODE"]) < 80:
         # Pick the fallback most distinct from both DECODE and the background.
         cands = [out["PREFILL"]] + [get(k) for k in PREFILL_FALLBACKS]

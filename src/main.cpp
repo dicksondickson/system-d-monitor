@@ -3,7 +3,7 @@
 //
 //   tap left third / right third   previous / next server (with > 1 server)
 //   tap centre                     overview ↔ graphs (anywhere with 1 server)
-//   tap bottom-left corner (≡)     settings: refresh rate + theme
+//   tap bottom-left corner (≡)     settings: refresh rate, brightness, theme
 //
 // One poller task per server (core 0) fetches the data; this loop (core 1)
 // handles touch and redraws after every poll and every clock second. Theme,
@@ -41,6 +41,7 @@ pages::Page page = pages::Page::OVERVIEW;
 pages::Page back_to = pages::Page::OVERVIEW;  // where "done" in Settings returns
 int theme_index = 0;
 int list_page = 0;  // settings: page of the theme list
+uint8_t brightness_pct = BRIGHTNESS_PCT;
 int server = 0;  // index into kServers
 uint32_t last_rotate = 0, last_touch_ms = 0;
 bool touch_ok = false;
@@ -71,7 +72,7 @@ void refreshView() {
   if (!CONFIG_PRESENT) snprintf(view.status, sizeof view.status, "no include/config.h");
 }
 
-pages::Settings settingsState() { return {poller::pollMs(), theme_index, list_page}; }
+pages::Settings settingsState() { return {poller::pollMs(), brightness_pct, theme_index, list_page}; }
 
 void redraw() {
   if (page == pages::Page::SETTINGS) {
@@ -109,13 +110,28 @@ void stepPoll(int dir) {
   redraw();
 }
 
+void stepBrightness(int dir) {
+  int i = 0;
+  while (i < pages::BRIGHTNESS_OPTION_COUNT - 1 && pages::BRIGHTNESS_OPTIONS_PCT[i] < brightness_pct) i++;
+  i += dir;
+  if (i < 0 || i >= pages::BRIGHTNESS_OPTION_COUNT) return;
+  brightness_pct = pages::BRIGHTNESS_OPTIONS_PCT[i];
+  backlight::set(pages::brightnessDuty(brightness_pct));
+  prefs.putUChar("bright_pct", brightness_pct);
+  Serial.printf("brightness -> %u%% (duty %u)\n", brightness_pct, pages::brightnessDuty(brightness_pct));
+  redraw();
+}
+
 void onSettingsTap(int x, int y) {
   pages::SettingsHit h = pages::settingsHit(x, y, settingsState());
-  static const char* const KIND[] = {"none", "refresh -", "refresh +", "theme", "page -", "page +", "done"};
+  static const char* const KIND[] = {"none",  "refresh -", "refresh +", "brightness -", "brightness +",
+                                     "theme", "page -",    "page +",    "done"};
   Serial.printf("  -> %s%s\n", KIND[h.kind], h.kind == pages::SettingsHit::THEME ? theme::get(h.theme).name : "");
   switch (h.kind) {
     case pages::SettingsHit::POLL_PREV: return stepPoll(-1);
     case pages::SettingsHit::POLL_NEXT: return stepPoll(+1);
+    case pages::SettingsHit::BRIGHT_PREV: return stepBrightness(-1);
+    case pages::SettingsHit::BRIGHT_NEXT: return stepBrightness(+1);
     case pages::SettingsHit::THEME: return setTheme(h.theme);
     case pages::SettingsHit::PAGE_PREV:
       if (list_page > 0) { list_page--; redraw(); }
@@ -190,6 +206,7 @@ void setup() {
   prefs.begin("sysd", false);
   theme_index = theme::find(prefs.getString("theme", theme::DEFAULT_NAME).c_str());
   const uint32_t poll_ms = prefs.getUInt("poll_ms", POLL_MS);
+  brightness_pct = prefs.getUChar("bright_pct", BRIGHTNESS_PCT);
   page = prefs.getUChar("page", 0) ? pages::Page::GRAPHS : pages::Page::OVERVIEW;
   server = prefs.getUChar("server", 0) % kServerCount;
 
@@ -202,7 +219,7 @@ void setup() {
 
   redraw();
   backlight::begin();  // after panel::begin(), see backlight.h
-  backlight::set(BRIGHTNESS);
+  backlight::set(pages::brightnessDuty(brightness_pct));
 }
 
 void loop() {

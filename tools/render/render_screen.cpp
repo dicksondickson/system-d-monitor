@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
   static uint16_t fb[480 * 480];
   Grid g;
   const int t = theme::find(argv[2]);
-  if (!strcmp(argv[1], "settings")) pages::settings(g, {2000, t, t / pages::THEMES_PER_PAGE});
+  if (!strcmp(argv[1], "settings")) pages::settings(g, {2000, 100, t, t / pages::THEMES_PER_PAGE});
   else pages::draw(!strcmp(argv[1], "graphs") ? pages::Page::GRAPHS : pages::Page::OVERVIEW, g, demoView());
   for (int r = 0; r < GRID_ROWS; r++)
     for (int c = 0; c < GRID_COLS; c++)

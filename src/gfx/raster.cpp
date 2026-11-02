@@ -27,6 +27,17 @@ FAST_CODE void cell(const Cell& c, const theme::Theme& t, uint16_t* dst, int str
     return;
   }
 
+  if (c.attr & ATTR_PIXBARS) {
+    // Three bars (3, 3, 4 px wide) filled up from the bottom of the cell.
+    const int h[3] = {pixBar(c.ch, 0), pixBar(c.ch, 1), pixBar(c.ch, 2)};
+    for (int y = 0; y < CELL_H; y++) {
+      uint16_t* p = dst + y * stride;
+      const int from_bottom = CELL_H - y;
+      for (int x = 0; x < CELL_W; x++) p[x] = from_bottom <= h[x < 3 ? 0 : x < 6 ? 1 : 2] ? fg : bg;
+    }
+    return;
+  }
+
   // The 20-row glyph sits centred in the taller cell. Padding rows repeat the
   // glyph's first/last row: blank for text, but a continuous stroke for box
   // drawing (│ ┤ ├ …) and blocks, so frame lines and bars still join.

@@ -30,6 +30,10 @@ static const ServerCfg kServers[] = {{nullptr, SERVER_HOST, SERVER_PORT}};
 constexpr int kServerCount = sizeof kServers / sizeof kServers[0];
 static_assert(kServerCount >= 1 && kServerCount <= 4, "SERVERS: 1 to 4 entries");
 
+#ifndef BRIGHTNESS_PCT
+#define BRIGHTNESS_PCT 100  // first-boot backlight; then set in Settings
+#endif
+
 #ifndef ROTATE_S
 #define ROTATE_S 0  // auto-advance to the next server every N s (0 = off)
 #endif

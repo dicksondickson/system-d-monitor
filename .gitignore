@@ -2,3 +2,4 @@
 include/config.h
 src/diag/
 .DS_Store
+__pycache__/

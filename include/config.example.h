@@ -21,4 +21,4 @@
 #define POLL_MS     2000          // /metrics every 2 s
 #define CONNECT_MS  800
 #define READ_MS     1500
-#define BRIGHTNESS  200           // 0–255 backlight PWM
+#define BRIGHTNESS_PCT 100        // first-boot backlight, % (then set in Settings)

@@ -32,7 +32,7 @@ are btop's. See [Credits](#credits).
 
 | | |
 |---|---|
-| **Board** | **Guition ESP32-S3-4848S040** (also listed as "JCZN" / "ESP32-4848S040" / "4 inch 86 box smart display"): ESP32-S3-WROOM-1 **N16R8** (16 MB flash, 8 MB PSRAM), 480×480 ST7701 IPS panel, GT911 touch. The variants with or without relays and the bottom shell all work. The one used here was bought on **AliExpress** (search "ESP32-4848S040") |
+| **Board** | **Guition ESP32-S3-4848S040** (also listed as "JCZN" / "ESP32-4848S040" / "4 inch 86 box smart display"): ESP32-S3-WROOM-1 **N16R8** (16 MB flash, 8 MB PSRAM), 480×480 ST7701 IPS panel, GT911 touch. The variants with or without relays and the bottom shell all work. The one used here was bought on **AliExpress** for about **CA$37**: search for "ESP32-S3 4.0 Inch Smart Display Development Board" or "ESP32-4848S040" |
 | **Cable** | USB-C **data** cable (a charge-only cable won't show up as a serial port) |
 | **Computer** | macOS, Linux or Windows, with Python 3.9+ for PlatformIO |
 | **Wi-Fi** | a **2.4 GHz** network (the ESP32-S3 has no 5 GHz radio) on the same LAN as your servers |
@@ -121,9 +121,9 @@ with Wi-Fi off) and shows `NO WIFI` with `no include/config.h`.
 |---|---|
 | tap the **left / right third** | previous / next server (the footer shows which, e.g. `1/2`) |
 | tap the **centre** | overview ↔ graphs |
-| tap the **bottom-left corner** (`≡`) | **Settings**: refresh rate (1, 2, 3, 5, 10 or 30 s) and theme. Tap a theme to apply it; `done` returns |
+| tap the **bottom-left corner** (`≡`) | **Settings**: refresh rate (1, 2, 3, 5, 10 or 30 s), screen brightness (60–100 %) and theme. Tap a theme to apply it; `done` returns |
 
-Theme, refresh rate, page and server survive a reboot. `ROTATE_S` in
+Theme, refresh rate, brightness, page and server survive a reboot. `ROTATE_S` in
 `config.h` auto-advances between servers.
 
 ![Settings](docs/images/settings.png)

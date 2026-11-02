@@ -55,7 +55,8 @@ void throughputHero(Grid& g, int row, const View& v) {
   }
   g.text(16, row, "tok/s", theme::DIM);
   g.text(17, row + 1, "live", theme::DIM);
-  sparkline(g, 22, row, 2, 20, 3, v.tg_hist, theme::DECODE);
+  static_assert(20 * PIXBARS_PER_CELL == RING_LEN, "one bar per sample");
+  sparkline(g, 22, row, 2, 20, v.tg_hist, theme::DECODE);
 }
 
 void streamRow(Grid& g, int row, const StreamView& s) {

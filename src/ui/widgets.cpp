@@ -9,8 +9,6 @@ constexpr uint32_t H_LINE = 0x2500;  // ─
 constexpr uint32_t V_LINE = 0x2502;  // │
 constexpr uint32_t FULL = 0x2588;    // █
 constexpr uint32_t SHADE = 0x2591;   // ░
-constexpr uint32_t DOT = 0x00B7;     // ·
-const uint32_t BLOCKS[9] = {' ', 0x2581, 0x2582, 0x2583, 0x2584, 0x2585, 0x2586, 0x2587, 0x2588};
 }  // namespace
 
 namespace {
@@ -70,32 +68,30 @@ void bar(Grid& g, int col, int row, int width, float pct, uint8_t role) {
   }
 }
 
-float sparkline(Grid& g, int col, int row, int rows, int cells, int per, const float* data,
-                uint8_t role) {
+float sparkline(Grid& g, int col, int row, int rows, int cells, const float* data, uint8_t role) {
+  constexpr int ROW_PX = 24;  // raster::CELL_H
+  const int n = cells * PIXBARS_PER_CELL;
   float vmax = NAN;
-  for (int i = 0; i < cells * per; i++)
+  for (int i = 0; i < n; i++)
     if (!isnan(data[i]) && (isnan(vmax) || data[i] > vmax)) vmax = data[i];
   const float scale = (isnan(vmax) || vmax <= 0) ? 1.0f : vmax;
-  const int levels = rows * 8;
+  const int levels = rows * ROW_PX;
 
   for (int c = 0; c < cells; c++) {
-    float m = NAN;
-    for (int k = 0; k < per; k++) {
-      float v = data[c * per + k];
-      if (!isnan(v) && (isnan(m) || v > m)) m = v;
+    int h[PIXBARS_PER_CELL];
+    for (int k = 0; k < PIXBARS_PER_CELL; k++) {
+      const float v = data[c * PIXBARS_PER_CELL + k];
+      h[k] = isnan(v) ? 0 : (int)lroundf(fmaxf(v, 0.0f) / scale * levels);
+      if (!isnan(v) && h[k] < 1) h[k] = 1;  // baseline: 0 is data, not a gap
     }
-    int h = isnan(m) ? -1 : (int)lroundf(fmaxf(m, 0.0f) / scale * levels);
     for (int r = 0; r < rows; r++) {
-      const bool bottom = r == rows - 1;
-      const int base = (rows - 1 - r) * 8;
-      if (h < 0) {
-        g.put(col + c, row + r, bottom ? DOT : ' ', theme::DIM);
-        continue;
+      const int base = (rows - 1 - r) * ROW_PX;
+      int f[PIXBARS_PER_CELL];
+      for (int k = 0; k < PIXBARS_PER_CELL; k++) {
+        f[k] = h[k] - base;
+        f[k] = f[k] < 0 ? 0 : f[k] > ROW_PX ? ROW_PX : f[k];
       }
-      int f = h - base;
-      f = f < 0 ? 0 : f > 8 ? 8 : f;
-      if (f > 0) g.put(col + c, row + r, BLOCKS[f], role);
-      else g.put(col + c, row + r, bottom ? BLOCKS[1] : ' ', role);
+      g.put(col + c, row + r, pixBars(f[0], f[1], f[2]), role, ATTR_PIXBARS);
     }
   }
   return vmax;

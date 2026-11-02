@@ -90,6 +90,12 @@ std::string Grid::dump() const {
         else if (q >= 2) out += ' ';
         continue;
       }
+      if (cell.attr & ATTR_PIXBARS) {  // the block element for the tallest bar
+        int h = 0;
+        for (int i = 0; i < PIXBARS_PER_CELL; i++) h = pixBar(cell.ch, i) > h ? pixBar(cell.ch, i) : h;
+        appendUtf8(out, h == 0 ? ' ' : 0x2580 + (h * 8 + 23) / 24);  // ▁ … █
+        continue;
+      }
       appendUtf8(out, cell.ch);
     }
     out += '\n';

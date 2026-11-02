@@ -19,9 +19,17 @@ enum Attr : uint8_t {
   // codepoint and its quadrant (0 = top-left, 1 = top-right, 2 = bottom-left,
   // 3 = bottom-right) in bits 2–3.
   ATTR_BIG = 1 << 1,
+  // Pixel bars: ch is not a codepoint but three bar heights (0–24 px, from
+  // the cell's bottom) packed 5 bits each, left to right in bits 0–4, 5–9,
+  // 10–14. The bars are 3, 3 and 4 px wide, so a cell holds three samples
+  // at full vertical pixel resolution (the TG sparkline, user request).
+  ATTR_PIXBARS = 1 << 4,
 };
 constexpr uint8_t bigQuadrant(uint8_t attr) { return (attr >> 2) & 3; }
 constexpr uint8_t bigAttr(uint8_t quadrant) { return ATTR_BIG | (uint8_t)(quadrant << 2); }
+constexpr int PIXBARS_PER_CELL = 3;
+constexpr uint16_t pixBars(int a, int b, int c) { return (uint16_t)(a | (b << 5) | (c << 10)); }
+constexpr int pixBar(uint16_t ch, int i) { return (ch >> (5 * i)) & 31; }
 
 struct Cell {
   uint16_t ch = ' ';

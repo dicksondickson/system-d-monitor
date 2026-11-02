@@ -13,11 +13,11 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 OUT = os.path.join(ROOT, "docs", "images")
 
 SHOTS = [  # (file, page, theme)
-    ("overview.png", "overview", "System-D"),  # the default theme
-    ("graphs.png", "graphs", "System-D"),
-    ("settings.png", "settings", "System-D"),
+    ("overview.png", "overview", "elementarish"),
+    ("graphs.png", "graphs", "elementarish"),
+    ("settings.png", "settings", "elementarish"),
 ]
-GALLERY = ("themes.png", "overview", ["elementarish", "nord", "gruvbox_dark", "tokyo-night"])
+GALLERY = ("themes.png", "overview", ["System-D", "nord", "gruvbox_dark", "tokyo-night", "dracula", "solarized_light"])
 
 
 def read_ppm(path):
@@ -63,10 +63,15 @@ def main():
     tiles = [render(page, t) for t in themes]
     w, h = tiles[0][0], tiles[0][1]
     gap = 8
-    W, H = 2 * w + gap, 2 * h + gap
+    cols = 2 if len(tiles) <= 4 else 3
+    rows = (len(tiles) + cols - 1) // cols
+    W, H = cols * w + (cols - 1) * gap, rows * h + (rows - 1) * gap
     sheet = bytearray(b"\x20" * (W * H * 3))
     for k, (_, _, rgb) in enumerate(tiles):
-        ox, oy = (k % 2) * (w + gap), (k // 2) * (h + gap)
+        r, c = divmod(k, cols)
+        in_row = min(cols, len(tiles) - r * cols)  # a short last row is centred
+        ox = (W - (in_row * w + (in_row - 1) * gap)) // 2 + c * (w + gap)
+        oy = r * (h + gap)
         for y in range(h):
             sheet[((oy + y) * W + ox) * 3:((oy + y) * W + ox + w) * 3] = rgb[y * w * 3:(y + 1) * w * 3]
     write_png(os.path.join(OUT, name), W, H, bytes(sheet))

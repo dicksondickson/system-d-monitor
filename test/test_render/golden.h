@@ -8,8 +8,8 @@ static const char* GOLDEN_OVERVIEW = R"GOLDEN(╭─┐SYSTEM-D┌─┐12:47:33
 │ TensorFold · deepseek-v4.1-flash-1017        │
 ╰──────────────────────────────────────────────╯
 ╭─┐Throughput┌─────────────────────────────────╮
-│ TG １０１．３ tok/s    █▆▄▄▅▆███▆ ▄▄▅▇██     │
-│                live ▁▁▁██████████·██████     │
+│ TG １０１．３ tok/s    █▆▄▄▅▆███▇ ▄▄▆███     │
+│                live ▁▁▁██████████ ██████     │
 │ PP last 3,354/s · prefilling 12s             │
 │ run 2/4 · wait 1 · TG avg 95.1 · max 104.2   │
 │ KV 31.4% █████░░░░░░░░░░░ · 329K/1.0M tok    │
