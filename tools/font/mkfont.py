@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+# SPDX-License-Identifier: MIT
 """Generate src/gfx/font_ter10x20.h from the Terminus 10x20 BDFs.
 
   tools/font/mkfont.py            # writes src/gfx/font_ter10x20.h

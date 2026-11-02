@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+# SPDX-License-Identifier: MIT
 """Render the README screenshots into docs/images/ (no hardware needed).
 
   tools/render/screens.py

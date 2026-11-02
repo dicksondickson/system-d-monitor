@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+# SPDX-License-Identifier: MIT
 """Convert a vendor ST7701 init listing (SPI_WriteComm/SPI_WriteData/Delay
 lines) into an Arduino_GFX batchOperation array.
 

@@ -266,5 +266,5 @@ licences: [`THIRD_PARTY.md`](THIRD_PARTY.md).
 
 ## License
 
-[MIT](LICENSE) © 2026 Dickson Chow. Bundled third-party components keep
+[MIT](LICENSE) © 2026 [Dickson Chow](https://github.com/dicksondickson). Bundled third-party components keep
 their own licences; see [`THIRD_PARTY.md`](THIRD_PARTY.md).

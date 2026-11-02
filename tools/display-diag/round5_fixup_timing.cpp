@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+// SPDX-License-Identifier: MIT
+
 // Display diagnostic round 5 (archived, see README.md in this folder): when
 // does the panel accept the colour fixups (INVON + MADCTL=BGR)?
 //

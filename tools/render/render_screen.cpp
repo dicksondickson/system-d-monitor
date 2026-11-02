@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+// SPDX-License-Identifier: MIT
+
 // Host renderer for screenshots: draws a page with the firmware's own grid,
 // font and rasteriser and writes a 480×480 binary PPM.
 //   render_screen <overview|graphs|settings> <theme name> <out.ppm>

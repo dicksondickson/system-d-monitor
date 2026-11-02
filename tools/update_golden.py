@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+# SPDX-License-Identifier: MIT
 """Refresh test/test_render/golden.h from the current render.
 
 Run after an intentional layout change, then review `git diff` of golden.h:

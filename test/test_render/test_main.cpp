@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+// SPDX-License-Identifier: MIT
+
 // Renders both pages from the demo view and compares the text dump with the
 // golden files (spec.md §7 layout). On mismatch the actual dump is printed.
 #include <unity.h>

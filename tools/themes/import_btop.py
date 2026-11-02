@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+# SPDX-License-Identifier: MIT
 """Convert btop's themes into src/gfx/themes_btop.h.
 
   tools/themes/import_btop.py      # reads third_party/btop/, writes src/gfx/themes_btop.h

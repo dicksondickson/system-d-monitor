@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+// SPDX-License-Identifier: MIT
+
 #include "touch_gt911.h"
 
 #include <Arduino.h>

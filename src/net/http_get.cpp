@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+// SPDX-License-Identifier: MIT
+
 #include "http_get.h"
 
 #include <WiFi.h>

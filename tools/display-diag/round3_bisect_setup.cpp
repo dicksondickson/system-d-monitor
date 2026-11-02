@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+// SPDX-License-Identifier: MIT
+
 // Display diagnostic round 3 (archived, see README.md in this folder):
 // bisect why the M1 app stays black while diag rounds 1–2 lit up. Steps run
 // once, 5 s each, each with a huge step number; the last step keeps running

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+// SPDX-License-Identifier: MIT
+
 // Panel test (was the M1 bring-up app, spec.md §11): panel + backlight +
 // touch. Run with: tools/display-diag/run.sh panel upload
 //

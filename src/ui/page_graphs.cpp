@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+// SPDX-License-Identifier: MIT
+
 // Graphs page, spec.md §7.2.
 #include <math.h>
 #include <stdio.h>

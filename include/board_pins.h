@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+// SPDX-License-Identifier: MIT
 #pragma once
 // Guition ESP32-S3-4848S040 pin map (spec.md §2, docs/hardware-bringup.md).
 // R/B order matches the vendor demo and Arduino_GFX's 86BOX config; the

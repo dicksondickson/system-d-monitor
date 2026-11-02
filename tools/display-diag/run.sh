@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+# SPDX-License-Identifier: MIT
 # Build (and optionally flash) an archived display diagnostic round.
 #   tools/display-diag/run.sh <1-6|panel> [upload] [port]
 # "panel" is the M1 panel test (colour bars, ramps, border, touch dots).

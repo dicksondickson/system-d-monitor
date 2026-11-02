@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+// SPDX-License-Identifier: MIT
+
 // Display diagnostic round 1 (archived, see README.md in this folder).
 // Separates "backlight dead" from "panel not taking pixels" from "wrong
 // ST7701 init sequence".

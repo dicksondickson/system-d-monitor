@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+// SPDX-License-Identifier: MIT
+
 // System-D Monitor (spec.md): live TensorFold/vLLM dashboard on the Guition
 // ESP32-S3-4848S040.
 //

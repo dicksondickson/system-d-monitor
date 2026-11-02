@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+# SPDX-License-Identifier: MIT
 # Record a sequence of server responses as a test fixture (spec.md §10).
 #
 #   tools/capture.sh <host:port> <count> [name] [interval_s]

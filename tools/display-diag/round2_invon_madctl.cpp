@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
+// SPDX-License-Identifier: MIT
+
 // Display diagnostic round 2 (archived, see README.md in this folder).
 //
 // Round 1 showed: backlight OK with digitalWrite, panel OK with every init
