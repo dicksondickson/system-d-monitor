@@ -14,7 +14,8 @@ out = subprocess.run([PIO, "test", "-e", "native", "-f", "test_render", "-v"], c
                      capture_output=True, text=True).stdout
 pages = {}
 for name in ("overview", "graphs"):
-    m = re.search(rf"--- actual {name} ---\n((?:.*\n){{24}})", out)
+    # The dump runs until the Unity result line that follows it.
+    m = re.search(rf"--- actual {name} ---\n(.*?\n)test/test_render/", out, re.S)
     if m:
         pages[name] = m.group(1)
 if not pages:

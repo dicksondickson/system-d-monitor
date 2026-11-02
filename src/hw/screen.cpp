@@ -8,7 +8,8 @@
 namespace screen {
 
 namespace {
-constexpr int BAND_PIXELS = raster::CELL_H * SCREEN_W;  // one cell row: 480×20
+constexpr int BAND_PIXELS = raster::CELL_H * SCREEN_W;  // one cell row: 480×24
+static_assert(GRID_ROWS * raster::CELL_H == SCREEN_H, "grid must fill the panel");
 
 uint16_t* g_fb = nullptr;
 Grid g_shown;

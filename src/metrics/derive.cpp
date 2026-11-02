@@ -108,8 +108,8 @@ bool Deriver::onSample(const Sample& s, const Identity& id, const ServerInfo& in
   }
   // Prefilling: a request is running, nothing has been generated since the
   // last poll, and its KV cache is in use (spec.md §5).
-  if (!isnan(tg) && (isnan(tg_peak_) || tg > tg_peak_)) tg_peak_ = tg;
-  if (tg > 0) {  // idle polls don't count, or the average would mostly measure idle time
+  if (tg > 0) {  // avg and max cover generating polls only, so they appear together
+    if (isnan(tg_peak_) || tg > tg_peak_) tg_peak_ = tg;  // idle polls don't count, or the average would mostly measure idle time
     tg_sum_ += tg;
     tg_busy_polls_++;
   }

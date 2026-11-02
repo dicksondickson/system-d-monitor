@@ -296,7 +296,13 @@ Not `no data`: a real idle 0.0, and blank TTFT/TG on `idle` stream rows
 
 Built in M2 (2026-11-01); code in `src/gfx/`, `src/ui/`, `src/hw/screen.cpp`.
 
-- **Grid:** 48 × 24 cells of 10 × 20 px = exactly 480 × 480.
+- **Grid:** 48 × 20 cells of 10 × 24 px = exactly 480 × 480. (Until
+  2026-11-01 it was 48 × 24 cells of 10 × 20 px; the user found the lines
+  too tight.) Each 20 px Terminus glyph sits centred in its 24 px cell, with
+  4 px of leading. The padding rows repeat the glyph's first and last row:
+  blank for text, but a continuous stroke for box drawing and blocks, so
+  frame lines and bars still join. The 2× hero is 40 px tall, centred in its
+  48 px two-cell block.
   Each cell = `{uint16 codepoint, uint8 fg, uint8 bg, uint8 attr}`, with
   colours stored as theme roles. Pages draw the whole screen into a `Grid`.
   `screen::present()` diffs it against what's shown and repaints only the
@@ -306,7 +312,7 @@ Built in M2 (2026-11-01); code in `src/gfx/`, `src/ui/`, `src/hw/screen.cpp`.
   `tools/font/mkfont.py` converts it into `src/gfx/font_ter10x20.h`: ASCII,
   `· — … ● ○`, box drawing `─│┌┐└┘├┤┬┴┼`, blocks `▁▂▃▄▅▆▇█░` and the full
   braille range U+2800–28FF. That's 376 regular + 97 bold glyphs, ~19 KB.
-  Terminus's box and block glyphs tile exactly in the 10×20 cell, so nothing
+  Terminus's box and block glyphs tile exactly in the 10×20 glyph box, so nothing
   is drawn procedurally except the hero.
 - **Hero text:** `ter-u20b` glyphs pixel-doubled to 20 × 40, each covering a
   2 × 2 block of cells (`ATTR_BIG` + quadrant). Used only for TG live.
@@ -357,7 +363,7 @@ Tune the colours on the real panel, because RGB565 shifts them.
 
 ---
 
-## 7. Screens (48 × 24)
+## 7. Screens (48 × 20)
 
 The layout follows the 2026-11-01 sketch, closed into one btop-style frame
 (chosen on the panel, 2026-11-01):
@@ -384,9 +390,7 @@ Values are illustrative, and assume TensorFold already exports Appendix A.
 │ TG １０１．３ tok/s    █▆▄▄▅▆███▆ ▄▄▅▇██     │
 │                live ▁▁▁██████████·██████     │
 │ PP last 3,354/s · prefilling 12s             │
-│ PP ▁▁▁▁▁▁▁█▁▁▁▁▁▁▄▁▁▁▁··▁▄▁▁▁▁▁▁▁ 6.8K       │
-│ run 2/4 · wait 1                             │
-│ TG avg 95.1 · max 104.2                      │
+│ run 2/4 · wait 1 · TG avg 95.1 · max 104.2   │
 ├─┤ Cache ├────────────────────────────────────┤
 │ KV 31.4% █████░░░░░░░░░░░ · 329K/1.0M tok    │
 ├─┤ Streams ├──────────────────────────────────┤
@@ -398,8 +402,6 @@ Values are illustrative, and assume TensorFold already exports Appendix A.
 ├─┤ Averages ├─────────────────────────────────┤
 │ TTFT 1.85s · MTP 48.9% · cache-hit 75.4%     │
 │ live TTFT 1.42s · lat 8.16s · n=42           │
-│                                              │
-│                                              │
 └─┤ poll 2s · ok 0.4s ago ├────┤ tap: graphs ├─┘
 ```
 
@@ -411,9 +413,9 @@ device it is drawn at 2× and spans rows 4–5, 2 columns per character.)
 | 1 | header | `SYSTEM-D` + 12-hour clock `2:47:33 PM` (SNTP, `TZ_POSIX`) on the left; the monitor's **Wi-Fi bars `▂▄▆█` always in the top-right bracket** (`┤ ▂▄▆█ ├─┐`), from `WiFi.RSSI()` (≥ −55 / −67 / −75 / −85 dBm → 4/3/2/1 lit, none = no link). The monitor's own IP goes to the serial log only |
 | 2 | server | **server name · IP** (`dgx042 · 192.168.50.192`; the name is the configured one or the host up to the first dot, and the IP is the address the poller resolved), with the **state right-justified** in a bracket (`┤ OK IDLE ├─┤`, §8) |
 | 3 | model | **detected engine, spelled out** (`TensorFold` / `vLLM`, §4.3) · **model id**, now with room for the full name (`deepseek-v4.1-flash-1017`); cut with `…` only if it still doesn't fit |
-| 4–10 | Throughput | **hero: TG live** at 2× in the decode colour + 2-row, 20-cell sparkline (3 samples per cell = 120 s, 16 levels); the PP row (`PP last 3,354/s · prefilling 12s`, both engines); the PP 30-cell sparkline; `run x/max · wait n`; `TG avg … · max …` (since start, §5) |
-| 11–12 | Cache | KV bar + used / capacity tokens |
-| 13–… | Streams | header + one row per stream slot, up to 6 (the rows left above Averages): id, state, ctx %, tokens, TTFT, TG |
+| 4–8 | Throughput | **hero: TG live** at 2× in the decode colour + 2-row, 20-cell sparkline (3 samples per cell = 120 s, 16 levels); the PP row (`PP last 3,354/s · prefilling 12s`); `run x/max · wait n · TG avg … · max …` (since start, §5). The PP sparkline row was dropped for line spacing; PP history is on the graphs page |
+| 9–10 | Cache | KV bar + used / capacity tokens |
+| 11–… | Streams | header + one row per stream slot, up to 4 (the rows left above Averages; dgx042's batch size is 4): id, state, ctx %, tokens, TTFT, TG |
 | after Streams | Averages | cumulative TTFT · MTP acceptance · cache-hit; then live TTFT · e2e latency · `n` |
 | 20–23 | spare | stream overflow; otherwise blank |
 | 24 | footer rule | poll status (or error reason, §8) · touch hint |
@@ -437,34 +439,31 @@ rates can't be confused at a glance.
 ├─┤ dgx042 · 192.168.50.192 ├──────┤ OK BUSY ├─┤
 ├─┤ TensorFold · deepseek-v4.1-flash-1017 ├────┤
 ├─┤ TG live tok/s ├───────────────────┤ 120s ├─┤
-│ ⠀⠀⠀⠀⢸⣀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣾⣿⣧⡀⠀⠀⠀⠀⠀⠀⠀⣰⣷⣿⣿ now  101.3    │
-│ ⠀⠀⠀⠀⢸⣿⣷⡄⠀⠀⠀⢀⣶⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⣠⣼⣿⣿⣿⣿ avg   73.7    │
-│ ⠀⠀⠀⠀⢸⣿⣿⣿⣶⣶⣴⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣶⣦⣾⣿⣿⣿⣿⣿⣿ max  102.0    │
+│ ⠀⠀⠀⠀⢸⣄⠀⠀⠀⠀⠀⠀⠀⢠⣾⣾⣿⣧⣀⠀⠀⠀⠀⠀⠀⠀⣴⣷⣿⣿ now  101.3    │
+│ ⠀⠀⠀⠀⢸⣿⣿⣆⠀⠀⠀⣠⣶⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⢀⣴⣾⣿⣿⣿⣿ avg   73.7    │
+│ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣾⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣷⣿⣿⣿⣿⣿⣿⣿ max  102.0    │
 │ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿ min    0.0    │
-│ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
 │ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
 │ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
 │ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
 ├─┤ PP per request tok/s ├────────────┤ 120s ├─┤
 │ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ last 3,354    │
-│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ avg  4,385    │
-│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡆⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀ max  6,800    │
-│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀ min  3,000    │
+│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⡄⠀⠀⠀⠀⠀⠀⠀ avg  4,385    │
+│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀ max  6,800    │
 ├─┤ KV % ├────────────────────────────┤ 120s ├─┤
 │ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ now  31.4%    │
 │ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ max  31.4%    │
-│ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣀⣀               │
-│ ⠀⠀⠀⠀⢀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣶⣶⣶⣶⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
-│                                              │
+│ ⠀⠀⠀⠀⢀⣀⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⠀⠀⣶⣶⣶⣶⣶⣶⣾⣿⣿               │
 └─┤ poll 2s · ok 0.4s ago ├──┤ tap: overview ├─┘
 ```
 
 (Monospace terminals render braille at varying widths, so the mockup may
-look ragged. On the device every glyph is one 10×20 cell.)
+look ragged. On the device every glyph is one 10×24 cell.)
 
 - Rows 1–2 and the footer rule are the same as the overview.
-- TG live gets 8 rows (32 levels, decode colour), PP 4 (prefill colour),
-  KV 4. Right column: `now / avg / max / min` for the window.
+- TG live gets 7 rows (28 levels, decode colour), PP 3 (prefill colour),
+  KV 3. Stats are shown for as many lines as the graph has rows (PP drops
+  `min`). Right column: `now / avg / max / min` for the window.
 - The PP graph is titled **PP per request tok/s**: one bar
   per finished request. Its stats cover finished requests only, and
   `last` replaces `now`.
@@ -579,7 +578,7 @@ The UI only reads published snapshots. The poller never draws.
 All state belongs to a single `Server` struct (config, `win[15]`, three
 60-float rings, last error, backoff). That's about 4 KB, statically
 allocated. Multi-server later means an array of these, with no other
-structural change. The grids are 2 × 48 × 24 × 4 B ≈ 9 KB. There's no heap
+structural change. The grids are 2 × 48 × 20 × 5 B ≈ 10 KB. There's no heap
 allocation in steady state, so a 24 h soak should show flat free heap.
 
 ### Layout
@@ -609,7 +608,7 @@ third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
   widgets.
 - `metrics/`, `gfx/grid` and `ui/` compile without Arduino headers, so they
   can be tested on the host.
-- `test_render` renders each page to a 48×24 text dump and compares it with
+- `test_render` renders each page to a 48×20 text dump and compares it with
   a golden file, so layout regressions show up without hardware.
 - `tools/capture.sh host:port N` curls `/metrics`, `/health` and
   `/v1/models` N times, 2 s apart, into a new fixture directory. That gives
@@ -651,7 +650,7 @@ third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
   table and cache-hit. Deferred for now: those values read `no data`.
 - Config: compile-time `config.h`.
 - Renderer: custom char grid on Arduino_GFX, no LVGL.
-- Density: 48 × 24 cells, 10 × 20 font.
+- Density: 48 × 20 cells of 10 × 24 px (Terminus 10 × 20 + 4 px leading; was 48 × 24 until the user asked for more line spacing).
 - Orientation: native (rotation 0).
 - **Header shows the server's name** (`dgx042`), not the monitor's IP.
 - **PP on both engines:** no live prefill rate. The PP row shows `PP last

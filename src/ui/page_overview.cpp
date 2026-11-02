@@ -122,41 +122,32 @@ void overview(Grid& g, const View& v) {
       .put("eng ", theme::LABEL)
       .put(fmt::rate(v.pp_eng), valueRole(v.pp_eng, theme::PREFILL));
 
-  const int spark = pp + 1;
-  boxRow(g, spark);
-  g.text(CONTENT_COL, spark, "PP", theme::PREFILL, ATTR_BOLD);
-  float pp_max = sparkline(g, 5, spark, 1, 30, 2, v.pp_hist, theme::PREFILL);
-  g.text(36, spark, fmt::speedShort(pp_max), theme::DIM);
-
-  const int run_row = spark + 1;
-  boxRow(g, run_row);
-  if (!noDataRow(g, run_row, {v.running, v.waiting})) {
-    char run[24];
-    if (isnan(v.running)) snprintf(run, sizeof run, "%s", fmt::NO_DATA);
-    else if (isnan(v.max_batch)) snprintf(run, sizeof run, "%.0f", v.running);
-    else snprintf(run, sizeof run, "%.0f/%.0f", v.running, v.max_batch);
-    Writer(g, run_row, CONTENT_COL)
-        .put("run ", theme::LABEL)
-        .put(run, valueRole(v.running, theme::VALUE))
-        .put(SEP, theme::DIM)
-        .put("wait ", theme::LABEL)
-        .put(fmt::count(v.waiting), valueRole(v.waiting, theme::VALUE));
-  }
-
-  // "TG avg 95.1 · max 104.2": live TG since the monitor started / the server
-  // restarted: average over the polls where it was generating, and peak.
-  // (The engine-time "eng" rate is no longer shown, the user found it
-  // confusing; it's still in the serial log.)
-  const int tg_row = run_row + 1;
+  // "run 2/4 · wait 1 · TG avg 95.1 · max 104.2": queue, then live TG since
+  // the monitor started / the server restarted (average over generating
+  // polls, and peak). Each pair is all-or-nothing, so it collapses to a single
+  // "no data". (The PP sparkline row was dropped for line spacing; the PP
+  // history is on the graphs page.)
+  const int tg_row = pp + 1;
   boxRow(g, tg_row);
-  if (!noDataRow(g, tg_row, {v.tg_avg, v.tg_max}, "TG ", theme::DECODE, ATTR_BOLD))
-    Writer(g, tg_row, CONTENT_COL)
-        .put("TG ", theme::DECODE, ATTR_BOLD)
-        .put("avg ", theme::LABEL)
-        .put(fmt::speed(v.tg_avg), valueRole(v.tg_avg, theme::DECODE))
-        .put(SEP, theme::DIM)
-        .put("max ", theme::LABEL)
-        .put(fmt::speed(v.tg_max), valueRole(v.tg_max, theme::DECODE));
+  {
+    Writer w(g, tg_row, CONTENT_COL);
+    if (isnan(v.running)) {
+      w.put("run ", theme::LABEL).put(fmt::NO_DATA, theme::DIM);
+    } else {
+      char run[24];
+      if (isnan(v.max_batch)) snprintf(run, sizeof run, "%.0f", v.running);
+      else snprintf(run, sizeof run, "%.0f/%.0f", v.running, v.max_batch);
+      w.put("run ", theme::LABEL).put(run, theme::VALUE).put(SEP, theme::DIM);
+      w.put("wait ", theme::LABEL).put(fmt::count(v.waiting), valueRole(v.waiting, theme::VALUE));
+    }
+    w.put(SEP, theme::DIM).put("TG ", theme::DECODE, ATTR_BOLD);
+    if (isnan(v.tg_avg)) {
+      w.put(fmt::NO_DATA, theme::DIM);
+    } else {
+      w.put("avg ", theme::LABEL).put(fmt::speed(v.tg_avg), theme::DECODE).put(SEP, theme::DIM);
+      w.put("max ", theme::LABEL).put(fmt::speed(v.tg_max), valueRole(v.tg_max, theme::DECODE));
+    }
+  }
 
   // Cache
   const int cache = tg_row + 1;

@@ -5,12 +5,12 @@
 
 #include "theme.h"
 
-// The 48×24 character grid (spec.md §6). Pages draw into a Grid; the screen
+// The 48×20 character grid of 10×24 px cells (spec.md §6). Pages draw into a Grid; the screen
 // diffs it against what's on the panel and repaints only changed cells.
 // Arduino-free so pages can be rendered and checked on the host.
 
 constexpr int GRID_COLS = 48;
-constexpr int GRID_ROWS = 24;
+constexpr int GRID_ROWS = 20;  // 24 px rows (20 px glyphs + 4 px leading), user request
 
 enum Attr : uint8_t {
   ATTR_NONE = 0,

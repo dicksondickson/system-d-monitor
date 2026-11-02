@@ -91,7 +91,7 @@ On a healthy boot the log shows `psram 8192 KB`, `panel ok` and
 | `esp32-4848s040-guide.md` | General reference for the board (corrected where bring-up proved it wrong) |
 | `include/board_pins.h` | Pin map |
 | `src/hw/` | Panel (ST7701 + RGB bus), backlight (LEDC 1 kHz), GT911 touch, screen blit |
-| `src/gfx/` | 48×24 cell grid, Terminus font, themes, cell rasteriser |
+| `src/gfx/` | 48×20 cell grid (10×24 px cells), Terminus font, themes, cell rasteriser |
 | `src/ui/` | View model, number formatting, widgets, overview + graphs pages, demo data |
 | `src/metrics/` | `/metrics` parser, `/health` + `/v1/models`, engine identification, rate derivation |
 | `src/net/` | Wi-Fi + SNTP, streaming HTTP GET, poller task |

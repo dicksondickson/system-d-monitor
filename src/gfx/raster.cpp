@@ -10,21 +10,31 @@ FAST_CODE void cell(const Cell& c, const theme::Theme& t, uint16_t* dst, int str
   const uint16_t bg = t.rgb565[c.bg];
 
   if (c.attr & ATTR_BIG) {
-    // Pixel-double the bold glyph: this quadrant shows a 5×10 region of it.
+    // Pixel-double the bold glyph (20 → 40 px) and centre it in the 2-cell
+    // block (48 px): each quadrant shows a 5×10 region of the glyph, padded
+    // with blank rows above (top quadrants) or below (bottom quadrants).
     const uint16_t* g = font::rows(c.ch, true);
     const uint8_t q = bigQuadrant(c.attr);
-    const int sx = (q & 1) * (CELL_W / 2), sy = (q >> 1) * (CELL_H / 2);
+    const bool top = (q >> 1) == 0;
+    const int sx = (q & 1) * (CELL_W / 2), sy = top ? 0 : 10;
+    const int pad = CELL_H - 20;  // 4 px: the block's spare 8 px split top/bottom
     for (int y = 0; y < CELL_H; y++) {
-      const uint16_t bits = g[sy + y / 2];
+      const int gy = top ? y - pad : y;  // row within this quadrant's 20 px of glyph
+      const uint16_t bits = (gy >= 0 && gy < 20) ? g[sy + gy / 2] : 0;
       uint16_t* p = dst + y * stride;
       for (int x = 0; x < CELL_W; x++) p[x] = (bits >> (15 - (sx + x / 2))) & 1 ? fg : bg;
     }
     return;
   }
 
+  // The 20-row glyph sits centred in the taller cell. Padding rows repeat the
+  // glyph's first/last row: blank for text, but a continuous stroke for box
+  // drawing (│ ┤ ├ …) and blocks, so frame lines and bars still join.
   const uint16_t* g = font::rows(c.ch, c.attr & ATTR_BOLD);
   for (int y = 0; y < CELL_H; y++) {
-    const uint16_t bits = g[y];
+    int gy = y - PAD_TOP;
+    gy = gy < 0 ? 0 : gy > 19 ? 19 : gy;
+    const uint16_t bits = g[gy];
     uint16_t* p = dst + y * stride;
     for (int x = 0; x < CELL_W; x++) p[x] = (bits >> (15 - x)) & 1 ? fg : bg;
   }

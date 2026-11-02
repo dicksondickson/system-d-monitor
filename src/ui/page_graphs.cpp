@@ -75,14 +75,13 @@ int graph(Grid& g, int row, const GraphSpec& s) {
     return row + s.rows;
   }
   braille(g, CONTENT_COL, row, s.rows, 30, s.data, vmax, s.role);
-  statLine(g, row, s.events_only ? "last" : "now", st.now, s.fmt, s.role);
-  if (s.full_stats) {
-    statLine(g, row + 1, "avg", st.avg, s.fmt, s.role);
-    statLine(g, row + 2, "max", st.max, s.fmt, s.role);
-    statLine(g, row + 3, "min", st.min, s.fmt, s.role);
-  } else {
-    statLine(g, row + 1, "max", st.max, s.fmt, s.role);
-  }
+  // Stats down the right, as many as the graph has rows for.
+  struct Line { const char* label; float v; };
+  const Line full[] = {{s.events_only ? "last" : "now", st.now}, {"avg", st.avg}, {"max", st.max}, {"min", st.min}};
+  const Line brief[] = {{"now", st.now}, {"max", st.max}};
+  const Line* lines = s.full_stats ? full : brief;
+  const int n = s.full_stats ? 4 : 2;
+  for (int i = 0; i < n && i < s.rows; i++) statLine(g, row + i, lines[i].label, lines[i].v, s.fmt, s.role);
   return row + s.rows;
 }
 
@@ -91,10 +90,10 @@ int graph(Grid& g, int row, const GraphSpec& s) {
 void graphs(Grid& g, const View& v) {
   g.clear();
   int row = chrome(g, v);
-  row = graph(g, row, {"TG live tok/s", v.tg_hist, 8, 10, false, fmt::speed, theme::DECODE, true, false});
-  row = graph(g, row, {v.pp_per_request ? "PP per request tok/s" : "PP live tok/s", v.pp_hist, 4, 100,
+  row = graph(g, row, {"TG live tok/s", v.tg_hist, 7, 10, false, fmt::speed, theme::DECODE, true, false});
+  row = graph(g, row, {v.pp_per_request ? "PP per request tok/s" : "PP live tok/s", v.pp_hist, 3, 100,
                        false, fmt::speed, theme::PREFILL, true, v.pp_per_request});
-  row = graph(g, row, {"KV %", v.kv_hist, 4, 0, true, fmt::pct, theme::GOOD, false, false});
+  row = graph(g, row, {"KV %", v.kv_hist, 3, 0, true, fmt::pct, theme::GOOD, false, false});
   footer(g, v, "tap: overview");
   closeFrame(g);
 }
