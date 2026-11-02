@@ -170,7 +170,7 @@ void loop() {
     last_rotate = now;
     showServer(server + 1);
   }
-  const uint32_t gen = poller::generation();
+  const uint32_t gen = poller::generation(server);
   if (gen != seen_gen || now - last_tick >= 1000) {
     seen_gen = gen;
     last_tick = now;

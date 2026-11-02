@@ -37,6 +37,7 @@ Theme, page and server survive a reboot.
 | **MTP** | speculative-decoding acceptance: accepted ÷ drafted tokens |
 | **cache-hit** | prompt tokens served from the prefix cache ÷ all prompt tokens (vLLM; TensorFold after Appendix A) |
 | **no data** | not exported, not received yet, or nothing happened in the window. Never a fake 0 |
+| header | row 1: `SYSTEM-D`, the time and the Wi-Fi bars (top right); row 2: server name · IP, with its state (`OK IDLE`, `OK BUSY`, `DOWN`, …) on the right; row 3: engine · model |
 | footer | `poll 2s · ok 0.4s ago`, or the problem: `stale`, `timeout · retry 8s`, `dns …`, `not TensorFold or vLLM`, `wifi lost` |
 
 ## Configure
@@ -108,5 +109,5 @@ On a healthy boot the log shows `psram 8192 KB`, `panel ok` and
 - R/B pins: R = 11,12,13,14,0 and B = 4,5,6,7,15.
 - Upload at **460800**. 921600 corrupts over the CH340.
 - Build with **`-O2`**. The platform passes no optimisation flag, so the default is `-O0`.
-- **Bounce buffers** on the RGB panel. Without them the screen flickers whenever Wi-Fi is busy.
+- **Bounce buffers** (2 × 20 lines) on the RGB panel, and no cache writeback after drawing. Without them the screen flickers or glitches when Wi-Fi is busy (bring-up §2.7, §2.9).
 - Bring the panel up **before** Wi-Fi, and never block on the connection. Black-screen-with-Wi-Fi causes are in bring-up §2.8.

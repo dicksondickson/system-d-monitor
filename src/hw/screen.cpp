@@ -1,6 +1,5 @@
 #include "screen.h"
 
-#include <esp32s3/rom/cache.h>
 #include <string.h>
 
 #include "board_pins.h"
@@ -49,9 +48,10 @@ int present(const Grid& next, const theme::Theme& t) {
     const size_t bytes = (last - first + 1) * raster::CELL_W * sizeof(uint16_t);
     for (int y = 0; y < raster::CELL_H; y++)
       memcpy(band + y * SCREEN_W + x0, g_band + y * SCREEN_W + x0, bytes);
-    // The RGB DMA reads PSRAM directly: push the band out of the CPU cache.
-    Cache_WriteBack_Addr((uint32_t)(band + x0),
-                         (raster::CELL_H - 1) * SCREEN_W * sizeof(uint16_t) + bytes);
+    // No cache writeback: with bounce buffers (panel.cpp) the driver copies
+    // the framebuffer through the CPU cache, so it sees these writes. The
+    // writeback was an extra 19 KB PSRAM burst per band that competed with
+    // the bounce-buffer refills and made the image glitch (bring-up §2.9).
   }
   g_shown = next;
   g_full = false;

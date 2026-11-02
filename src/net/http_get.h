@@ -13,6 +13,7 @@ struct Result {
   Err err = Err::OK;
   int status = 0;        // HTTP status code
   char server[24] = "";  // "Server:" response header
+  char ip[16] = "";      // the address the host name resolved to
   size_t bytes = 0;      // body bytes delivered
   uint32_t ms = 0;       // total time
 };

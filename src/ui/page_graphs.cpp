@@ -90,11 +90,9 @@ int graph(Grid& g, int row, const GraphSpec& s) {
 
 void graphs(Grid& g, const View& v) {
   g.clear();
-  header(g, v);
-  serverRule(g, v);
-  int row = 2;
+  int row = chrome(g, v);
   row = graph(g, row, {"TG live tok/s", v.tg_hist, 8, 10, false, fmt::speed, theme::DECODE, true, false});
-  row = graph(g, row, {v.pp_per_request ? "PP per request tok/s" : "PP live tok/s", v.pp_hist, 5, 100,
+  row = graph(g, row, {v.pp_per_request ? "PP per request tok/s" : "PP live tok/s", v.pp_hist, 4, 100,
                        false, fmt::speed, theme::PREFILL, true, v.pp_per_request});
   row = graph(g, row, {"KV %", v.kv_hist, 4, 0, true, fmt::pct, theme::GOOD, false, false});
   footer(g, v, "tap: overview");

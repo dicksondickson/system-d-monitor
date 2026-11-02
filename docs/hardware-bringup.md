@@ -24,7 +24,7 @@ dot lands under the finger.
 | RGB pins | R0–R4 = 11,12,13,14,0 · G0–G5 = 8,20,3,46,9,10 · B0–B4 = 4,5,6,7,15 | `include/board_pins.h` |
 | Control pins | DE 18, VSYNC 17, HSYNC 16, PCLK 21; init SPI CS 39 / SCK 48 / MOSI 47 (`Arduino_SWSPI`) | `include/board_pins.h` |
 | Timing | PCLK 12 MHz; HSYNC pol 1 / fp 10 / pw 8 / bp 50; VSYNC pol 1 / fp 10 / pw 8 / bp 20 | `src/hw/panel.cpp` |
-| **Bounce buffers** | 2 × 10 lines (`BOUNCE_PX = 480 × 10`) in internal SRAM; needed once Wi-Fi is on (§2.7) | `src/hw/panel.cpp` |
+| **Bounce buffers** | 2 × 20 lines (`BOUNCE_PX = 480 × 20`, 38 KB internal SRAM); needed once Wi-Fi is on (§2.7), 20 lines with two servers (§2.9). **No cache writeback** after blits | `src/hw/panel.cpp`, `src/hw/screen.cpp` |
 | **Init sequence** | Arduino_GFX `st7701_type9_init_operations` **+ `0x20` INVOFF**, spliced in before the colour-mode command and re-sent 50 ms after `begin()` | `src/hw/panel.cpp` |
 | Rotation | 0 (native) | `src/hw/panel.cpp` |
 | **Backlight** | GPIO38, LEDC **1 kHz**, 8-bit, attached after `panel::begin()` | `src/hw/backlight.cpp` |
@@ -159,6 +159,33 @@ ready — touch the screen
   4. first `redraw()`;
   5. `backlight::begin()` + `set()` (1 kHz).
 
+### 2.9 Random glitches with two servers: image wraps, stray pixels
+
+- **Symptom:** after adding the second server (dick6000, vLLM, 67 KB
+  `/metrics` every 2 s), the image now and then wrapped vertically (top text
+  showing at the bottom) and stray pixels flashed, at random. The serial log
+  showed no resets or errors.
+- **Cause:** with bounce buffers the CPU must refill each buffer from the
+  PSRAM framebuffer before the LCD needs it. Two servers' Wi-Fi traffic,
+  plus the PSRAM write bursts from each redraw, sometimes made a refill
+  late. The panel then shows stale lines or slips by some rows.
+  `CONFIG_LCD_RGB_RESTART_IN_VSYNC` is enabled in this core's sdkconfig, so
+  the driver re-syncs at the next frame: glitches were brief, not
+  permanent.
+- **Fix** (confirmed clean by the user):
+  1. **No `Cache_WriteBack_Addr` after blits.** With bounce buffers the
+     driver reads the framebuffer through the CPU cache, so the writeback
+     wasn't needed. Each one was an extra 19 KB PSRAM burst per dirty band.
+  2. **Bounce buffers 10 → 20 lines** (2 × 19.2 KB): twice the slack per
+     refill.
+  3. **Redraw only when the server on screen updates** (per-server
+     generation counter), not on every poll of any server.
+- If it ever comes back: try 40-line buffers (must divide 480 lines), or
+  lower PCLK (12 → 10 MHz, ~35 Hz refresh). The NVS writes on tap/switch
+  briefly disable the flash cache, and the RGB ISR isn't IRAM-safe in this
+  build (`CONFIG_LCD_RGB_ISR_IRAM_SAFE` off), so a glitch exactly on a tap
+  would point there.
+
 ---
 
 ## 3. How it was found (diagnostic rounds)
@@ -205,6 +232,8 @@ alternative to type9 if ever needed.
    (§2.3).
 4. **Flicker that comes and goes with network activity:** check that
    bounce buffers are still enabled (§2.7).
+   **Random wrap-around / stray pixels:** see §2.9 (bounce-buffer size, no
+   writeback).
    **Black only once Wi-Fi is on:** go through §2.8.
 5. **Shifted or cropped image / missing edge of the border:** tune the
    porch values in `src/hw/panel.cpp` (guide §3).

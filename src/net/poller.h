@@ -20,7 +20,8 @@ int count();
 // `index`'s latest data. Safe to call from the UI task.
 void snapshot(int index, View& v, bool wifi_up);
 
-// Incremented after every poll attempt of any server; redraw when it changes.
-uint32_t generation();
+// Incremented after every poll attempt of server `index` (and while Wi-Fi
+// is down); redraw when the shown server's generation changes.
+uint32_t generation(int index);
 
 }  // namespace poller

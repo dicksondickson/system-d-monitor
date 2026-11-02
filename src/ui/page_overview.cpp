@@ -93,17 +93,18 @@ void streamRow(Grid& g, int row, const StreamView& s) {
 
 void overview(Grid& g, const View& v) {
   g.clear();
-  header(g, v);
-  serverRule(g, v);
+  const int top = chrome(g, v);  // rows 1–3: clock, server + state, model
 
-  // Throughput (rows 3–8)
-  section(g, 2, "Throughput");
-  throughputHero(g, 3, v);
+  // Throughput: section rule, 2-row hero, PP, PP sparkline, run/wait, TG avg/max
+  const int thr = top;
+  section(g, thr, "Throughput");
+  throughputHero(g, thr + 1, v);
 
-  boxRow(g, 5);
+  const int pp = thr + 3;
+  boxRow(g, pp);
   if (v.pp_per_request) {
     // "PP last 3,354/s · prefilling 12s" (spec.md §7.1)
-    Writer w(g, 5, CONTENT_COL);
+    Writer w(g, pp, CONTENT_COL);
     w.put("PP ", theme::PREFILL, ATTR_BOLD).put("last ", theme::LABEL);
     w.put(fmt::rate(v.pp_last), valueRole(v.pp_last, theme::PREFILL));
     if (!isnan(v.prefilling_s)) {
@@ -111,8 +112,8 @@ void overview(Grid& g, const View& v) {
       snprintf(s, sizeof s, "prefilling %.0fs", v.prefilling_s);
       w.put(SEP, theme::DIM).put(s, theme::WARN);
     }
-  } else if (!noDataRow(g, 5, {v.pp_live, v.pp_avg, v.pp_eng}, "PP ", theme::PREFILL, ATTR_BOLD))
-  Writer(g, 5, CONTENT_COL)
+  } else if (!noDataRow(g, pp, {v.pp_live, v.pp_avg, v.pp_eng}, "PP ", theme::PREFILL, ATTR_BOLD))
+  Writer(g, pp, CONTENT_COL)
       .put("PP ", theme::PREFILL, ATTR_BOLD)
       .put(fmt::rate(v.pp_live), valueRole(v.pp_live, theme::PREFILL))
       .put("  avg ", theme::LABEL)
@@ -121,18 +122,20 @@ void overview(Grid& g, const View& v) {
       .put("eng ", theme::LABEL)
       .put(fmt::rate(v.pp_eng), valueRole(v.pp_eng, theme::PREFILL));
 
-  boxRow(g, 6);
-  g.text(CONTENT_COL, 6, "PP", theme::PREFILL, ATTR_BOLD);
-  float pp_max = sparkline(g, 5, 6, 1, 30, 2, v.pp_hist, theme::PREFILL);
-  g.text(36, 6, fmt::speedShort(pp_max), theme::DIM);
+  const int spark = pp + 1;
+  boxRow(g, spark);
+  g.text(CONTENT_COL, spark, "PP", theme::PREFILL, ATTR_BOLD);
+  float pp_max = sparkline(g, 5, spark, 1, 30, 2, v.pp_hist, theme::PREFILL);
+  g.text(36, spark, fmt::speedShort(pp_max), theme::DIM);
 
-  boxRow(g, 7);
-  if (!noDataRow(g, 7, {v.running, v.waiting})) {
+  const int run_row = spark + 1;
+  boxRow(g, run_row);
+  if (!noDataRow(g, run_row, {v.running, v.waiting})) {
     char run[24];
     if (isnan(v.running)) snprintf(run, sizeof run, "%s", fmt::NO_DATA);
     else if (isnan(v.max_batch)) snprintf(run, sizeof run, "%.0f", v.running);
     else snprintf(run, sizeof run, "%.0f/%.0f", v.running, v.max_batch);
-    Writer(g, 7, CONTENT_COL)
+    Writer(g, run_row, CONTENT_COL)
         .put("run ", theme::LABEL)
         .put(run, valueRole(v.running, theme::VALUE))
         .put(SEP, theme::DIM)
@@ -141,12 +144,13 @@ void overview(Grid& g, const View& v) {
   }
 
   // "TG avg 95.1 · max 104.2": live TG since the monitor started / the server
-  // restarted: average over the polls where it was generating, and peak. (The engine-time "eng" rate
-  // is no longer shown here, the user found it confusing; it's still in the
-  // serial log.)
-  boxRow(g, 8);
-  if (!noDataRow(g, 8, {v.tg_avg, v.tg_max}, "TG ", theme::DECODE, ATTR_BOLD))
-    Writer(g, 8, CONTENT_COL)
+  // restarted: average over the polls where it was generating, and peak.
+  // (The engine-time "eng" rate is no longer shown, the user found it
+  // confusing; it's still in the serial log.)
+  const int tg_row = run_row + 1;
+  boxRow(g, tg_row);
+  if (!noDataRow(g, tg_row, {v.tg_avg, v.tg_max}, "TG ", theme::DECODE, ATTR_BOLD))
+    Writer(g, tg_row, CONTENT_COL)
         .put("TG ", theme::DECODE, ATTR_BOLD)
         .put("avg ", theme::LABEL)
         .put(fmt::speed(v.tg_avg), valueRole(v.tg_avg, theme::DECODE))
@@ -154,13 +158,14 @@ void overview(Grid& g, const View& v) {
         .put("max ", theme::LABEL)
         .put(fmt::speed(v.tg_max), valueRole(v.tg_max, theme::DECODE));
 
-  // Cache (rows 10–11)
-  section(g, 9, "Cache");
-  boxRow(g, 10);
+  // Cache
+  const int cache = tg_row + 1;
+  section(g, cache, "Cache");
+  boxRow(g, cache + 1);
   {
-    Writer w(g, 10, CONTENT_COL);
+    Writer w(g, cache + 1, CONTENT_COL);
     w.put("KV ", theme::LABEL).put(fmt::pct(v.kv_pct), fillRole(v.kv_pct)).put(" ", theme::BG);
-    bar(g, w.col(), 10, 16, v.kv_pct, fillRole(v.kv_pct));
+    bar(g, w.col(), cache + 1, 16, v.kv_pct, fillRole(v.kv_pct));
     w.to(w.col() + 16).put(SEP, theme::DIM);
     if (isnan(v.kv_tokens) || isnan(v.kv_capacity)) {
       w.put(fmt::NO_DATA, theme::DIM);
@@ -171,17 +176,19 @@ void overview(Grid& g, const View& v) {
     }
   }
 
-  // Streams (row 13 header, then one row per slot)
-  section(g, 11, "Streams");
-  boxRow(g, 12);
-  g.text(3, 12, "#", theme::DIM);
-  g.text(6, 12, "state", theme::DIM);
-  g.textRight(22, 12, "ctx", theme::DIM);
-  g.textRight(29, 12, "tokens", theme::DIM);
-  g.textRight(36, 12, "TTFT", theme::DIM);
-  g.textRight(44, 12, "TG", theme::DIM);
-  int row = 13;
-  // Rows left before Averages (header + 2 rows) and the footer: 7 streams.
+  // Streams: column header, then one row per slot
+  const int streams = cache + 2;
+  section(g, streams, "Streams");
+  const int hdr = streams + 1;
+  boxRow(g, hdr);
+  g.text(3, hdr, "#", theme::DIM);
+  g.text(6, hdr, "state", theme::DIM);
+  g.textRight(22, hdr, "ctx", theme::DIM);
+  g.textRight(29, hdr, "tokens", theme::DIM);
+  g.textRight(36, hdr, "TTFT", theme::DIM);
+  g.textRight(44, hdr, "TG", theme::DIM);
+  int row = hdr + 1;
+  // As many streams as fit above Averages (rule + 2 rows) and the footer.
   const int max_rows = (GRID_ROWS - 1) - 3 - row;
   if (v.n_streams == 0) {
     boxRow(g, row);

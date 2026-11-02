@@ -15,7 +15,7 @@ constexpr int32_t PCLK_HZ = 12000000;
 // SRAM, refilled by the CPU from the PSRAM framebuffer. Without them the DMA
 // reads PSRAM directly and underruns when Wi-Fi traffic and framebuffer
 // writes compete for PSRAM bandwidth, which shows as flicker every poll.
-constexpr size_t BOUNCE_PX = SCREEN_W * 10;
+constexpr size_t BOUNCE_PX = SCREEN_W * 20;  // 20 lines (×2 buffers, 38 KB SRAM); 10 glitched with two servers
 
 // This board's glass shows inverted colours unless it gets an explicit
 // INVOFF (0x20), which Arduino_GFX's type9 sequence doesn't send (display

@@ -48,23 +48,31 @@ void truncate(char* dst, size_t n, const char* src, int cols) {
 
 void header(Grid& g, const View& v) {
   static const uint32_t BARS[4] = {0x2582, 0x2584, 0x2586, 0x2588};  // ▂▄▆█
-  // "SYSTEM-D hh:mm:ss  <server> ▂▄▆█", clipped before the rule's tail.
-  const int end = GRID_COLS - ruleTail(nullptr) - 5;  // leave " ▂▄▆█"
-  Writer w(g, 0, ruleStart(g, 0, Edge::TOP), end);
+  // "SYSTEM-D 7:42:10 PM" on the left, the Wi-Fi bars always in the
+  // right-hand bracket: "…├──┤ ▂▄▆█ ├─┐".
+  const char* bars = "\xE2\x96\x82\xE2\x96\x84\xE2\x96\x86\xE2\x96\x88";
+  Writer w(g, 0, ruleStart(g, 0, Edge::TOP), GRID_COLS - ruleTail(bars));
   w.put("SYSTEM-D", theme::TITLE, ATTR_BOLD);
   if (v.clock[0]) w.put(" ", theme::BORDER).put(v.clock, theme::VALUE);
-  w.put("  ", theme::BORDER).put(v.server[0] ? v.server : fmt::NO_DATA, v.server[0] ? theme::VALUE : theme::DIM);
-  w.put(" ", theme::BORDER);
-  int col = w.col();
+  ruleEnd(g, 0, w.col(), Edge::TOP, bars, theme::DIM);
+  const int col = GRID_COLS - 1 - (4 + 5) + 2;  // where ruleEnd put the label
   for (int i = 0; i < 4; i++) g.put(col + i, 0, BARS[i], i < v.wifi_bars ? theme::GOOD : theme::DIM);
-  ruleEnd(g, 0, col + 4, Edge::TOP);
 }
 
-void serverRule(Grid& g, const View& v) {
+// "dgx042 · 192.168.50.192", state right-justified: "…├──┤ OK IDLE ├─┤"
+void serverLine(Grid& g, const View& v) {
   StateLabel st = stateLabel(v.state);
+  Writer w(g, 1, ruleStart(g, 1), GRID_COLS - ruleTail(st.text));
+  w.put(v.server[0] ? v.server : fmt::NO_DATA, v.server[0] ? theme::TITLE : theme::DIM, ATTR_BOLD);
+  w.put(" \xC2\xB7 ", theme::DIM);
+  w.put(v.server_ip[0] ? v.server_ip : fmt::NO_DATA, v.server_ip[0] ? theme::VALUE : theme::DIM);
+  ruleEnd(g, 1, w.col(), Edge::MID, st.text, st.role, ATTR_BOLD);
+}
+
+void modelRule(Grid& g, const View& v) {
   const char* engine = v.engine[0] ? v.engine : "???";
-  const int end = GRID_COLS - ruleTail(st.text);
-  Writer w(g, 1, ruleStart(g, 1), end);
+  const int end = GRID_COLS - ruleTail(nullptr);
+  Writer w(g, 2, ruleStart(g, 2), end);
   w.put(engine, theme::TITLE, ATTR_BOLD);
   if (v.model[0]) {
     int room = end - w.col() - 3;  // after " · "
@@ -72,7 +80,14 @@ void serverRule(Grid& g, const View& v) {
     truncate(model, sizeof model, v.model, room);
     w.put(" \xC2\xB7 ", theme::DIM).put(model, theme::VALUE);
   }
-  ruleEnd(g, 1, w.col(), Edge::MID, st.text, st.role, ATTR_BOLD);
+  ruleEnd(g, 2, w.col(), Edge::MID);
+}
+
+int chrome(Grid& g, const View& v) {
+  header(g, v);
+  serverLine(g, v);
+  modelRule(g, v);
+  return 3;
 }
 
 void footer(Grid& g, const View& v, const char* hint) {

@@ -43,6 +43,7 @@ Result get(const char* host, uint16_t port, const char* path, Sink sink, void* c
     r.ms = millis() - t0;
     return r;
   }
+  snprintf(r.ip, sizeof r.ip, "%s", ip.toString().c_str());
   WiFiClient c;
   if (!c.connect(ip, port, connect_ms)) {
     r.err = Err::CONNECT;

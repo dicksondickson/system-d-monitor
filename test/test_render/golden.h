@@ -3,8 +3,9 @@
 // printed dump, and paste it here.
 #pragma once
 
-static const char* GOLDEN_OVERVIEW = R"GOLDEN(┌─┤ SYSTEM-D 12:47:33 PM  dgx042 ▂▄▆█ ├────────┐
-├─┤ TensorFold · deepseek-v4.1-… ├─┤ OK BUSY ├─┤
+static const char* GOLDEN_OVERVIEW = R"GOLDEN(┌─┤ SYSTEM-D 12:47:33 PM ├────────────┤ ▂▄▆█ ├─┐
+├─┤ dgx042 · 192.168.50.192 ├──────┤ OK BUSY ├─┤
+├─┤ TensorFold · deepseek-v4.1-flash-1017 ├────┤
 ├─┤ Throughput ├───────────────────────────────┤
 │ TG １０１．３ tok/s    █▆▄▄▅▆███▆ ▄▄▅▇██     │
 │                live ▁▁▁██████████·██████     │
@@ -25,12 +26,12 @@ static const char* GOLDEN_OVERVIEW = R"GOLDEN(┌─┤ SYSTEM-D 12:47:33 PM  dg
 │ live TTFT 1.42s · lat 8.16s · n=42           │
 │                                              │
 │                                              │
-│                                              │
 └─┤ poll 2s · ok 0.4s ago ├────┤ tap: graphs ├─┘
 )GOLDEN";
 
-static const char* GOLDEN_GRAPHS = R"GOLDEN(┌─┤ SYSTEM-D 12:47:33 PM  dgx042 ▂▄▆█ ├────────┐
-├─┤ TensorFold · deepseek-v4.1-… ├─┤ OK BUSY ├─┤
+static const char* GOLDEN_GRAPHS = R"GOLDEN(┌─┤ SYSTEM-D 12:47:33 PM ├────────────┤ ▂▄▆█ ├─┐
+├─┤ dgx042 · 192.168.50.192 ├──────┤ OK BUSY ├─┤
+├─┤ TensorFold · deepseek-v4.1-flash-1017 ├────┤
 ├─┤ TG live tok/s ├───────────────────┤ 120s ├─┤
 │ ⠀⠀⠀⠀⢸⣀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣾⣿⣧⡀⠀⠀⠀⠀⠀⠀⠀⣰⣷⣿⣿ now  101.3    │
 │ ⠀⠀⠀⠀⢸⣿⣷⡄⠀⠀⠀⢀⣶⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⣠⣼⣿⣿⣿⣿ avg   73.7    │
@@ -43,9 +44,8 @@ static const char* GOLDEN_GRAPHS = R"GOLDEN(┌─┤ SYSTEM-D 12:47:33 PM  dgx0
 ├─┤ PP per request tok/s ├────────────┤ 120s ├─┤
 │ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ last 3,354    │
 │ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ avg  4,385    │
-│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⡄⠀⠀⠀⠀⠀⠀⠀ max  6,800    │
+│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡆⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀ max  6,800    │
 │ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀ min  3,000    │
-│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀               │
 ├─┤ KV % ├────────────────────────────┤ 120s ├─┤
 │ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ now  31.4%    │
 │ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ max  31.4%    │

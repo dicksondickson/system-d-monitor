@@ -72,9 +72,12 @@ Never: auth/HTTPS (the server is plain HTTP on the LAN), battery operation.
 | Backlight PWM (LEDC) | 38 |
 | GT911 SDA / SCL (I²C @ 0x5D) | 19 / 45 |
 
-**Bounce buffers** (2 × 10 lines in internal SRAM, `BOUNCE_PX` in
+**Bounce buffers** (2 × 20 lines, 38 KB of internal SRAM, `BOUNCE_PX` in
 `src/hw/panel.cpp`): without them the LCD DMA reads PSRAM directly and the
-screen flickers every poll once Wi-Fi is active (§2.7 of the bring-up log).
+screen flickers every poll once Wi-Fi is active (bring-up log §2.7). With
+two servers, 10-line buffers weren't enough (§2.9).
+With bounce buffers the framebuffer is read through the CPU cache, so
+`screen::present()` does **no** cache writeback.
 
 Timing starting point: PCLK 12–14 MHz, HSYNC pol 1 / fp 10 / pw 8 / bp 50,
 VSYNC pol 1 / fp 10 / pw 8 / bp 20. ST7701 needs Arduino_GFX's "type 9" init
@@ -316,7 +319,9 @@ Built in M2 (2026-11-01); code in `src/gfx/`, `src/ui/`, `src/hw/screen.cpp`.
 - **Blit:** the dirty cells of each cell row are rasterised into a 19 KB
   band buffer in internal SRAM. The span from the first to the last dirty
   column is then copied to the PSRAM framebuffer, and that band is written
-  back out of the CPU cache, since the RGB DMA reads PSRAM directly.
+  ~~back out of the CPU cache~~ (dropped 2026-11-01: with bounce buffers the
+  driver reads the framebuffer through the cache, so no writeback is needed,
+  and its PSRAM bursts caused glitches; bring-up §2.9).
 - **Speed on the board** (`-O2`, font tables in DRAM and raster code in
   IRAM, `gfx/platform.h`):
 
@@ -372,8 +377,9 @@ Values are illustrative, and assume TensorFold already exports Appendix A.
 ### 7.1 Overview
 
 ```
-┌─┤ SYSTEM-D 12:47:33 PM  dgx042 ▂▄▆█ ├────────┐
-├─┤ TensorFold · deepseek-v4.1-… ├─┤ OK BUSY ├─┤
+┌─┤ SYSTEM-D 12:47:33 PM ├────────────┤ ▂▄▆█ ├─┐
+├─┤ dgx042 · 192.168.50.192 ├──────┤ OK BUSY ├─┤
+├─┤ TensorFold · deepseek-v4.1-flash-1017 ├────┤
 ├─┤ Throughput ├───────────────────────────────┤
 │ TG １０１．３ tok/s    █▆▄▄▅▆███▆ ▄▄▅▇██     │
 │                live ▁▁▁██████████·██████     │
@@ -394,7 +400,6 @@ Values are illustrative, and assume TensorFold already exports Appendix A.
 │ live TTFT 1.42s · lat 8.16s · n=42           │
 │                                              │
 │                                              │
-│                                              │
 └─┤ poll 2s · ok 0.4s ago ├────┤ tap: graphs ├─┘
 ```
 
@@ -403,11 +408,12 @@ device it is drawn at 2× and spans rows 4–5, 2 columns per character.)
 
 | Rows | Section | Content |
 |---|---|---|
-| 1 | header | `SYSTEM-D`, 12-hour clock `2:47:33 PM` (SNTP, `TZ_POSIX`), **server name** (`SERVER_NAME`, default `SERVER_HOST` up to the first dot, e.g. `dgx042`) and the monitor's Wi-Fi signal bars `▂▄▆█` from `WiFi.RSSI()` (≥ −55 / −67 / −75 / −85 dBm → 4/3/2/1 bars, none = no link). The monitor's own IP goes to the serial log only |
-| 2 | server | **detected engine, spelled out** (`TensorFold` or `vLLM`, §4.3) · model id, state on the right (§8). The model id is cut with `…` to fit; the boot screen shows it in full |
-| 3–9 | Throughput | **hero: TG live** at 2× in the decode colour + 2-row, 20-cell sparkline (3 samples per cell = 120 s, 16 levels); the PP row (`PP last 3,354/s · prefilling 12s`, both engines); the PP 30-cell sparkline; `run x/max · wait n`; `TG avg … · max …` (since start, §5) |
-| 10–11 | Cache | KV bar + used / window tokens |
-| 12–19 | Streams | header + one row per stream slot, up to 7 (the rows left above Averages): id, state, ctx %, tokens, TTFT, TG |
+| 1 | header | `SYSTEM-D` + 12-hour clock `2:47:33 PM` (SNTP, `TZ_POSIX`) on the left; the monitor's **Wi-Fi bars `▂▄▆█` always in the top-right bracket** (`┤ ▂▄▆█ ├─┐`), from `WiFi.RSSI()` (≥ −55 / −67 / −75 / −85 dBm → 4/3/2/1 lit, none = no link). The monitor's own IP goes to the serial log only |
+| 2 | server | **server name · IP** (`dgx042 · 192.168.50.192`; the name is the configured one or the host up to the first dot, and the IP is the address the poller resolved), with the **state right-justified** in a bracket (`┤ OK IDLE ├─┤`, §8) |
+| 3 | model | **detected engine, spelled out** (`TensorFold` / `vLLM`, §4.3) · **model id**, now with room for the full name (`deepseek-v4.1-flash-1017`); cut with `…` only if it still doesn't fit |
+| 4–10 | Throughput | **hero: TG live** at 2× in the decode colour + 2-row, 20-cell sparkline (3 samples per cell = 120 s, 16 levels); the PP row (`PP last 3,354/s · prefilling 12s`, both engines); the PP 30-cell sparkline; `run x/max · wait n`; `TG avg … · max …` (since start, §5) |
+| 11–12 | Cache | KV bar + used / capacity tokens |
+| 13–… | Streams | header + one row per stream slot, up to 6 (the rows left above Averages): id, state, ctx %, tokens, TTFT, TG |
 | after Streams | Averages | cumulative TTFT · MTP acceptance · cache-hit; then live TTFT · e2e latency · `n` |
 | 20–23 | spare | stream overflow; otherwise blank |
 | 24 | footer rule | poll status (or error reason, §8) · touch hint |
@@ -427,8 +433,9 @@ rates can't be confused at a glance.
 ### 7.2 Graphs
 
 ```
-┌─┤ SYSTEM-D 12:47:33 PM  dgx042 ▂▄▆█ ├────────┐
-├─┤ TensorFold · deepseek-v4.1-… ├─┤ OK BUSY ├─┤
+┌─┤ SYSTEM-D 12:47:33 PM ├────────────┤ ▂▄▆█ ├─┐
+├─┤ dgx042 · 192.168.50.192 ├──────┤ OK BUSY ├─┤
+├─┤ TensorFold · deepseek-v4.1-flash-1017 ├────┤
 ├─┤ TG live tok/s ├───────────────────┤ 120s ├─┤
 │ ⠀⠀⠀⠀⢸⣀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣾⣿⣧⡀⠀⠀⠀⠀⠀⠀⠀⣰⣷⣿⣿ now  101.3    │
 │ ⠀⠀⠀⠀⢸⣿⣷⡄⠀⠀⠀⢀⣶⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⣠⣼⣿⣿⣿⣿ avg   73.7    │
@@ -441,9 +448,8 @@ rates can't be confused at a glance.
 ├─┤ PP per request tok/s ├────────────┤ 120s ├─┤
 │ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ last 3,354    │
 │ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ avg  4,385    │
-│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⡄⠀⠀⠀⠀⠀⠀⠀ max  6,800    │
+│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡆⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀ max  6,800    │
 │ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀ min  3,000    │
-│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀               │
 ├─┤ KV % ├────────────────────────────┤ 120s ├─┤
 │ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ now  31.4%    │
 │ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ max  31.4%    │
@@ -457,7 +463,7 @@ rates can't be confused at a glance.
 look ragged. On the device every glyph is one 10×20 cell.)
 
 - Rows 1–2 and the footer rule are the same as the overview.
-- TG live gets 8 rows (32 levels, decode colour), PP 5 (prefill colour),
+- TG live gets 8 rows (32 levels, decode colour), PP 4 (prefill colour),
   KV 4. Right column: `now / avg / max / min` for the window.
 - The PP graph is titled **PP per request tok/s**: one bar
   per finished request. Its stats cover finished requests only, and
@@ -658,6 +664,9 @@ third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
   engine-time `eng` rate is off the screen (user: "eng is kind of
   confusing"); it's still in the serial log.
 - **Clock is 12-hour** (`2:47:33 PM`).
+- **Header (user, 2026-11-01):** Wi-Fi bars pinned top-right; server
+  name + IP on their own line with the state right-justified; engine +
+  model on their own line, so the full model name fits.
 - **Multiple servers (2026-11-01):** up to 4 in `SERVERS`, one poller task
   each, left/right thirds to switch, `‹ n/N ›` in the footer.
 

@@ -135,6 +135,7 @@ void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, bool wifi_ok,
   View v;
   memcpy(v.clock, out.clock, sizeof v.clock);
   memcpy(v.server, out.server, sizeof v.server);
+  memcpy(v.server_ip, out.server_ip, sizeof v.server_ip);
   memcpy(v.ip, out.ip, sizeof v.ip);
   v.wifi_bars = out.wifi_bars;
   v.server_index = out.server_index;

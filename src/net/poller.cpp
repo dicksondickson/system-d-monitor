@@ -39,11 +39,13 @@ void toParser(const char* d, size_t n, void* ctx) { ((PromParser*)ctx)->feed(d, 
 
 // Everything for one server. Allocated once at start-up.
 struct Slot {
+  int index;
   ServerCfg cfg;
   char label[24];          // for the serial log
   SemaphoreHandle_t lock;
   Deriver deriver;         // guarded by lock
   uint32_t retry_at = 0;   // guarded by lock
+  char ip[16] = "";        // guarded by lock: last resolved address
   ServerInfo info;         // task only
   Sample sample;           // task only
   Buffer json;             // task only
@@ -52,7 +54,7 @@ struct Slot {
 
 Slot* g_slots[4];
 int g_count = 0;
-std::atomic<uint32_t> g_generation{0};
+std::atomic<uint32_t> g_generation[4];
 
 bool fetchJson(Slot& s, const char* path, bool (*parse)(const char*, size_t, ServerInfo&)) {
   s.json.len = 0;
@@ -79,6 +81,7 @@ void logValues(Slot& s) {
 
 void task(void* arg) {
   Slot& s = *(Slot*)arg;
+  std::atomic<uint32_t>& gen = g_generation[s.index];
   bool need_models = true, need_info = true;
   uint32_t last_info = 0;
   Engine engine = Engine::UNKNOWN;
@@ -87,7 +90,7 @@ void task(void* arg) {
     const uint32_t start = millis();
     if (!net::up()) {
       vTaskDelay(pdMS_TO_TICKS(500));
-      g_generation++;
+      gen++;
       continue;
     }
 
@@ -108,6 +111,11 @@ void task(void* arg) {
                                g_timing.connect_ms, g_timing.read_ms);
     parser.finish();
     s.sample.t_ms = millis();
+    if (r.ip[0]) {
+      xSemaphoreTake(s.lock, portMAX_DELAY);
+      memcpy(s.ip, r.ip, sizeof s.ip);
+      xSemaphoreGive(s.lock);
+    }
 
     uint32_t wait = g_timing.poll_ms;
     if (r.err == http::Err::OK) {
@@ -143,7 +151,7 @@ void task(void* arg) {
     xSemaphoreTake(s.lock, portMAX_DELAY);
     s.retry_at = start + wait;
     xSemaphoreGive(s.lock);
-    g_generation++;
+    gen++;
 
     const uint32_t elapsed = millis() - start;
     if (elapsed < wait) vTaskDelay(pdMS_TO_TICKS(wait - elapsed));
@@ -158,6 +166,7 @@ void begin(const ServerCfg* servers, int count, uint32_t poll_ms, uint32_t conne
   g_count = count < 4 ? count : 4;
   for (int i = 0; i < g_count; i++) {
     Slot* s = new Slot();
+    s->index = i;
     s->cfg = servers[i];
     if (s->cfg.name) {
       snprintf(s->label, sizeof s->label, "%s", s->cfg.name);
@@ -182,9 +191,12 @@ void snapshot(int index, View& v, bool wifi_up) {
   xSemaphoreTake(s.lock, portMAX_DELAY);
   const uint32_t retry = (int32_t)(s.retry_at - now) > 0 ? s.retry_at - now : 0;
   s.deriver.fill(v, now, g_timing.poll_ms, wifi_up, retry);
+  memcpy(v.server_ip, s.ip, sizeof v.server_ip);
   xSemaphoreGive(s.lock);
 }
 
-uint32_t generation() { return g_generation.load(); }
+uint32_t generation(int index) {
+  return (index >= 0 && index < g_count) ? g_generation[index].load() : 0;
+}
 
 }  // namespace poller
