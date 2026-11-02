@@ -51,7 +51,7 @@ All rounds ran with the final RGB pin order (R = 11–14,0, B = 4–7,15).
 
 | File | What |
 |---|---|
-| `vendor_st7701s_hsd040bpn1.txt` | The vendor's ST7701S init listing for the HSD040BPN1 glass, copied from `reference/…/1_2_4.0_LvglWidgets/` (GB18030 text) |
+| `vendor_st7701s_hsd040bpn1.txt` | The vendor's ST7701S init listing for the HSD040BPN1 glass, copied from the vendor's download pack (`1-Demo/…/1_2_4.0_LvglWidgets/`, see `docs/board-guide.md` §1) (GB18030 text) |
 | `vendor_init_to_ops.py` | Converts that listing to an Arduino_GFX `batchOperation` array |
 | `st7701_hsd040bpn1.h` | Its output, used by round 1. Regenerate with `vendor_init_to_ops.py vendor_st7701s_hsd040bpn1.txt st7701_hsd040bpn1_init_operations > st7701_hsd040bpn1.h` |
 | `run.sh` | Build/flash helper above |

@@ -211,7 +211,7 @@ and §1 lists only what was verified at the end.
 | M1 v4 | INVOFF + pins swapped to R = 4–7,15 | red ↔ blue swapped | pin swap wrong |
 | **M1 v5** | **INVOFF + original pins R = 11–14,0** | **bars, ramps, border, touch all correct** | **final** |
 
-The vendor's own init listing (`reference/…/1_2_4.0_LvglWidgets/ST7701S_HSD3.95IPS(HSD040BPN1)480x480_V1.0 -RGB 验证OK20230531.txt`)
+The vendor's own init listing (copied from the vendor's download pack into `tools/display-diag/vendor_st7701s_hsd040bpn1.txt`)
 also produces a picture with the same inversion, so it's a valid
 alternative to type9 if ever needed.
 
