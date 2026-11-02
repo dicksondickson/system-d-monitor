@@ -49,14 +49,15 @@ void truncate(char* dst, size_t n, const char* src, int cols) {
 }  // namespace
 
 // Rows 1–4, one btop box (spec.md §7):
-//   ╭─┐SYSTEM-D┌─┐7:42:10 PM┌───────────┐▂▄▆█┌─╮
+//   ╭─┐SYSTEM-D┌─┐7:42:10 PM┌───────────┐⣀⣤⣶⣿┌─╮
 //   │ gpu-box · 192.168.1.50            OK IDLE │
 //   │ TensorFold · deepseek-v4.1-flash-1017     │
 //   ╰───────────────────────────────────────────╯
 int chrome(Grid& g, const View& v) {
-  static const uint32_t BARS[4] = {0x2582, 0x2584, 0x2586, 0x2588};  // ▂▄▆█
+  // Wi-Fi strength as rising braille bars, like the braille graphs.
+  static const uint32_t BARS[4] = {0x28C0, 0x28E4, 0x28F6, 0x28FF};  // ⣀⣤⣶⣿
   const uint8_t box = theme::BORDER;
-  const char* bars = "\xE2\x96\x82\xE2\x96\x84\xE2\x96\x86\xE2\x96\x88";
+  const char* bars = "\xE2\xA3\x80\xE2\xA3\xA4\xE2\xA3\xB6\xE2\xA3\xBF";
 
   // Top edge: "SYSTEM-D" and the clock in two notches with the border
   // between them as the divider (btop style), Wi-Fi bars in the right one.
