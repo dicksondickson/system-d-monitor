@@ -154,11 +154,11 @@ void overview(Grid& g, const View& v) {
     w.put("KV ", theme::LABEL).put(fmt::pct(v.kv_pct), fillRole(v.kv_pct)).put(" ", theme::BG);
     bar(g, w.col(), 9, 16, v.kv_pct, fillRole(v.kv_pct));
     w.to(w.col() + 16).put(SEP, theme::DIM);
-    if (isnan(v.kv_tokens) || isnan(v.ctx_window)) {
+    if (isnan(v.kv_tokens) || isnan(v.kv_capacity)) {
       w.put(fmt::NO_DATA, theme::DIM);
     } else {
       char tok[2 * sizeof(fmt::Str)];
-      snprintf(tok, sizeof tok, "%s/%s", fmt::tokens(v.kv_tokens).s, fmt::tokens(v.ctx_window).s);
+      snprintf(tok, sizeof tok, "%s/%s", fmt::tokens(v.kv_tokens).s, fmt::tokens(v.kv_capacity).s);
       w.put(tok, theme::VALUE).put(" tok", theme::DIM);
     }
   }

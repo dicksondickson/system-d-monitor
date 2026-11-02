@@ -13,12 +13,12 @@
 #include "metrics/server_info.h"
 #include "ui/pages.h"
 
-static std::string readFixture(const char* name) {
-  std::string rel = std::string("test/fixtures/tensorfold-1.1.8-idle/") + name;
+static std::string readFixtureIn(const char* dir, const char* name) {
+  std::string rel = std::string("test/fixtures/") + dir + "/" + name;
   FILE* f = fopen(rel.c_str(), "rb");
   if (!f) {  // fall back to a path relative to this source file
     std::string here = __FILE__;
-    rel = here.substr(0, here.rfind('/')) + "/../fixtures/tensorfold-1.1.8-idle/" + name;
+    rel = here.substr(0, here.rfind('/')) + "/../fixtures/" + dir + "/" + name;
     f = fopen(rel.c_str(), "rb");
   }
   TEST_ASSERT_NOT_NULL_MESSAGE(f, name);
@@ -29,6 +29,8 @@ static std::string readFixture(const char* name) {
   fclose(f);
   return s;
 }
+static std::string readFixture(const char* name) { return readFixtureIn("tensorfold-1.1.8-idle", name); }
+static std::string readVllm(const char* name) { return readFixtureIn("vllm-0.33.0rc1-idle", name); }
 
 static Sample parse(const std::string& body, size_t chunk = 4096) {
   Sample s;
@@ -88,7 +90,7 @@ static void test_byte_by_byte_feed_matches() {
 }
 
 static void test_overlong_line_skipped() {
-  std::string body = "tensorfold:prompt_tokens_total{x=\"" + std::string(2000, 'a') + "\"} 5\n"
+  std::string body = "tensorfold:prompt_tokens_total{x=\"" + std::string(3000, 'a') + "\"} 5\n"
                      "tensorfold:generation_tokens_total 7\n";
   Sample s;
   PromParser p(s);
@@ -312,6 +314,98 @@ static void test_prefilling_and_per_request_pp() {
   TEST_ASSERT_TRUE(g.dump().find("PP last 3,342/s") != std::string::npos);
 }
 
+// --- vLLM (dick6000 capture, 2026-11-01) ---------------------------------
+
+static ServerInfo vllmInfo() {
+  ServerInfo info;
+  std::string h = readVllm("health.txt"), m = readVllm("v1_models.json"), ver = readVllm("version.json");
+  TEST_ASSERT_FALSE(parseHealth(h.data(), h.size(), info));  // vLLM's /health is an empty 200
+  TEST_ASSERT_TRUE(parseModels(m.data(), m.size(), info));
+  TEST_ASSERT_TRUE(parseVersion(ver.data(), ver.size(), info));
+  return info;
+}
+
+static void test_vllm_fixture_values() {
+  Sample s = parse(readVllm("metrics.txt"));
+  TEST_ASSERT_EQUAL_STRING("qwen3.8-flash-next", s.model_name);
+  TEST_ASSERT_EQUAL_FLOAT(0, s.get(F_RUNNING));
+  TEST_ASSERT_EQUAL_FLOAT(98189253, s.get(F_PROMPT_TOKENS));
+  TEST_ASSERT_EQUAL_FLOAT(812177, s.get(F_GEN_TOKENS));
+  TEST_ASSERT_EQUAL_FLOAT(82323200, s.get(F_CACHED_TOKENS));
+  TEST_ASSERT_EQUAL_FLOAT(355241, s.get(F_KV_POOL_TOKENS));   // from the 1.1 KB cache_config_info line
+  TEST_ASSERT_EQUAL_FLOAT(98189253, s.get(F_REQ_PROMPT));
+  TEST_ASSERT_EQUAL_FLOAT(812177, s.get(F_REQ_GEN));
+  TEST_ASSERT_EQUAL_FLOAT(953736, s.get(F_DRAFT_TOKENS));
+  TEST_ASSERT_EQUAL_FLOAT(494477, s.get(F_ACCEPTED_TOKENS));
+  TEST_ASSERT_EQUAL_FLOAT(317912, s.get(F_DRAFTS));
+  TEST_ASSERT_EQUAL_FLOAT(81, s.get(F_PREEMPTIONS));
+  TEST_ASSERT_EQUAL_FLOAT(830, s.get(F_TTFT_COUNT));
+  TEST_ASSERT_EQUAL_FLOAT(0, s.get(F_KV_POOL));
+  TEST_ASSERT_TRUE(std::isnan(s.get(F_GEN_RUNNING)));  // TensorFold only
+  for (const StreamSample& st : s.streams) TEST_ASSERT_FALSE(st.present);
+  TEST_ASSERT_EQUAL(0, s.n_tensorfold);
+  TEST_ASSERT_TRUE(s.n_vllm > 10);  // lines the suffix table recognises
+}
+
+static void test_vllm_identified_and_confirmed() {
+  ServerInfo info = vllmInfo();
+  TEST_ASSERT_EQUAL_STRING("0.33.0rc1.dev229+g3966924d5.d20261029", info.version);
+  TEST_ASSERT_EQUAL_STRING("qwen3.8-flash-next", info.model);
+  TEST_ASSERT_EQUAL_FLOAT(262144, info.context_length);  // max_model_len
+  Identity id = identify(parse(readVllm("metrics.txt")), "uvicorn", info);
+  TEST_ASSERT_EQUAL(Engine::VLLM, id.engine);
+  TEST_ASSERT_TRUE(id.confirmed);
+  TEST_ASSERT_FALSE(identify(parse(readVllm("metrics.txt")), "uvicorn", ServerInfo{}).confirmed);
+}
+
+static void test_vllm_derived_view() {
+  ServerInfo info = vllmInfo();
+  Sample a = parse(readVllm("metrics.txt"));
+  Identity id = identify(a, "uvicorn", info);
+  a.t_ms = 0;
+  Sample b = a;
+  b.t_ms = 2000;
+  b.v[F_GEN_TOKENS] += 120;           // live counter moves while decoding
+  b.v[F_REQ_GEN] += 400;              // a request finished: its tokens …
+  b.v[F_DECODE_S] += 5;               // … and its decode time
+  b.v[F_REQ_PROMPT] += 20000;
+  b.v[F_PROMPT_TOKENS] += 20000;
+  b.v[F_PREFILL_S] += 2.5f;
+  b.v[F_RUNNING] = 1;
+  b.v[F_KV_POOL] = 0.25f;
+  Deriver d;
+  d.onSample(a, id, info);
+  d.onSample(b, id, info);
+  View v;
+  d.fill(v, 2000, 2000, true, 0);
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 60, v.tg_live);    // 120 live tokens / 2 s
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 80, v.tg_eng);     // 400 finished tokens / 5 s decode
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 8000, v.pp_last);  // 20000 / 2.5 s prefill
+  TEST_ASSERT_TRUE(v.pp_per_request);
+  TEST_ASSERT_FLOAT_WITHIN(1, 88810, v.kv_tokens);  // 25 % of the 355,241-token pool
+  TEST_ASSERT_EQUAL_FLOAT(355241, v.kv_capacity);
+  TEST_ASSERT_FLOAT_WITHIN(0.05, 83.84, v.cache_hit_pct);
+  TEST_ASSERT_FLOAT_WITHIN(0.05, 51.85, v.mtp_pct);
+  TEST_ASSERT_EQUAL(0, v.n_streams);
+  Grid g;
+  pages::overview(g, v);
+  std::string dump = g.dump();
+  printf("\n--- vLLM overview ---\n%s", dump.c_str());
+  TEST_ASSERT_TRUE(dump.find("vLLM \xC2\xB7 qwen3.8-flash-next") != std::string::npos);
+  TEST_ASSERT_TRUE(dump.find("89K/355K tok") != std::string::npos);
+  TEST_ASSERT_TRUE(dump.find("cache-hit 83.8%") != std::string::npos);
+  TEST_ASSERT_TRUE(dump.find("nan") == std::string::npos);
+}
+
+static void test_footer_shows_server_position() {
+  View v;
+  v.server_index = 1;
+  v.server_count = 2;
+  Grid g;
+  pages::overview(g, v);
+  TEST_ASSERT_TRUE(g.dump().find("\xE2\x80\xB9 2/2 \xE2\x80\xBA") != std::string::npos);  // ‹ 2/2 ›
+}
+
 static void test_derived_view_renders_cleanly() {
   Rig r;
   r.d.onSample(r.at(0, 0, 0, 0, 0, 0), r.id, r.info);
@@ -345,6 +439,10 @@ int main() {
   RUN_TEST(test_failures_stale_down_nowifi);
   RUN_TEST(test_not_an_engine);
   RUN_TEST(test_prefilling_and_per_request_pp);
+  RUN_TEST(test_vllm_fixture_values);
+  RUN_TEST(test_vllm_identified_and_confirmed);
+  RUN_TEST(test_vllm_derived_view);
+  RUN_TEST(test_footer_shows_server_position);
   RUN_TEST(test_derived_view_renders_cleanly);
   return UNITY_END();
 }

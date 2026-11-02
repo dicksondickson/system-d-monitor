@@ -27,6 +27,14 @@ float kvPct(const Sample& s) {
   return isnan(m) ? NAN : m * 100.0f;
 }
 
+// Tokens of finished requests, to pair with the prefill/decode time sums
+// (which also only move when a request finishes). vLLM's prompt/generation
+// totals move as the engine works, so use its per-request histogram sums.
+float reqPrompt(const Sample& s) {
+  return s.has(F_REQ_PROMPT) ? s.get(F_REQ_PROMPT) : s.get(F_PROMPT_TOKENS);
+}
+float reqGen(const Sample& s) { return s.has(F_REQ_GEN) ? s.get(F_REQ_GEN) : s.get(F_GEN_TOKENS); }
+
 bool wentDown(const Sample& cur, const Sample& prev, Field f) {
   return cur.has(f) && prev.has(f) && cur.get(f) < prev.get(f);
 }
@@ -82,7 +90,7 @@ bool Deriver::onSample(const Sample& s, const Identity& id, const ServerInfo& in
   if (n_ < WINDOW) n_++;
 
   float tg = NAN, pp = NAN;
-  const bool per_request = id.engine == Engine::TENSORFOLD;
+  const bool per_request = id.engine != Engine::UNKNOWN;
   if (n_ >= 2) {
     const Sample& prev = at(n_ - 2);
     const float dt = (s.t_ms - prev.t_ms) / 1000.0f;
@@ -90,7 +98,7 @@ bool Deriver::onSample(const Sample& s, const Identity& id, const ServerInfo& in
       tg = ratio(genLive(s, id.engine) - genLive(prev, id.engine), dt);
       pp = ratio(s.get(F_PROMPT_TOKENS) - prev.get(F_PROMPT_TOKENS), dt);
     }
-    const float pp_eng = ratio(s.get(F_PROMPT_TOKENS) - prev.get(F_PROMPT_TOKENS),
+    const float pp_eng = ratio(reqPrompt(s) - reqPrompt(prev),
                                s.get(F_PREFILL_S) - prev.get(F_PREFILL_S));
     if (!isnan(pp_eng)) last_pp_eng_ = pp_eng;
     if (per_request) pp = isnan(pp_eng) ? (isnan(pp) ? NAN : 0.0f) : pp_eng;
@@ -121,6 +129,8 @@ void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, bool wifi_ok,
   memcpy(v.server, out.server, sizeof v.server);
   memcpy(v.ip, out.ip, sizeof v.ip);
   v.wifi_bars = out.wifi_bars;
+  v.server_index = out.server_index;
+  v.server_count = out.server_count;
   float slot_tg[SAMPLE_STREAMS];
   for (float& x : slot_tg) x = NAN;
 
@@ -150,9 +160,8 @@ void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, bool wifi_ok,
         v.tg_live = ratio(genLive(cur, e) - genLive(prev, e), dt);
         v.pp_live = ratio(cur.get(F_PROMPT_TOKENS) - prev.get(F_PROMPT_TOKENS), dt);
       }
-      v.tg_eng = ratio(cur.get(F_GEN_TOKENS) - prev.get(F_GEN_TOKENS),
-                       cur.get(F_DECODE_S) - prev.get(F_DECODE_S));
-      v.pp_eng = ratio(cur.get(F_PROMPT_TOKENS) - prev.get(F_PROMPT_TOKENS),
+      v.tg_eng = ratio(reqGen(cur) - reqGen(prev), cur.get(F_DECODE_S) - prev.get(F_DECODE_S));
+      v.pp_eng = ratio(reqPrompt(cur) - reqPrompt(prev),
                        cur.get(F_PREFILL_S) - prev.get(F_PREFILL_S));
       v.ttft_live = ratio(cur.get(F_TTFT_SUM) - prev.get(F_TTFT_SUM),
                           cur.get(F_TTFT_COUNT) - prev.get(F_TTFT_COUNT));
@@ -172,7 +181,7 @@ void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, bool wifi_ok,
       }
     }
 
-    v.pp_per_request = e == Engine::TENSORFOLD;
+    v.pp_per_request = e != Engine::UNKNOWN;
     v.pp_last = last_pp_eng_;
     if (prefilling_) v.prefilling_s = (now_ms - prefill_since_ms_) / 1000.0f;
 
@@ -182,7 +191,8 @@ void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, bool wifi_ok,
 
     v.ctx_window = info_.context_length;
     v.kv_pct = kvPct(cur);
-    v.kv_tokens = v.kv_pct / 100.0f * v.ctx_window;
+    v.kv_capacity = cur.has(F_KV_POOL_TOKENS) ? cur.get(F_KV_POOL_TOKENS) : v.ctx_window;
+    v.kv_tokens = v.kv_pct / 100.0f * v.kv_capacity;
 
     // Streams: one row per slot the server reports, in slot order.
     StreamView rows[MAX_STREAMS];

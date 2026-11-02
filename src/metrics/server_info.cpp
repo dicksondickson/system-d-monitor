@@ -45,6 +45,14 @@ bool parseModels(const char* json, size_t len, ServerInfo& info) {
   return true;
 }
 
+bool parseVersion(const char* json, size_t len, ServerInfo& info) {
+  JsonDocument doc;
+  if (deserializeJson(doc, json, len)) return false;
+  if (!doc["version"].is<const char*>()) return false;
+  copy(info.version, sizeof info.version, doc["version"].as<const char*>());
+  return true;
+}
+
 Identity identify(const Sample& s, const char* server_header, const ServerInfo& info) {
   Identity id;
   if (s.n_tensorfold > s.n_vllm) id.engine = Engine::TENSORFOLD;
@@ -52,6 +60,8 @@ Identity identify(const Sample& s, const char* server_header, const ServerInfo& 
   else return id;  // tie or nothing recognised
   if (id.engine == Engine::TENSORFOLD)
     id.confirmed = (server_header && strcasecmp(server_header, "TensorFold") == 0) || info.version[0];
+  else
+    id.confirmed = info.version[0] != '\0';  // from /version
   return id;
 }
 

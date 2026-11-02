@@ -17,8 +17,10 @@ in §12.
 
 ## 1. Scope
 
-**v1 — one server, TensorFold**
-- Monitors exactly one server: `dgx042`, TensorFold 1.1.8.
+**v1: TensorFold and vLLM, up to 4 servers**
+- Started with one server (`dgx042`, TensorFold 1.1.8). Since 2026-11-01
+  it monitors two: `dgx042` (TensorFold) and `dick6000` (vLLM 0.33). Tap
+  left or right to switch between them.
 - Two pages: **overview** (the sketch layout, §7.1) and **graphs**
   (120 s braille charts).
 - Honest numbers: anything unavailable reads **`no data`** (§5), never a
@@ -34,9 +36,10 @@ metrics that matter at a glance on a 4″ screen are shown. Not carried over:
 totals, engine-time totals, multi-prefill, kept prompts, spill tier,
 latency percentiles, model card, process/VRAM memory.
 
-**Later (not v1):** vLLM support, multiple servers (left/right tap
-navigation, auto-rotate, page dots, an all-servers summary page), web or SD
-config, OTA, p50/p99 from histogram buckets, auto-dim on idle. §10 keeps
+**Later:** an all-servers summary page, web or SD config, OTA, p50/p99
+from histogram buckets, auto-dim on idle. (vLLM support and multiple
+servers with left/right navigation and optional auto-rotate were "later"
+items; both landed 2026-11-01.) §10 keeps
 the code shaped so these can be added without rewrites.
 
 Never: auth/HTTPS (the server is plain HTTP on the LAN), battery operation.
@@ -198,9 +201,16 @@ version.
   is ever shown as a metric.
 - If the engine changes between polls (e.g. something else took the port),
   treat it as a restart and identify again.
-- **vLLM in v1:** identified and labelled, but its metric mapping is
-  "Later" (§1), so its values read `no data` until that lands. The shared
-  suffix table (§4.2) keeps that addition small.
+- **vLLM (since 2026-11-01, `dick6000`):** `/health` is an empty 200, so
+  the poller falls back to **`GET /version`** (`{"version": "0.33.0rc1…"}`).
+  That confirms the engine and gives the version. The model and
+  `max_model_len` (262,144) come from `/v1/models`. `/metrics` is ~67 KB
+  and ~511 lines; its longest line, `cache_config_info` at ~1.1 KB, is why
+  the parser's line buffer is 2 KB. The extra vLLM names read are
+  `request_prompt_tokens_sum`, `request_generation_tokens_sum`
+  (per-request token sums) and the `kv_cache_size_tokens` label on
+  `cache_config_info` (KV pool size, 355,241 tokens on dick6000). Captured
+  in `test/fixtures/vllm-0.33.0rc1-idle/`.
 
 ---
 
@@ -213,15 +223,15 @@ response end) plus the values above. `prev` is the previous good sample and
 | Shown as | Formula |
 |---|---|
 | **TG live** (hero) | Δ(`generation_tokens_total` + `generation_tokens_running`) / Δt, so in-flight tokens count. Verified under load (§12 Q1) |
-| TG eng | Δ`generation_tokens_total` / Δ`request_decode_time_seconds_sum` |
-| PP live | Δ`prompt_tokens_total` / Δt. **vLLM only.** TensorFold counts prompt tokens when a request *finishes* (§12 Q2), so this would read 0 during prefill and spike at completion |
-| PP eng | Δ`prompt_tokens_total` / Δ`request_prefill_time_seconds_sum`: prefill speed of the request(s) that finished in this poll |
-| **PP last** (TensorFold) | the most recent non-`no data` PP eng, kept until the next request finishes |
-| **prefilling Ns** (TensorFold) | shown while `num_requests_running` > 0, live TG = 0 and KV > 0; N = seconds since the first poll that matched |
+| TG eng ("engine-time") | Δ finished-request tokens / Δ`request_decode_time_seconds_sum`: tokens per second of the engine's own decode time for the requests that finished this poll, i.e. roughly single-request speed. Finished-request tokens = `request_generation_tokens_sum` (vLLM) or `generation_tokens_total` (TensorFold, which only counts finished requests). vLLM's `generation_tokens_total` moves live, so pairing it with the finish-time decode sum would mix timings |
+| PP live | Δ`prompt_tokens_total` / Δt. **Not shown on either engine:** TensorFold counts prompt tokens at request end (§12 Q2), vLLM when the prefill completes, so it reads 0 during a prefill and then spikes |
+| PP eng | Δ finished-request prompt tokens (`request_prompt_tokens_sum` on vLLM, else `prompt_tokens_total`) / Δ`request_prefill_time_seconds_sum`: prefill speed of the request(s) that finished in this poll |
+| **PP last** | the most recent non-`no data` PP eng, kept until the next request finishes |
+| **prefilling Ns** | shown while `num_requests_running` > 0, live TG = 0 and KV > 0; N = seconds since the first poll that matched. On vLLM a prefill alongside other decoding requests isn't flagged (TG > 0) |
 | `avg` | first-vs-last over `win` |
 | run / wait | `num_requests_running` / `max_batch_size` (`/health`) · `num_requests_waiting` |
-| **KV** | max over pools of `kv_cache_usage_ratio` × 100 |
-| KV tokens | KV ratio × `context_length` (`/v1/models`) / `context_length` |
+| **KV** | TensorFold: max over pools of `kv_cache_usage_ratio`; vLLM: `kv_cache_usage_perc` (one shared pool); × 100 |
+| KV tokens | KV ratio × capacity / capacity. Capacity = `kv_cache_size_tokens` (vLLM pool) or `context_length` (TensorFold, whose ratio is per stream) |
 | **Stream n** ctx / tokens | `kv_cache_usage_perc{stream=n}` × 100 / × `context_length`; state `used` if > 0, else `free` |
 | **TTFT / lat** | sum / count (cumulative) of TTFT / e2e latency, `n` = TTFT count |
 | live TTFT | Δsum / Δcount; `no data` when nothing finished in the window |
@@ -393,7 +403,7 @@ device it is drawn at 2× and spans rows 4–5, 2 columns per character.)
 |---|---|---|
 | 1 | header | `SYSTEM-D`, clock `HH:MM:SS` (SNTP, `TZ_POSIX`), **server name** (`SERVER_NAME`, default `SERVER_HOST` up to the first dot, e.g. `dgx042`) and the monitor's Wi-Fi signal bars `▂▄▆█` from `WiFi.RSSI()` (≥ −55 / −67 / −75 / −85 dBm → 4/3/2/1 bars, none = no link). The monitor's own IP goes to the serial log only |
 | 2 | server | **detected engine, spelled out** (`TensorFold` or `vLLM`, §4.3) · model id, state on the right (§8). The model id is cut with `…` to fit; the boot screen shows it in full |
-| 3–8 | Throughput | **hero: TG live** at 2× in the decode colour + 2-row, 20-cell sparkline (3 samples per cell = 120 s, 16 levels); the PP row (TensorFold: `PP last 3,354/s · prefilling 12s`; vLLM: PP live + avg + eng); the PP 30-cell sparkline; `run x/max · wait n` + TG avg and engine rate |
+| 3–8 | Throughput | **hero: TG live** at 2× in the decode colour + 2-row, 20-cell sparkline (3 samples per cell = 120 s, 16 levels); the PP row (`PP last 3,354/s · prefilling 12s`, both engines); the PP 30-cell sparkline; `run x/max · wait n` + TG avg and engine rate |
 | 9–10 | Cache | KV bar + used / window tokens |
 | 11–16 | Streams | header + one row per stream slot, up to `max_batch_size` (4 now; spare rows 20–23 allow up to 8): id, state, ctx %, tokens, TTFT, TG |
 | 17–19 | Averages | cumulative TTFT · MTP acceptance · cache-hit; then live TTFT · e2e latency · `n` |
@@ -447,7 +457,7 @@ look ragged. On the device every glyph is one 10×20 cell.)
 - Rows 1–2 and the footer rule are the same as the overview.
 - TG live gets 8 rows (32 levels, decode colour), PP 5 (prefill colour),
   KV 4. Right column: `now / avg / max / min` for the window.
-- On TensorFold the PP graph is titled **PP per request tok/s**: one bar
+- The PP graph is titled **PP per request tok/s**: one bar
   per finished request. Its stats cover finished requests only, and
   `last` replaces `now`.
 - The y-scale is the window max, with a floor (TG 10, PP 100) so idle noise
@@ -499,13 +509,17 @@ the new baseline (so it can trigger restart detection).
 
 | Gesture | Action |
 |---|---|
-| tap anywhere | overview ↔ graphs |
+| tap left third (x < 160) | previous server (with > 1 server) |
+| tap right third (x ≥ 320) | next server (with > 1 server) |
+| tap centre (anywhere with 1 server) | overview ↔ graphs |
 | hold ≥ 0.7 s | cycle theme (ansi → btop → ansi), saved |
+| `ROTATE_S > 0` | auto-advance to the next server every N s; any touch pauses it for 60 s |
 
 A tap is a press and release within 500 ms, with movement < 24 px.
-GT911 is polled at ~30 Hz. Check touch coordinates against the display axes
-in M1. They don't matter for whole-screen taps yet, but they will once
-left/right zones arrive with multi-server support.
+GT911 is polled at ~30 Hz. Touch coordinates match the display at rotation
+0 with no transform (verified in M1). Theme, page and the current server are
+saved in NVS. The footer's right label shows `‹ 1/2 ›` (current/total)
+instead of `tap: graphs` when more than one server is configured.
 
 ---
 
@@ -525,9 +539,13 @@ left/right zones arrive with multi-server support.
 #define WIFI_PASS   ""
 #define TZ_POSIX    "PST8PDT,M3.2.0,M11.1.0"   // header clock; POSIX TZ string
 
-#define SERVER_HOST "dgx042.lan"  // bare "dgx042" won't resolve: no DNS search domain
-#define SERVER_PORT 40000
-// #define SERVER_NAME "dgx042"   // header label; default: SERVER_HOST up to the first dot
+// Servers to monitor, 1–4: { name, host, port }. name nullptr = host up to
+// the first dot. Use host names the router's DNS knows ("dgx042.lan"): the
+// ESP32 has no DNS search domain, so a bare "dgx042" won't resolve.
+#define SERVERS {                                \
+    {nullptr, "dgx042.lan", 40000},              \
+}
+#define ROTATE_S    0             // auto-advance to the next server every N s (0 = off)
 
 #define POLL_MS     2000          // /metrics every 2 s
 #define CONNECT_MS  800
@@ -535,7 +553,9 @@ left/right zones arrive with multi-server support.
 #define BRIGHTNESS  200           // 0–255 backlight PWM
 ```
 
-`src/app_config.h` uses `config.h` if it exists. Otherwise it builds from
+`src/app_config.h` turns `SERVERS` into `kServers[]` (1–4 entries,
+checked at compile time). An older single-server config with
+`SERVER_HOST`/`SERVER_PORT` still works. It uses `config.h` if it exists. Otherwise it builds from
 the example with Wi-Fi off, the footer reads `no include/config.h`, and the
 compiler prints a `#warning`.
 
@@ -607,8 +627,8 @@ third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
 ## 12. Decisions & open questions
 
 **Decided (2026-11-01)**
-- v1 monitors one TensorFold server (dgx042). vLLM and multi-server come
-  later.
+- v1 started with one TensorFold server (dgx042); vLLM (dick6000) and
+  multiple servers were added the same day.
 - Overview layout follows the sketch: a header with clock / server name /
   signal, a server rule with state, Throughput with a 2× TG hero, Cache,
   Streams table and Averages, closed into one btop-style frame (§7).
@@ -626,10 +646,14 @@ third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
 - Density: 48 × 24 cells, 10 × 20 font.
 - Orientation: native (rotation 0).
 - **Header shows the server's name** (`dgx042`), not the monitor's IP.
-- **TensorFold PP:** no live prefill rate. The PP row shows `PP last
+- **PP on both engines:** no live prefill rate. The PP row shows `PP last
   <rate>` plus `prefilling Ns` while a prefill runs, and the PP
   sparkline/graph plots per-request prefill speed (§5, §7). The user chose
-  this over keeping Δprompt/Δt and over a per-request-only display.
+  this for TensorFold, over keeping Δprompt/Δt and over a per-request-only
+  display. It was extended to vLLM when dick6000 was added, because vLLM
+  also counts prompt tokens only when a prefill completes.
+- **Multiple servers (2026-11-01):** up to 4 in `SERVERS`, one poller task
+  each, left/right thirds to switch, `‹ n/N ›` in the footer.
 
 **Answered by the 2026-11-01 load test** (live serial log, single requests
 of up to a 127K-token prompt)

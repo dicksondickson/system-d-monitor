@@ -5,7 +5,7 @@
 
 namespace {
 
-enum class Combine : uint8_t { SUM, MAX, STREAM_KV, STREAM_STATE, STREAM_GEN, STREAM_TTFT, STREAM_START };
+enum class Combine : uint8_t { SUM, MAX, STREAM_KV, STREAM_STATE, STREAM_GEN, STREAM_TTFT, STREAM_START, KV_POOL_SIZE };
 
 struct Entry {
   const char* suffix;
@@ -32,6 +32,9 @@ const Entry TABLE[] = {
     {"spec_decode_num_accepted_tokens_total", F_ACCEPTED_TOKENS, Combine::SUM},
     {"spec_decode_num_drafts_total", F_DRAFTS, Combine::SUM},
     {"prompt_tokens_cached_total", F_CACHED_TOKENS, Combine::SUM},
+    {"request_prompt_tokens_sum", F_REQ_PROMPT, Combine::SUM},       // vLLM
+    {"request_generation_tokens_sum", F_REQ_GEN, Combine::SUM},      // vLLM
+    {"cache_config_info", F_KV_POOL_TOKENS, Combine::KV_POOL_SIZE},  // vLLM, label
     {"preemptions_total", F_PREEMPTIONS, Combine::SUM},      // TensorFold
     {"num_preemptions_total", F_PREEMPTIONS, Combine::SUM},  // vLLM
     {"kv_cache_usage_ratio", F_KV_POOL, Combine::MAX},
@@ -198,6 +201,15 @@ void PromParser::parseLine(char* line, size_t n) {
     case Combine::STREAM_TTFT:  // NaN = no first token yet: stays NaN
       if (slot >= 0) { s_.streams[slot].present = true; if (!isnan(v)) s_.streams[slot].ttft_s = v; }
       break;
+    case Combine::KV_POOL_SIZE: {
+      char buf[24];
+      if (labels && promLabel(labels, "kv_cache_size_tokens", buf, sizeof buf)) {
+        char* end;
+        double tokens = strtod(buf, &end);
+        if (end != buf && tokens > 0) s_.v[F_KV_POOL_TOKENS] = (float)tokens;
+      }
+      break;
+    }
     case Combine::STREAM_START:
       if (slot >= 0 && !isnan(v)) { s_.streams[slot].present = true; s_.streams[slot].start_s = v; }
       break;

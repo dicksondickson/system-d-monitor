@@ -28,6 +28,9 @@ enum Field : uint8_t {
   F_CACHED_TOKENS,     // prompt_tokens_cached_total (vLLM; TF after App. A)
   F_PREEMPTIONS,
   F_KV_POOL,           // max over pools / unlabeled series, ratio 0–1
+  F_KV_POOL_TOKENS,    // vLLM: cache_config_info{kv_cache_size_tokens}
+  F_REQ_PROMPT,        // vLLM: request_prompt_tokens_sum (finished requests)
+  F_REQ_GEN,           // vLLM: request_generation_tokens_sum (finished requests)
   F_COUNT
 };
 

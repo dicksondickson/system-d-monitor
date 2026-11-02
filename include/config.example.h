@@ -9,9 +9,13 @@
 #define WIFI_PASS   ""
 #define TZ_POSIX    "PST8PDT,M3.2.0,M11.1.0"   // header clock; POSIX TZ string
 
-#define SERVER_HOST "dgx042.lan"  // bare "dgx042" won't resolve: no DNS search domain
-#define SERVER_PORT 40000
-// #define SERVER_NAME "dgx042"   // header label; default: SERVER_HOST up to the first dot
+// Servers to monitor, 1–4: { name, host, port }. name nullptr = host up to
+// the first dot. Use host names the router's DNS knows ("dgx042.lan"): the
+// ESP32 has no DNS search domain, so a bare "dgx042" won't resolve.
+#define SERVERS {                                \
+    {nullptr, "dgx042.lan", 40000},              \
+}
+#define ROTATE_S    0             // auto-advance to the next server every N s (0 = off)
 
 #define POLL_MS     2000          // /metrics every 2 s
 #define CONNECT_MS  800

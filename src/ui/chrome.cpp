@@ -77,6 +77,11 @@ void serverRule(Grid& g, const View& v) {
 
 void footer(Grid& g, const View& v, const char* hint) {
   const int row = GRID_ROWS - 1;
+  char pos[16];
+  if (v.server_count > 1) {  // which server of how many; tap left/right to switch
+    snprintf(pos, sizeof pos, "\xE2\x80\xB9 %u/%u \xE2\x80\xBA", v.server_index + 1u, (unsigned)v.server_count);
+    hint = pos;
+  }
   Writer w(g, row, ruleStart(g, row, Edge::BOTTOM), GRID_COLS - ruleTail(hint));
   w.put(v.status[0] ? v.status : fmt::NO_DATA, theme::DIM);
   ruleEnd(g, row, w.col(), Edge::BOTTOM, hint, theme::DIM);

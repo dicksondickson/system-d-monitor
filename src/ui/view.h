@@ -36,17 +36,20 @@ struct View {
   // Throughput
   float tg_live = NAN, tg_avg = NAN, tg_eng = NAN;
   float pp_live = NAN, pp_avg = NAN, pp_eng = NAN;
-  // TensorFold counts prompt tokens only when a request finishes, so a live
-  // prefill rate isn't measurable (spec.md §5). In this mode the PP row shows
-  // the last finished request's prefill speed and "prefilling Ns" while one
-  // runs, and pp_hist holds per-request prefill speeds at completion.
+  // Neither engine counts prompt tokens while prefilling (TensorFold: at
+  // request end; vLLM: when the prefill completes), so a live prefill rate
+  // isn't measurable (spec.md §5). In this mode the PP row shows the last
+  // finished request's prefill speed and "prefilling Ns" while one runs, and
+  // pp_hist holds per-request prefill speeds at completion.
   bool pp_per_request = false;
   float pp_last = NAN;        // last finished request: prompt ÷ prefill time
   float prefilling_s = NAN;   // seconds the current prefill has run, NaN = none
   float running = NAN, max_batch = NAN, waiting = NAN;
 
-  // Cache
-  float kv_pct = NAN, kv_tokens = NAN, ctx_window = NAN;
+  // Cache. kv_capacity: tokens behind 100 % (vLLM: KV pool size; TensorFold:
+  // the context window, as its KV ratio is per stream). ctx_window sizes the
+  // per-stream token counts.
+  float kv_pct = NAN, kv_tokens = NAN, kv_capacity = NAN, ctx_window = NAN;
 
   // Streams
   StreamView streams[MAX_STREAMS];
@@ -62,8 +65,11 @@ struct View {
   float pp_hist[RING_LEN];
   float kv_hist[RING_LEN];
 
-  // Footer rule (row 24): poll status or error reason.
+  // Footer rule (row 24): poll status or error reason, and which server of
+  // how many is shown ("‹ 1/2 ›" when there's more than one).
   char status[40] = "";
+  uint8_t server_index = 0;
+  uint8_t server_count = 1;
 
   View() {
     for (int i = 0; i < RING_LEN; i++) tg_hist[i] = pp_hist[i] = kv_hist[i] = NAN;

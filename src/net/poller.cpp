@@ -16,20 +16,12 @@ namespace poller {
 
 namespace {
 
-constexpr uint32_t HEALTH_EVERY_MS = 30000;
+constexpr uint32_t INFO_EVERY_MS = 30000;
 constexpr uint32_t BACKOFF_MS[] = {2000, 4000, 8000, 16000, 30000};  // spec.md §8
 
-struct Config {
-  const char* host;
-  uint16_t port;
+struct Timing {
   uint32_t poll_ms, connect_ms, read_ms;
-} g_cfg;
-
-SemaphoreHandle_t g_lock;
-Deriver g_deriver;              // guarded by g_lock
-ServerInfo g_info;              // poller task only
-uint32_t g_retry_at = 0;        // guarded by g_lock
-std::atomic<uint32_t> g_generation{0};
+} g_timing;
 
 // Collects a small JSON body.
 struct Buffer {
@@ -45,35 +37,51 @@ void toBuffer(const char* d, size_t n, void* ctx) {
 }
 void toParser(const char* d, size_t n, void* ctx) { ((PromParser*)ctx)->feed(d, n); }
 
-bool fetchJson(const char* path, bool (*parse)(const char*, size_t, ServerInfo&)) {
-  static Buffer buf;
-  buf.len = 0;
-  http::Result r = http::get(g_cfg.host, g_cfg.port, path, toBuffer, &buf, g_cfg.connect_ms,
-                             g_cfg.read_ms);
-  bool ok = r.err == http::Err::OK && parse(buf.data, buf.len, g_info);
-  Serial.printf("poll %-11s %s, %u B, %u ms\n", path, ok ? "ok" : "failed", (unsigned)r.bytes,
-                (unsigned)r.ms);
+// Everything for one server. Allocated once at start-up.
+struct Slot {
+  ServerCfg cfg;
+  char label[24];          // for the serial log
+  SemaphoreHandle_t lock;
+  Deriver deriver;         // guarded by lock
+  uint32_t retry_at = 0;   // guarded by lock
+  ServerInfo info;         // task only
+  Sample sample;           // task only
+  Buffer json;             // task only
+  View log_view;           // task only (serial value line)
+};
+
+Slot* g_slots[4];
+int g_count = 0;
+std::atomic<uint32_t> g_generation{0};
+
+bool fetchJson(Slot& s, const char* path, bool (*parse)(const char*, size_t, ServerInfo&)) {
+  s.json.len = 0;
+  http::Result r = http::get(s.cfg.host, s.cfg.port, path, toBuffer, &s.json, g_timing.connect_ms,
+                             g_timing.read_ms);
+  bool ok = r.err == http::Err::OK && parse(s.json.data, s.json.len, s.info);
+  Serial.printf("[%s] %-11s %s, %u B, %u ms\n", s.label, path, ok ? "ok" : "failed",
+                (unsigned)r.bytes, (unsigned)r.ms);
   return ok;
 }
 
-// One line of derived values per poll, for checking the screen against
-// the server (and the Wi-Fi bars against the real signal).
-void logValues() {
-  static View v;
-  xSemaphoreTake(g_lock, portMAX_DELAY);
-  g_deriver.fill(v, millis(), g_cfg.poll_ms, true, 0);
-  xSemaphoreGive(g_lock);
-  Serial.printf("  tg %.1f (eng %.1f) pp %.1f (eng %.1f) run %.0f wait %.0f kv %.1f%% "
+// One line of derived values per poll, for checking the screen against the
+// server (and the Wi-Fi bars against the real signal).
+void logValues(Slot& s) {
+  View& v = s.log_view;
+  xSemaphoreTake(s.lock, portMAX_DELAY);
+  s.deriver.fill(v, millis(), g_timing.poll_ms, true, 0);
+  xSemaphoreGive(s.lock);
+  Serial.printf("[%s]   tg %.1f (eng %.1f) pp last %.1f%s run %.0f wait %.0f kv %.1f%% "
                 "ttft %.2fs mtp %.1f%% rssi %d dBm\n",
-                v.tg_live, v.tg_eng, v.pp_live, v.pp_eng, v.running, v.waiting, v.kv_pct,
-                v.ttft_cum, v.mtp_pct, net::rssi());
+                s.label, v.tg_live, v.tg_eng, v.pp_last, isnan(v.prefilling_s) ? "" : " PREFILLING",
+                v.running, v.waiting, v.kv_pct, v.ttft_cum, v.mtp_pct, net::rssi());
 }
 
-void task(void*) {
-  static Sample sample;
-  bool need_models = true;
-  uint32_t last_health = 0;
-  bool had_health = false;
+void task(void* arg) {
+  Slot& s = *(Slot*)arg;
+  bool need_models = true, need_info = true;
+  uint32_t last_info = 0;
+  Engine engine = Engine::UNKNOWN;
 
   for (;;) {
     const uint32_t start = millis();
@@ -83,53 +91,58 @@ void task(void*) {
       continue;
     }
 
-    if (!had_health || start - last_health >= HEALTH_EVERY_MS) {
-      had_health = fetchJson("/health", parseHealth) || had_health;
-      last_health = start;
+    // Engine facts: TensorFold has /health, vLLM has /version (its /health
+    // is an empty 200). Until the engine is known, try both.
+    if (need_info || start - last_info >= INFO_EVERY_MS) {
+      bool ok = false;
+      if (engine != Engine::VLLM) ok = fetchJson(s, "/health", parseHealth);
+      if (!ok && engine != Engine::TENSORFOLD) ok = fetchJson(s, "/version", parseVersion);
+      need_info = !ok;
+      last_info = start;
     }
-    if (need_models) need_models = !fetchJson("/v1/models", parseModels);
+    if (need_models) need_models = !fetchJson(s, "/v1/models", parseModels);
 
-    sample = Sample();
-    PromParser parser(sample);
-    http::Result r = http::get(g_cfg.host, g_cfg.port, "/metrics", toParser, &parser,
-                               g_cfg.connect_ms, g_cfg.read_ms);
+    s.sample = Sample();
+    PromParser parser(s.sample);
+    http::Result r = http::get(s.cfg.host, s.cfg.port, "/metrics", toParser, &parser,
+                               g_timing.connect_ms, g_timing.read_ms);
     parser.finish();
-    sample.t_ms = millis();
+    s.sample.t_ms = millis();
 
-    uint32_t wait = g_cfg.poll_ms;
+    uint32_t wait = g_timing.poll_ms;
     if (r.err == http::Err::OK) {
-      Identity id = identify(sample, r.server, g_info);
-      xSemaphoreTake(g_lock, portMAX_DELAY);
-      bool restart = g_deriver.onSample(sample, id, g_info);
-      xSemaphoreGive(g_lock);
-      if (restart) {
-        need_models = true;
-        had_health = false;
+      Identity id = identify(s.sample, r.server, s.info);
+      if (id.engine != engine && id.engine != Engine::UNKNOWN) {
+        engine = id.engine;  // re-read the engine's own info endpoint
+        need_info = true;
       }
-      Serial.printf("poll /metrics    ok, %u B, %u ms, %s%s, %u lines (%u used)%s\n",
+      xSemaphoreTake(s.lock, portMAX_DELAY);
+      bool restart = s.deriver.onSample(s.sample, id, s.info);
+      xSemaphoreGive(s.lock);
+      if (restart) need_models = need_info = true;
+      Serial.printf("[%s] /metrics    ok, %u B, %u ms, %s%s, %u lines (%u used)%s\n", s.label,
                     (unsigned)r.bytes, (unsigned)r.ms, engineName(id.engine),
                     id.confirmed ? "" : " (unconfirmed)", (unsigned)parser.lines(),
                     (unsigned)parser.recognised(), restart ? ", RESTART" : "");
-      logValues();
+      logValues(s);
     } else {
       char why[32];
-      http::describe(r, g_cfg.host, why, sizeof why);
-      xSemaphoreTake(g_lock, portMAX_DELAY);
-      g_deriver.onFailure(sample.t_ms, why);
-      int fails = g_deriver.consecutiveFailures();
-      xSemaphoreGive(g_lock);
+      http::describe(r, s.cfg.host, why, sizeof why);
+      xSemaphoreTake(s.lock, portMAX_DELAY);
+      s.deriver.onFailure(s.sample.t_ms, why);
+      int fails = s.deriver.consecutiveFailures();
+      xSemaphoreGive(s.lock);
       if (fails >= 3) {
         int i = fails - 3;
         wait = BACKOFF_MS[i < 5 ? i : 4];
-        need_models = true;  // re-read everything when it comes back
-        had_health = false;
+        need_models = need_info = true;  // re-read everything when it comes back
       }
-      Serial.printf("poll /metrics    FAILED: %s (%u ms), retry in %u ms\n", why, (unsigned)r.ms,
-                    (unsigned)wait);
+      Serial.printf("[%s] /metrics    FAILED: %s (%u ms), retry in %u ms\n", s.label, why,
+                    (unsigned)r.ms, (unsigned)wait);
     }
-    xSemaphoreTake(g_lock, portMAX_DELAY);
-    g_retry_at = start + wait;
-    xSemaphoreGive(g_lock);
+    xSemaphoreTake(s.lock, portMAX_DELAY);
+    s.retry_at = start + wait;
+    xSemaphoreGive(s.lock);
     g_generation++;
 
     const uint32_t elapsed = millis() - start;
@@ -139,19 +152,37 @@ void task(void*) {
 
 }  // namespace
 
-void begin(const char* host, uint16_t port, uint32_t poll_ms, uint32_t connect_ms,
+void begin(const ServerCfg* servers, int count, uint32_t poll_ms, uint32_t connect_ms,
            uint32_t read_ms) {
-  g_cfg = {host, port, poll_ms, connect_ms, read_ms};
-  g_lock = xSemaphoreCreateMutex();
-  xTaskCreatePinnedToCore(task, "poller", 8192, nullptr, 1, nullptr, 0);
+  g_timing = {poll_ms, connect_ms, read_ms};
+  g_count = count < 4 ? count : 4;
+  for (int i = 0; i < g_count; i++) {
+    Slot* s = new Slot();
+    s->cfg = servers[i];
+    if (s->cfg.name) {
+      snprintf(s->label, sizeof s->label, "%s", s->cfg.name);
+    } else {
+      const char* dot = strchr(s->cfg.host, '.');
+      snprintf(s->label, sizeof s->label, "%.*s", dot ? (int)(dot - s->cfg.host) : 23, s->cfg.host);
+    }
+    s->lock = xSemaphoreCreateMutex();
+    g_slots[i] = s;
+    char name[16];
+    snprintf(name, sizeof name, "poll%d", i);
+    xTaskCreatePinnedToCore(task, name, 10240, s, 1, nullptr, 0);  // parser holds a 2 KB line
+  }
 }
 
-void snapshot(View& v, bool wifi_up) {
+int count() { return g_count; }
+
+void snapshot(int index, View& v, bool wifi_up) {
+  if (index < 0 || index >= g_count) return;
+  Slot& s = *g_slots[index];
   const uint32_t now = millis();
-  xSemaphoreTake(g_lock, portMAX_DELAY);
-  const uint32_t retry = (int32_t)(g_retry_at - now) > 0 ? g_retry_at - now : 0;
-  g_deriver.fill(v, now, g_cfg.poll_ms, wifi_up, retry);
-  xSemaphoreGive(g_lock);
+  xSemaphoreTake(s.lock, portMAX_DELAY);
+  const uint32_t retry = (int32_t)(s.retry_at - now) > 0 ? s.retry_at - now : 0;
+  s.deriver.fill(v, now, g_timing.poll_ms, wifi_up, retry);
+  xSemaphoreGive(s.lock);
 }
 
 uint32_t generation() { return g_generation.load(); }

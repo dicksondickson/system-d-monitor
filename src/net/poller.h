@@ -1,21 +1,26 @@
 #pragma once
 #include <stdint.h>
 
+#include "app_config.h"
 #include "ui/view.h"
 
-// Background task (core 0) that polls the server (spec.md §10 "Tasks"):
-// /metrics every POLL_MS, /health on connect + every 30 s, /v1/models on
-// connect and after a restart; exponential backoff while it's down.
+// One background task per server (core 0, spec.md §10 "Tasks"): /metrics
+// every poll_ms; /health + /v1/models on connect, every 30 s and after a
+// restart (vLLM: /version instead of /health); exponential backoff while a
+// server is down. Servers poll independently, so a dead one never delays
+// another.
 namespace poller {
 
-void begin(const char* host, uint16_t port, uint32_t poll_ms, uint32_t connect_ms,
+void begin(const ServerCfg* servers, int count, uint32_t poll_ms, uint32_t connect_ms,
            uint32_t read_ms);
 
-// Fills v (except the header fields, which the caller sets) from the latest
-// data. Safe to call from the UI task.
-void snapshot(View& v, bool wifi_up);
+int count();
 
-// Incremented after every poll attempt; the UI redraws when it changes.
+// Fills v (except the header fields, which the caller sets) from server
+// `index`'s latest data. Safe to call from the UI task.
+void snapshot(int index, View& v, bool wifi_up);
+
+// Incremented after every poll attempt of any server; redraw when it changes.
 uint32_t generation();
 
 }  // namespace poller

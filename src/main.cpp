@@ -1,12 +1,14 @@
 // System-D Monitor (spec.md): live TensorFold/vLLM dashboard on the Guition
 // ESP32-S3-4848S040.
 //
-//   tap        overview ↔ graphs
-//   hold 0.7 s cycle theme (ansi → btop)
+//   tap left third / right third   previous / next server (with > 1 server)
+//   tap centre                     overview ↔ graphs (anywhere with 1 server)
+//   hold 0.7 s                     cycle theme (ansi → btop)
 //
-// The poller task (core 0) fetches the server; this loop (core 1) handles
-// touch and redraws after every poll and every clock second. Theme and page
-// are saved in NVS. Configuration: include/config.h (see config.example.h).
+// One poller task per server (core 0) fetches the data; this loop (core 1)
+// handles touch and redraws after every poll and every clock second. Theme,
+// page and server are saved in NVS. Configuration: include/config.h (see
+// config.example.h).
 
 #include <Arduino.h>
 #include <Preferences.h>
@@ -29,6 +31,7 @@ constexpr uint32_t TOUCH_POLL_MS = 33;  // ~30 Hz
 constexpr uint32_t TAP_MAX_MS = 500;    // spec.md §9
 constexpr uint32_t HOLD_MS = 700;
 constexpr int TAP_MAX_MOVE = 24;
+constexpr uint32_t ROTATE_PAUSE_MS = 60000;  // a touch pauses auto-rotate (spec.md §9)
 
 Arduino_RGB_Display* gfx = nullptr;
 Preferences prefs;
@@ -36,6 +39,8 @@ Grid grid;
 View view;
 pages::Page page = pages::Page::OVERVIEW;
 int theme_index = 0;
+int server = 0;  // index into kServers
+uint32_t last_rotate = 0, last_touch_ms = 0;
 bool touch_ok = false;
 
 // Gesture state
@@ -44,22 +49,23 @@ bool hold_fired = false;
 uint32_t press_ms = 0;
 int press_x = 0, press_y = 0, last_x = 0, last_y = 0;
 
-// Header label: SERVER_NAME, or SERVER_HOST up to the first dot.
-void serverName(char* out, size_t len) {
-#ifdef SERVER_NAME
-  snprintf(out, len, "%s", SERVER_NAME);
-#else
-  const char* dot = strchr(SERVER_HOST, '.');
-  int n = dot ? (int)(dot - SERVER_HOST) : (int)strlen(SERVER_HOST);
-  snprintf(out, len, "%.*s", n, SERVER_HOST);
-#endif
+// Header label: the configured name, or the host up to the first dot.
+void serverName(const ServerCfg& s, char* out, size_t len) {
+  if (s.name) {
+    snprintf(out, len, "%s", s.name);
+    return;
+  }
+  const char* dot = strchr(s.host, '.');
+  snprintf(out, len, "%.*s", dot ? (int)(dot - s.host) : (int)strlen(s.host), s.host);
 }
 
 void refreshView() {
   net::clock(view.clock, sizeof view.clock);
-  serverName(view.server, sizeof view.server);
+  serverName(kServers[server], view.server, sizeof view.server);
   net::info(view.ip, sizeof view.ip, &view.wifi_bars);
-  poller::snapshot(view, net::up());
+  view.server_index = (uint8_t)server;
+  view.server_count = (uint8_t)kServerCount;
+  poller::snapshot(server, view, net::up());
   if (!CONFIG_PRESENT) snprintf(view.status, sizeof view.status, "no include/config.h");
 }
 
@@ -69,7 +75,16 @@ void redraw() {
   screen::present(grid, theme::get(theme_index));
 }
 
-void onTap() {
+void showServer(int index) {
+  server = (index + kServerCount) % kServerCount;
+  prefs.putUChar("server", (uint8_t)server);
+  Serial.printf("server -> %d (%s)\n", server, kServers[server].host);
+  redraw();
+}
+
+void onTap(int x) {
+  if (kServerCount > 1 && x < SCREEN_W / 3) return showServer(server - 1);
+  if (kServerCount > 1 && x >= SCREEN_W * 2 / 3) return showServer(server + 1);
   page = page == pages::Page::OVERVIEW ? pages::Page::GRAPHS : pages::Page::OVERVIEW;
   prefs.putUChar("page", (uint8_t)page);
   redraw();
@@ -86,6 +101,7 @@ void onHold() {
 void pollTouch(uint32_t now) {
   touch::Point p = touch::read();
   if (p.fresh && p.down) {
+    last_touch_ms = now;
     if (!pressed) {
       pressed = true;
       hold_fired = false;
@@ -98,7 +114,7 @@ void pollTouch(uint32_t now) {
   } else if (p.fresh && pressed) {  // released
     pressed = false;
     const int moved = abs(last_x - press_x) + abs(last_y - press_y);
-    if (!hold_fired && now - press_ms <= TAP_MAX_MS && moved < TAP_MAX_MOVE) onTap();
+    if (!hold_fired && now - press_ms <= TAP_MAX_MS && moved < TAP_MAX_MOVE) onTap(press_x);
   }
   if (pressed && !hold_fired && now - press_ms >= HOLD_MS) {
     hold_fired = true;
@@ -111,9 +127,10 @@ void pollTouch(uint32_t now) {
 void setup() {
   Serial.begin(115200);
   delay(200);
-  Serial.printf("\n\nsystem-d monitor — server %s:%u, poll %u ms%s\n", SERVER_HOST,
-                (unsigned)SERVER_PORT, (unsigned)POLL_MS,
-                CONFIG_PRESENT ? "" : " (no config.h: Wi-Fi off)");
+  Serial.printf("\n\nsystem-d monitor — %d server(s), poll %u ms%s\n", kServerCount,
+                (unsigned)POLL_MS, CONFIG_PRESENT ? "" : " (no config.h: Wi-Fi off)");
+  for (int i = 0; i < kServerCount; i++)
+    Serial.printf("  [%d] %s:%u\n", i, kServers[i].host, (unsigned)kServers[i].port);
 
   gfx = panel::begin();
   if (!gfx) {
@@ -125,13 +142,14 @@ void setup() {
   prefs.begin("sysd", false);
   theme_index = prefs.getUChar("theme", 0) % theme::COUNT;
   page = prefs.getUChar("page", 0) ? pages::Page::GRAPHS : pages::Page::OVERVIEW;
+  server = prefs.getUChar("server", 0) % kServerCount;
 
   touch::Info tinfo;
   touch_ok = touch::begin(&tinfo);
   Serial.printf("touch %s\n", touch_ok ? "ok" : "not found");
 
   net::begin(WIFI_SSID, WIFI_PASS, TZ_POSIX);
-  poller::begin(SERVER_HOST, SERVER_PORT, POLL_MS, CONNECT_MS, READ_MS);
+  poller::begin(kServers, kServerCount, POLL_MS, CONNECT_MS, READ_MS);
 
   redraw();
   backlight::begin();  // after panel::begin(), see backlight.h
@@ -146,6 +164,11 @@ void loop() {
   if (touch_ok && now - last_touch >= TOUCH_POLL_MS) {
     last_touch = now;
     pollTouch(now);
+  }
+  if (ROTATE_S > 0 && kServerCount > 1 && now - last_rotate >= ROTATE_S * 1000u &&
+      now - last_touch_ms >= ROTATE_PAUSE_MS) {
+    last_rotate = now;
+    showServer(server + 1);
   }
   const uint32_t gen = poller::generation();
   if (gen != seen_gen || now - last_tick >= 1000) {

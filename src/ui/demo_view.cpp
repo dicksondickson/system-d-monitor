@@ -37,7 +37,8 @@ View demoView() {
 
   v.kv_pct = 31.4f;
   v.ctx_window = 1048576.0f;
-  v.kv_tokens = v.kv_pct / 100.0f * v.ctx_window;
+  v.kv_capacity = v.ctx_window;
+  v.kv_tokens = v.kv_pct / 100.0f * v.kv_capacity;
 
   v.n_streams = 4;
   v.streams[0] = {0, StreamState::DECODING, 31.4f, 0.314f * 1048576.0f, 1.2f, 62.7f};
