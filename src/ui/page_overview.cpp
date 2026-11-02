@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
 // SPDX-License-Identifier: MIT
 
-// Overview page, spec.md §7.1.
+// Overview page, SPEC.md §7.1.
 #include <math.h>
 #include <stdio.h>
 
@@ -33,7 +33,7 @@ bool allMissing(std::initializer_list<float> vs) {
   return true;
 }
 
-// spec.md §5: when every value in a row is missing, one "no data" replaces
+// SPEC.md §5: when every value in a row is missing, one "no data" replaces
 // them all (after an optional leading label). Returns true if it did.
 bool noDataRow(Grid& g, int row, std::initializer_list<float> vs, const char* label = nullptr,
                uint8_t label_role = theme::LABEL, uint8_t label_attr = ATTR_NONE) {
@@ -96,7 +96,7 @@ void streamRow(Grid& g, int row, const StreamView& s) {
 
 }  // namespace
 
-// Layout (spec.md §7.1), four btop boxes in 20 rows:
+// Layout (SPEC.md §7.1), four btop boxes in 20 rows:
 //   0–3   header box (chrome)
 //   4–10  Throughput: hero ×2, PP, run/wait + TG avg/max, KV
 //   11–16 Streams: column labels in the top edge, 4 stream rows

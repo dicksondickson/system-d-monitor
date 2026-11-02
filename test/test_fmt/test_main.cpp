@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
 // SPDX-License-Identifier: MIT
 
-// Number formatting (spec.md §5 "Number format").
+// Number formatting (SPEC.md §5 "Number format").
 #include <unity.h>
 
 #include <math.h>

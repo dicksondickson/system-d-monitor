@@ -3,7 +3,7 @@
 #pragma once
 #include <stdint.h>
 
-// Terminus 10×20 glyph lookup (spec.md §6). Arduino-free.
+// Terminus 10×20 glyph lookup (SPEC.md §6). Arduino-free.
 namespace font {
 
 constexpr int W = 10;

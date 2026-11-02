@@ -10,7 +10,7 @@
 namespace panel {
 
 namespace {
-// Timings from spec.md §2 (same as Arduino_GFX's 4848S040 config).
+// Timings from SPEC.md §2 (same as Arduino_GFX's 4848S040 config).
 constexpr uint16_t HSYNC_POL = 1, HSYNC_FP = 10, HSYNC_PW = 8, HSYNC_BP = 50;
 constexpr uint16_t VSYNC_POL = 1, VSYNC_FP = 10, VSYNC_PW = 8, VSYNC_BP = 20;
 constexpr int32_t PCLK_HZ = 12000000;

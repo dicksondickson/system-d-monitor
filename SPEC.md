@@ -599,7 +599,7 @@ Settings action) for checking touch targets.
 
 ```cpp
 #pragma once
-// System-D Monitor configuration (spec.md §10).
+// System-D Monitor configuration (SPEC.md §10).
 //
 // Copy this file to include/config.h and fill it in. config.h is gitignored,
 // so your Wi-Fi password never ends up in the repo. Without a config.h the

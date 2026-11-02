@@ -16,7 +16,7 @@ struct Entry {
   Combine combine;
 };
 
-// Suffixes after "tensorfold:" or "vllm:" (spec.md §4.2). TensorFold also
+// Suffixes after "tensorfold:" or "vllm:" (SPEC.md §4.2). TensorFold also
 // exports mirrors (requests_running, request_decode_seconds_*, mtp_*); only
 // the vLLM-style names are listed so nothing is counted twice.
 const Entry TABLE[] = {

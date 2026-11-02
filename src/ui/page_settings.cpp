@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
 // SPDX-License-Identifier: MIT
 
-// Settings screen (spec.md §7.3): refresh rate, brightness and theme picker.
+// Settings screen (SPEC.md §7.3): refresh rate, brightness and theme picker.
 // Opened by tapping the ≡ notch in the bottom-left corner of the dashboard.
 //
 //   ╭─┐Settings┌─────────────────────────────────╮

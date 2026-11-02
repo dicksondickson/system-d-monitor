@@ -10,7 +10,7 @@ namespace {
 
 // Generated tokens including in-flight ones. TensorFold's
 // generation_tokens_total only counts finished requests, so add the live
-// streams' gauge (spec.md §5, open question 1).
+// streams' gauge (SPEC.md §5, open question 1).
 float genLive(const Sample& s, Engine e) {
   if (e == Engine::TENSORFOLD) {
     float running = s.has(F_GEN_RUNNING) ? s.get(F_GEN_RUNNING) : 0.0f;
@@ -144,7 +144,7 @@ bool Deriver::onSample(const Sample& s, const Identity& id, const ServerInfo& in
     if (per_request) pp = isnan(pp_eng) ? (isnan(pp) ? NAN : 0.0f) : pp_eng;
   }
   // Prefilling: a request is running, nothing has been generated since the
-  // last poll, and its KV cache is in use (spec.md §5).
+  // last poll, and its KV cache is in use (SPEC.md §5).
   if (tg > 0) {  // avg and max cover generating polls only, so they appear together
     if (isnan(tg_peak_) || tg > tg_peak_) tg_peak_ = tg;  // idle polls don't count, or the average would mostly measure idle time
     tg_sum_ += tg;
@@ -278,7 +278,7 @@ void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, WifiLink link,
                           ? cur.get(F_CACHED_TOKENS) / prompt * 100.0f : NAN;
   }
 
-  // State and footer (spec.md §8)
+  // State and footer (SPEC.md §8)
   const float ago = (now_ms - last_ok_ms_) / 1000.0f;
   const unsigned retry_s = (retry_ms + 999) / 1000;
   const char* dot = " \xC2\xB7 ";

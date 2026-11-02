@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
 // SPDX-License-Identifier: MIT
 
-// Graphs page, spec.md §7.2.
+// Graphs page, SPEC.md §7.2.
 #include <math.h>
 #include <stdio.h>
 
@@ -100,7 +100,7 @@ int graph(Grid& g, int row, const GraphSpec& s, unsigned span_s) {
 
 }  // namespace
 
-// Layout (spec.md §7.2): header box, then TG (6 rows), PP (2) and KV (2)
+// Layout (SPEC.md §7.2): header box, then TG (6 rows), PP (2) and KV (2)
 // boxes; the KV box's bottom edge is the footer.
 void graphs(Grid& g, const View& v) {
   g.clear();

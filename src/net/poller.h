@@ -6,7 +6,7 @@
 #include "app_config.h"
 #include "ui/view.h"
 
-// One background task per server (core 0, spec.md §10 "Tasks"): /metrics
+// One background task per server (core 0, SPEC.md §10 "Tasks"): /metrics
 // every poll_ms; /health + /v1/models on connect, every 30 s and after a
 // restart (vLLM: /version instead of /health); exponential backoff while a
 // server is down. Servers poll independently, so a dead one never delays

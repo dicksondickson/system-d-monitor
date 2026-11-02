@@ -4,7 +4,7 @@
 #include <math.h>
 #include <stdint.h>
 
-// Everything the pages draw, already derived (spec.md §5). The poller fills
+// Everything the pages draw, already derived (SPEC.md §5). The poller fills
 // one of these per poll; pages only read it. NaN = no data. Arduino-free.
 
 constexpr int RING_LEN = 60;  // 120 s at 2 s per sample
@@ -51,7 +51,7 @@ struct View {
   float pp_live = NAN, pp_avg = NAN, pp_eng = NAN;
   // Neither engine counts prompt tokens while prefilling (TensorFold: at
   // request end; vLLM: when the prefill completes), so a live prefill rate
-  // isn't measurable (spec.md §5). In this mode the PP row shows the last
+  // isn't measurable (SPEC.md §5). In this mode the PP row shows the last
   // finished request's prefill speed and "prefilling Ns" while one runs, and
   // pp_hist holds per-request prefill speeds at completion.
   bool pp_per_request = false;

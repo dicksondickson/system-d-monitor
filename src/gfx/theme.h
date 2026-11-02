@@ -3,7 +3,7 @@
 #pragma once
 #include <stdint.h>
 
-// Colour roles and themes (spec.md §6). Grid cells store a Role; the theme
+// Colour roles and themes (SPEC.md §6). Grid cells store a Role; the theme
 // maps it to RGB565 at blit time, so switching theme is a full repaint with
 // no re-layout. The themes are btop's Default + bundled themes
 // (https://github.com/aristocratos/btop, Apache-2.0; by aristocratos and the

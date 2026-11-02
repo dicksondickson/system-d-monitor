@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
 // SPDX-License-Identifier: MIT
 
-// System-D Monitor (spec.md): live TensorFold/vLLM dashboard on the Guition
+// System-D Monitor (SPEC.md): live TensorFold/vLLM dashboard on the Guition
 // ESP32-S3-4848S040.
 //
 //   tap left third / right third   previous / next server (with > 1 server)
@@ -32,13 +32,13 @@
 namespace {
 
 constexpr uint32_t TOUCH_POLL_MS = 33;  // ~30 Hz
-constexpr uint32_t TAP_MAX_MS = 500;    // spec.md §9
+constexpr uint32_t TAP_MAX_MS = 500;    // SPEC.md §9
 constexpr uint32_t HOLD_MS = 700;
 // Hold this long: screen off. 2.2 s on the board; the README says "3 s" so a
 // user who counts to three is sure to get there (user request).
 constexpr uint32_t SLEEP_HOLD_MS = 2200;
 constexpr int TAP_MAX_MOVE = 24;
-constexpr uint32_t ROTATE_PAUSE_MS = 60000;  // a touch pauses auto-rotate (spec.md §9)
+constexpr uint32_t ROTATE_PAUSE_MS = 60000;  // a touch pauses auto-rotate (SPEC.md §9)
 
 Arduino_RGB_Display* gfx = nullptr;
 Preferences prefs;

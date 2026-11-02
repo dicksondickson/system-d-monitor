@@ -52,7 +52,7 @@ void truncate(char* dst, size_t n, const char* src, int cols) {
 
 }  // namespace
 
-// Rows 1–4, one btop box (spec.md §7):
+// Rows 1–4, one btop box (SPEC.md §7):
 //   ╭─┐SYSTEM-D┌──────┐11-02-26 7:42:10 PM┌─┐⣀⣤⣶⣿┌─╮
 //   │ gpu-box · 192.168.1.50            OK IDLE │
 //   │ TensorFold · deepseek-v4.1-flash-1017     │

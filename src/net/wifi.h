@@ -21,7 +21,7 @@ constexpr uint32_t JOIN_GRACE_MS = 20000;
 WifiLink link();
 
 // Header info: IP ("" when down) and signal bars 0–4 (-1 when down);
-// RSSI ≥ −55/−67/−75/−85 dBm → 4/3/2/1 bars (spec.md §7.1).
+// RSSI ≥ −55/−67/−75/−85 dBm → 4/3/2/1 bars (SPEC.md §7.1).
 void info(char* ip, size_t ip_len, int8_t* bars);
 
 // Raw signal strength in dBm (0 when down).

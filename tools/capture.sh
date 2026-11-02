@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
 # SPDX-License-Identifier: MIT
-# Record a sequence of server responses as a test fixture (spec.md §10).
+# Record a sequence of server responses as a test fixture (SPEC.md §10).
 #
 #   tools/capture.sh <host:port> <count> [name] [interval_s]
 #   tools/capture.sh gpu-box.lan:8000 30 vllm-load
@@ -9,7 +9,7 @@
 # Writes test/fixtures/<name>/ with health.json and v1_models.json (once),
 # then NN-metrics.txt every interval (default 2 s), plus times.txt (epoch ms
 # per sample, for Δt). Run it while the server is under load to answer the
-# open questions in spec.md §12.
+# open questions in SPEC.md §12.
 set -euo pipefail
 
 target="${1:?usage: capture.sh <host:port> <count> [name] [interval_s]}"

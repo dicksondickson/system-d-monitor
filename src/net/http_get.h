@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// Minimal HTTP/1.0 GET that streams the body to a callback (spec.md §4.2):
+// Minimal HTTP/1.0 GET that streams the body to a callback (SPEC.md §4.2):
 // HTTP/1.0 + Connection: close means no chunked encoding, and nothing is
 // buffered beyond 512 bytes at a time.
 namespace http {

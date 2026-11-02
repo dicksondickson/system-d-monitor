@@ -7,7 +7,7 @@
 
 #include "theme.h"
 
-// The 48×20 character grid of 10×24 px cells (spec.md §6). Pages draw into a Grid; the screen
+// The 48×20 character grid of 10×24 px cells (SPEC.md §6). Pages draw into a Grid; the screen
 // diffs it against what's on the panel and repaints only changed cells.
 // Arduino-free so pages can be rendered and checked on the host.
 
@@ -71,7 +71,7 @@ class Grid {
   // Text dump for tests and golden files: one line per row. A 2× character
   // prints as its fullwidth form (U+FF01–FF5E) in its top-left cell, nothing
   // in its top-right cell, and spaces in its bottom cells, so every line is
-  // 48 display columns wide (as in the spec.md §7 mockups).
+  // 48 display columns wide (as in the SPEC.md §7 mockups).
   std::string dump() const;
 
  private:

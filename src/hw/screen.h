@@ -8,7 +8,7 @@
 
 // Puts a Grid on the panel: diffs it against what's shown and rasterises
 // only the changed cells straight into the PSRAM framebuffer, then writes
-// back the cache for the touched cell rows (spec.md §6).
+// back the cache for the touched cell rows (SPEC.md §6).
 namespace screen {
 
 void begin(Arduino_RGB_Display* gfx);

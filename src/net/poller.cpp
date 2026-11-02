@@ -20,7 +20,7 @@ namespace poller {
 namespace {
 
 constexpr uint32_t INFO_EVERY_MS = 30000;
-constexpr uint32_t BACKOFF_MS[] = {2000, 4000, 8000, 16000, 30000};  // spec.md §8
+constexpr uint32_t BACKOFF_MS[] = {2000, 4000, 8000, 16000, 30000};  // SPEC.md §8
 
 struct Timing {
   std::atomic<uint32_t> poll_ms;

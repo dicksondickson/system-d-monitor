@@ -159,6 +159,6 @@ again, because it holds the port.
 ## More detail
 
 - `README.md`: hardware, setup and reading the screen, for people
-- `spec.md`: how every number is derived, the screen layouts, all states
+- `SPEC.md`: how every number is derived, the screen layouts, all states
 - `docs/hardware-bringup.md`: this board's quirks and their fixes
 - `docs/board-guide.md`: general ESP32-4848S040 reference (pinout, variants)

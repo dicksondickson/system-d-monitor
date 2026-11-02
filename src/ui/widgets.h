@@ -6,7 +6,7 @@
 #include "gfx/grid.h"
 #include "gfx/theme.h"
 
-// The visual language of spec.md §7: btop-style boxes, │ … │ rows, bars,
+// The visual language of SPEC.md §7: btop-style boxes, │ … │ rows, bars,
 // block sparklines and braille graphs. Pages only compose these.
 // Arduino-free.
 namespace widgets {
@@ -14,7 +14,7 @@ namespace widgets {
 constexpr int CONTENT_COL = 2;               // first column inside "│ "
 constexpr int CONTENT_END = GRID_COLS - 2;   // exclusive; " │" follows
 
-// btop-style boxes (spec.md §7): every section is its own box with rounded
+// btop-style boxes (SPEC.md §7): every section is its own box with rounded
 // corners and its labels in notches on the border:
 //   ╭─┐Throughput┌──────────────┐120s┌─╮      top edge
 //   │ …                                 │      boxRow()
@@ -78,7 +78,7 @@ float sparkline(Grid& g, int col, int row, int rows, int cells, const float* dat
 void braille(Grid& g, int col, int row, int rows, int cols, const float* data, float vmax,
              uint8_t role);
 
-// Threshold colour for KV / context fill (spec.md §5).
+// Threshold colour for KV / context fill (SPEC.md §5).
 uint8_t fillRole(float pct);
 
 }  // namespace widgets

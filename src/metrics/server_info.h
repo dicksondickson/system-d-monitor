@@ -8,7 +8,7 @@
 #include "sample.h"
 
 // Slow-changing facts about the server: /health and /v1/models (TensorFold,
-// spec.md §4.1) and engine identification (§4.3). Arduino-free.
+// SPEC.md §4.1) and engine identification (§4.3). Arduino-free.
 
 struct ServerInfo {
   // /health (TensorFold)
@@ -28,7 +28,7 @@ bool parseVersion(const char* json, size_t len, ServerInfo& info);  // vLLM GET 
 
 struct Identity {
   Engine engine = Engine::UNKNOWN;
-  bool confirmed = false;  // a second signal agrees (spec.md §4.3 step 2)
+  bool confirmed = false;  // a second signal agrees (SPEC.md §4.3 step 2)
 };
 
 // Step 1: the prefix with the most recognised /metrics names wins; a tie or

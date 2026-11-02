@@ -7,7 +7,7 @@
 #include "server_info.h"
 #include "ui/view.h"
 
-// Turns successive Samples into the View the pages draw (spec.md §5):
+// Turns successive Samples into the View the pages draw (SPEC.md §5):
 // rates from deltas between polls, first-vs-last window averages, 120 s
 // rings, restart detection and the server state. Arduino-free.
 class Deriver {

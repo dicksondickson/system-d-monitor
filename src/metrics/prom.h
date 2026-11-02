@@ -6,7 +6,7 @@
 
 #include "sample.h"
 
-// Streaming Prometheus text parser (spec.md §4.2). Feed the HTTP body in any
+// Streaming Prometheus text parser (SPEC.md §4.2). Feed the HTTP body in any
 // chunk sizes; it keeps one line (2 KB) at a time, so /metrics (14 KB on
 // TensorFold, 67 KB on vLLM) never needs to be buffered. Arduino-free.
 class PromParser {

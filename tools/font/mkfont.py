@@ -16,7 +16,7 @@ SRC = os.path.join(ROOT, "third_party", "terminus")
 OUT = os.path.join(ROOT, "src", "gfx", "font_ter10x20.h")
 
 ASCII = list(range(0x20, 0x7F))
-# Extra glyphs the UI uses (spec.md §6–7).
+# Extra glyphs the UI uses (SPEC.md §6–7).
 EXTRA = [
     0x00B7,                                  # ·
     0x2014, 0x2026,                          # — …

@@ -10,7 +10,7 @@ an empty value means "default". Like btop, every key a theme doesn't set
 comes from the built-in Default theme (third_party/btop/default_theme.txt).
 btop is Apache-2.0: third_party/btop/LICENSE.
 
-Role mapping (spec.md §6):
+Role mapping (SPEC.md §6):
   BG main_bg · VALUE main_fg · TITLE title · LABEL graph_text · DIM inactive_fg
   (DIM and LABEL lifted towards main_fg to their MIN_CONTRAST against BG if fainter)
   BORDER/BOX2/BOX3/BOX4 cpu_box/mem_box/net_box/proc_box (one per section box)

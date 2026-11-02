@@ -4,7 +4,7 @@
 #include <math.h>
 #include <stddef.h>
 
-// Number formatting for the screens (spec.md §5 "Number format").
+// Number formatting for the screens (SPEC.md §5 "Number format").
 // Every function returns "no data" for NaN. Arduino-free, no heap.
 namespace fmt {
 

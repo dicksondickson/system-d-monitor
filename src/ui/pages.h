@@ -4,7 +4,7 @@
 #include "gfx/grid.h"
 #include "view.h"
 
-// The two screens of spec.md §7. Each clears the grid and draws the whole
+// The two screens of SPEC.md §7. Each clears the grid and draws the whole
 // page from the View. Arduino-free.
 namespace pages {
 
@@ -46,7 +46,7 @@ inline void draw(Page p, Grid& g, const View& v) {
   p == Page::GRAPHS ? graphs(g, v) : overview(g, v);
 }
 
-// Shared chrome (chrome.cpp), spec.md §7. chrome() draws the header box
+// Shared chrome (chrome.cpp), SPEC.md §7. chrome() draws the header box
 // (rows 1–4) and returns the first free row; footer() draws the bottom edge
 // of the last box (row 20) with the ≡ settings notch, the status and the hint.
 int chrome(Grid& g, const View& v);

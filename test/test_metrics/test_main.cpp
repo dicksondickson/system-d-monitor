@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
 // SPDX-License-Identifier: MIT
 
-// /metrics parsing, /health + /v1/models, engine identification (spec.md
+// /metrics parsing, /health + /v1/models, engine identification (SPEC.md
 // §4) and the derivation into a View (§5), against the dgx042 capture.
 #include <unity.h>
 

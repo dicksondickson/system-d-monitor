@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
 // SPDX-License-Identifier: MIT
 
-// Golden text dumps of both pages rendered from demoView() (spec.md §7).
+// Golden text dumps of both pages rendered from demoView() (SPEC.md §7).
 // After an intentional layout change, run `pio test -e native -v`, check the
 // printed dump, and paste it here.
 #pragma once

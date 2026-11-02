@@ -4,14 +4,14 @@
 #include <math.h>
 #include <stdint.h>
 
-// One poll's raw values from /metrics (spec.md §4.2), before any deltas.
+// One poll's raw values from /metrics (SPEC.md §4.2), before any deltas.
 // NaN = the metric wasn't in the response. Arduino-free.
 
 constexpr int SAMPLE_STREAMS = 8;
 
 enum class Engine : uint8_t { UNKNOWN, TENSORFOLD, VLLM };
 
-// Fields that combine across label sets (spec.md §4.2 "Combine series").
+// Fields that combine across label sets (SPEC.md §4.2 "Combine series").
 enum Field : uint8_t {
   F_RUNNING,
   F_WAITING,

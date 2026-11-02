@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 // Renders both pages from the demo view and compares the text dump with the
-// golden files (spec.md §7 layout). On mismatch the actual dump is printed.
+// golden files (SPEC.md §7 layout). On mismatch the actual dump is printed.
 #include <unity.h>
 
 #include <cstdio>
