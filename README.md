@@ -203,7 +203,6 @@ GPU server(s) ── HTTP /metrics every N s ──▶ one poller task per serve
 | [`spec.md`](spec.md) | The full design: data sources, metrics and formulas, screens, states, architecture, decisions |
 | [`docs/hardware-bringup.md`](docs/hardware-bringup.md) | The verified board configuration, and every problem hit bringing up this board (black screen, inverted colours, `-O0` builds, flicker, glitches), with fixes |
 | [`docs/board-guide.md`](docs/board-guide.md) | General ESP32-4848S040 reference: pinout, toolchains, vendor resources |
-| [`docs/devlog.md`](docs/devlog.md) | Development history: what was built when, and why |
 | [`THIRD_PARTY.md`](THIRD_PARTY.md) | Fonts, themes and libraries used, with their licences |
 
 ## Development

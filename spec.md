@@ -14,8 +14,7 @@ between polls (delta-sampling).
 **Status:** working (M1–M4 done, M5 in progress). This is the design
 document; for setup see [`README.md`](README.md). It was written for the
 author's two servers (`dgx042`: TensorFold, `dick6000`: vLLM), which appear
-as worked examples throughout. Decisions are in §12 and history is in
-[`docs/devlog.md`](docs/devlog.md).
+as worked examples throughout. Decisions are in §12.
 
 ---
 
