@@ -50,6 +50,9 @@ port appears.
 
 ## Quick start
 
+> **Using an AI coding agent?** Point it at [`SKILL.md`](SKILL.md): it walks
+> the agent through the config, build, flash and checks below.
+
 **1. Install PlatformIO Core** (any one of these):
 
 ```sh
