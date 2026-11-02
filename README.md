@@ -249,30 +249,17 @@ Board quirks to know before you change anything (details in
 
 ## Credits
 
-System-D Monitor stands on the shoulders of three terminal monitors:
+Inspired by:
 
-- **[btop](https://github.com/aristocratos/btop)** by aristocratos
-  (Apache-2.0). It defines the look: separate rounded boxes, titles in
-  notches on the border, a colour per box, and braille graphs. **All 42 of
-  the btop colour themes here (its built-in Default + 41 bundled themes)
-  come from btop's repository**, converted for this display by
-  `tools/themes/import_btop.py`. They're vendored with btop's licence in
-  `third_party/btop/`. Where a theme file names its author (33 of 41
-  do), that credit is kept unchanged.
-- **[EngineMetrics](https://github.com/0rand/EngineMetrics)** by 0rand
-  (MIT), the real-time vLLM + TensorFold dashboard TUI. It supplied the
-  metric vocabulary and maths: live vs engine-time rates, delta sampling,
-  honest gaps, sparklines. The `EngineMetrics` theme is its curses palette.
-- **[nv-monitor](https://github.com/wentbackward/nv-monitor)** by
-  wentbackward (MIT), the lightweight NVIDIA telemetry and terminal system
-  monitor. The per-stream table is modelled on its table.
+- [btop](https://github.com/aristocratos/btop): the look, and all the
+  colour themes
+- [EngineMetrics](https://github.com/0rand/EngineMetrics): the metrics,
+  and the EngineMetrics theme
+- [nv-monitor](https://github.com/wentbackward/nv-monitor): the stream
+  table
 
-No code was copied from any of them; this firmware is a from-scratch
-implementation for an ESP32 display. Also used: the
-[Terminus](https://terminus-font.sourceforge.net/) font (SIL OFL 1.1),
-[Arduino_GFX](https://github.com/moononournation/Arduino_GFX) and
-[ArduinoJson](https://arduinojson.org/). Details and licences are in
-[`THIRD_PARTY.md`](THIRD_PARTY.md).
+Font: [Terminus](https://terminus-font.sourceforge.net/). Libraries and
+licences: [`THIRD_PARTY.md`](THIRD_PARTY.md).
 
 ## License
 

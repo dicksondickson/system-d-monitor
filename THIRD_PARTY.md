@@ -12,16 +12,10 @@ System-D Monitor itself is MIT-licensed (`LICENSE`). It includes or uses:
 
 ## Inspiration
 
-No code is copied from these projects, but the design owes them a lot:
-
-- [btop](https://github.com/aristocratos/btop) (Apache-2.0): the look
-  (rounded boxes, notched titles, per-box colours, braille graphs) and all
-  of the btop colour themes (see the table above).
-- [EngineMetrics](https://github.com/0rand/EngineMetrics) (MIT): the
-  metric vocabulary and derivation (live vs engine-time rates, delta
-  sampling, honest gaps), and the `EngineMetrics` colour palette.
-- [nv-monitor](https://github.com/wentbackward/nv-monitor) (MIT): the
-  per-stream table.
+[btop](https://github.com/aristocratos/btop) (look and themes),
+[EngineMetrics](https://github.com/0rand/EngineMetrics) (metrics) and
+[nv-monitor](https://github.com/wentbackward/nv-monitor) (stream table). No
+code is copied from them.
 
 The vendor's board download pack (datasheets, demos, Windows tools) is not
 included in this repository. See `docs/board-guide.md` for where to get it.
