@@ -22,6 +22,7 @@ enum Role : uint8_t {
   BOX2,     // btop mem_box
   BOX3,     // btop net_box
   BOX4,     // btop proc_box
+  BRAND,    // "SYSTEM-D": the same red in every theme (user request)
   ROLE_COUNT
 };
 
@@ -38,5 +39,7 @@ constexpr uint16_t rgb565(uint32_t rgb) {
   return (uint16_t)((((rgb >> 16) & 0xF8) << 8) | (((rgb >> 8) & 0xFC) << 3) |
                     ((rgb & 0xFF) >> 3));
 }
+
+constexpr uint16_t BRAND_RED = rgb565(0xFF3B30);  // fixed, not themed
 
 }  // namespace theme

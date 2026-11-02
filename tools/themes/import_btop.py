@@ -13,6 +13,7 @@ Role mapping (spec.md §6):
   BORDER/BOX2/BOX3/BOX4 cpu_box/mem_box/net_box/proc_box (one per section box)
   GOOD/WARN/BAD cpu_start/cpu_mid/cpu_end (btop's low → high gradient)
   DECODE proc_misc · PREFILL temp_mid (falls back when too close to DECODE)
+  BRAND fixed red #ff3b30 (not from btop)
 """
 import glob, os, re, sys
 
@@ -21,7 +22,8 @@ SRC = os.path.join(ROOT, "third_party", "btop")
 OUT = os.path.join(ROOT, "src", "gfx", "themes_btop.h")
 
 ROLES = ["BG", "BORDER", "TITLE", "LABEL", "VALUE", "DIM", "GOOD", "WARN", "BAD",
-         "DECODE", "PREFILL", "BOX2", "BOX3", "BOX4"]  # order = enum theme::Role
+         "DECODE", "PREFILL", "BOX2", "BOX3", "BOX4", "BRAND"]  # order = enum theme::Role
+BRAND_RED = (0xFF, 0x3B, 0x30)  # "SYSTEM-D" is this red in every theme (user request)
 KEYS = {"BG": "main_bg", "BORDER": "cpu_box", "TITLE": "title", "LABEL": "graph_text",
         "VALUE": "main_fg", "DIM": "inactive_fg", "GOOD": "cpu_start", "WARN": "cpu_mid",
         "BAD": "cpu_end", "DECODE": "proc_misc", "PREFILL": "temp_mid", "BOX2": "mem_box",
@@ -50,7 +52,8 @@ def resolve(theme, default):
     def get(key):
         c = rgb(theme.get(key, "")) or rgb(default[key])
         return c
-    out = {r: get(KEYS[r]) for r in ROLES}
+    out = {r: get(KEYS[r]) for r in ROLES if r in KEYS}
+    out["BRAND"] = BRAND_RED
     if rgb(theme.get("main_bg", "")) is None:
         out["BG"] = (0, 0, 0)  # btop: empty main_bg = terminal background
     if dist(out["PREFILL"], out["DECODE"]) < 80:

@@ -61,7 +61,7 @@ int chrome(Grid& g, const View& v) {
   // Top edge: title + clock in the left notch, Wi-Fi bars in the right one.
   int col = edgeStart(g, 0, Edge::TOP, box);
   g.put(col++, 0, 0x2510, box);  // ┐
-  col = g.text(col, 0, "SYSTEM-D", theme::TITLE, ATTR_BOLD);
+  col = g.text(col, 0, "SYSTEM-D", theme::BRAND, ATTR_BOLD);  // red in every theme
   if (v.clock[0]) {
     col = g.text(col, 0, " ", theme::BG);
     col = g.text(col, 0, v.clock, theme::VALUE);

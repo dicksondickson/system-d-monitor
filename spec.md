@@ -362,6 +362,7 @@ empty `main_bg` means black.
 | BORDER, BOX2, BOX3, BOX4 | `cpu_box`, `mem_box`, `net_box`, `proc_box` | the header / Throughput (and TG graph) / Streams (and PP graph) / Averages (and KV graph) boxes, one colour each as in btop |
 | GOOD / WARN / BAD | `cpu_start` / `cpu_mid` / `cpu_end` | thresholds and states (btop's low → high gradient) |
 | DECODE | `proc_misc` | TG numbers and graphs |
+| BRAND | — (fixed `#ff3b30`) | `SYSTEM-D` in the header: the same red in every theme (user request) |
 | PREFILL | `temp_mid`, or the fallback (`temp_end`, `upload_end`, `hi_fg`, …) most distinct from DECODE and the background | PP numbers and graphs |
 
 Tune the colours on the real panel, because RGB565 shifts them.

@@ -25,6 +25,7 @@ const Theme ENGINE_METRICS = {
         rgb565(0x00CDCD),  // BOX2
         rgb565(0x00CDCD),  // BOX3
         rgb565(0x00CDCD),  // BOX4
+        BRAND_RED,         // BRAND
     }};
 }  // namespace
 

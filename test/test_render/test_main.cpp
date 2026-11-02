@@ -85,6 +85,14 @@ static void test_settings_screen() {
   TEST_ASSERT_TRUE(d.find("\xE2\x96\xB6nord") != std::string::npos);  // ▶ marks the current theme
 }
 
+static void test_brand_is_red_in_every_theme() {
+  Grid g;
+  pages::overview(g, demoView());
+  TEST_ASSERT_EQUAL_UINT8(theme::BRAND, g.at(3, 0).fg);  // the "S" of SYSTEM-D
+  for (int i = 0; i < theme::count(); i++)
+    TEST_ASSERT_EQUAL_HEX16_MESSAGE(theme::BRAND_RED, theme::get(i).rgb565[theme::BRAND], theme::get(i).name);
+}
+
 static void test_themes_and_hits() {
   TEST_ASSERT_EQUAL_INT(43, theme::count());  // EngineMetrics + btop Default + 41
   TEST_ASSERT_EQUAL_INT(0, theme::find("EngineMetrics"));
@@ -120,5 +128,6 @@ int main() {
   RUN_TEST(test_empty_view_says_no_data);
   RUN_TEST(test_settings_screen);
   RUN_TEST(test_themes_and_hits);
+  RUN_TEST(test_brand_is_red_in_every_theme);
   return UNITY_END();
 }
