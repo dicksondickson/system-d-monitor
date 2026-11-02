@@ -73,6 +73,7 @@ void streamRow(Grid& g, int row, const StreamView& s) {
     case StreamState::DECODING: state = "decoding"; role = theme::GOOD; break;
     case StreamState::PREFILL: state = "prefill"; role = theme::WARN; break;
     case StreamState::IDLE: state = "idle"; role = theme::DIM; break;
+    case StreamState::DONE: state = "done"; role = theme::LABEL; break;
     case StreamState::NO_DATA: break;
   }
   if (state) g.text(6, row, state, role);
@@ -150,20 +151,34 @@ void overview(Grid& g, const View& v) {
     }
   }
 
-  // KV cache (was its own "Cache" box; folded in to fit btop boxes in 20 rows)
+  // KV cache (was its own "Cache" box; folded in to fit btop boxes in 20 rows):
+  // "KV 0.0% ░░░░░░ · peak 12.6% · 0/1.0M tok". KV is freed when a request
+  // ends, so the live value is usually 0; the peak is the highest reading in
+  // the history window (the KV graph's, RING_LEN polls), so a request that
+  // just finished still shows how full it got (user request).
   boxRow(g, 9, thr_box);
   {
-    Writer w(g, 9, CONTENT_COL);
-    w.put("KV ", theme::LABEL).put(fmt::pct(v.kv_pct), fillRole(v.kv_pct)).put(" ", theme::BG);
-    bar(g, w.col(), 9, 16, v.kv_pct, fillRole(v.kv_pct));
-    w.to(w.col() + 16).put(SEP, theme::DIM);
-    if (isnan(v.kv_tokens) || isnan(v.kv_capacity)) {
-      w.put(fmt::NO_DATA, theme::DIM);
-    } else {
-      char tok[2 * sizeof(fmt::Str)];
+    float peak = NAN;
+    for (int i = 0; i < RING_LEN; i++)
+      if (!isnan(v.kv_hist[i]) && (isnan(peak) || v.kv_hist[i] > peak)) peak = v.kv_hist[i];
+    const fmt::Str now = fmt::pct(v.kv_pct), pk = fmt::pct(peak);
+    char tok[2 * sizeof(fmt::Str)] = "";
+    if (!isnan(v.kv_tokens) && !isnan(v.kv_capacity))
       snprintf(tok, sizeof tok, "%s/%s", fmt::tokens(v.kv_tokens).s, fmt::tokens(v.kv_capacity).s);
-      w.put(tok, theme::VALUE).put(" tok", theme::DIM);
-    }
+    // The bar takes whatever is left, so worst-case values (100.0%, 1.0M/1.0M) fit.
+    const int text = 3 + utf8Columns(now.s) + 1 + (isnan(peak) ? 0 : 3 + 5 + utf8Columns(pk.s)) + 3 +
+                     (tok[0] ? utf8Columns(tok) + 4 : utf8Columns(fmt::NO_DATA));
+    int bar_w = CONTENT_END - CONTENT_COL - text;
+    bar_w = bar_w < 3 ? 3 : bar_w > 16 ? 16 : bar_w;
+
+    Writer w(g, 9, CONTENT_COL);
+    w.put("KV ", theme::LABEL).put(now, fillRole(v.kv_pct)).put(" ", theme::BG);
+    bar(g, w.col(), 9, bar_w, v.kv_pct, fillRole(v.kv_pct));
+    w.to(w.col() + bar_w);
+    if (!isnan(peak)) w.put(SEP, theme::DIM).put("peak ", theme::LABEL).put(pk, fillRole(peak));
+    w.put(SEP, theme::DIM);
+    if (tok[0]) w.put(tok, theme::VALUE).put(" tok", theme::DIM);
+    else w.put(fmt::NO_DATA, theme::DIM);
   }
   boxBottom(g, 10, thr_box);
 

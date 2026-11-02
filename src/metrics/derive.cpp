@@ -48,10 +48,43 @@ StreamState toState(StreamPhase p) {
   }
 }
 
+// A request holds the slot: prefill or decode, or, when the server doesn't
+// export the phase, cache in use.
+bool streamActive(const StreamView& r) {
+  return r.state == StreamState::PREFILL || r.state == StreamState::DECODING ||
+         (r.state == StreamState::NO_DATA && r.ctx_pct > 0);
+}
+
 }  // namespace
 
 const Sample& Deriver::at(int i) const {
   return win_[(head_ - n_ + i + WINDOW) % WINDOW];
+}
+
+int Deriver::liveStreams(StreamView rows[MAX_STREAMS], float ctx_window) const {
+  if (n_ == 0) return 0;
+  const Sample& cur = at(n_ - 1);
+  const Sample* prev = n_ >= 2 ? &at(n_ - 2) : nullptr;
+  const float dt = prev ? (cur.t_ms - prev->t_ms) / 1000.0f : 0;
+  int n = 0;
+  for (int i = 0; i < SAMPLE_STREAMS && n < MAX_STREAMS; i++) {
+    const StreamSample& st = cur.streams[i];
+    if (!st.present) continue;
+    StreamView r;
+    r.id = (uint8_t)i;
+    r.state = toState(st.phase);
+    r.ctx_pct = isnan(st.kv) ? NAN : st.kv * 100.0f;
+    r.tokens = st.kv * ctx_window;
+    r.ttft_s = st.ttft_s;
+    // Per-stream TG while the same request keeps the slot.
+    if (prev && dt > 0) {
+      const StreamSample& b = prev->streams[i];
+      if (st.phase == StreamPhase::DECODING && b.present && st.start_s == b.start_s)
+        r.tg = ratio(st.gen_tokens - b.gen_tokens, dt);
+    }
+    rows[n++] = r;
+  }
+  return n;
 }
 
 void Deriver::pushRings(float tg, float pp, float kv) {
@@ -86,6 +119,7 @@ bool Deriver::onSample(const Sample& s, const Identity& id, const ServerInfo& in
     tg_busy_polls_ = 0;
     restarted_ = true;
     restart_ms_ = s.t_ms;
+    for (int i = 0; i < SAMPLE_STREAMS; i++) was_active_[i] = lingering_[i] = false;
   }
 
   win_[head_] = s;
@@ -117,6 +151,27 @@ bool Deriver::onSample(const Sample& s, const Identity& id, const ServerInfo& in
   if (prefilling && !prefilling_) prefill_since_ms_ = s.t_ms;
   prefilling_ = prefilling;
   pushRings(tg, pp, kvPct(s));
+
+  // Streams: remember each slot's last active row; when its request ends,
+  // start the linger timer (fill() shows the remembered row until it runs out).
+  StreamView rows[MAX_STREAMS];
+  const int nrows = liveStreams(rows, info.context_length);
+  bool seen[SAMPLE_STREAMS] = {};
+  for (int k = 0; k < nrows; k++) {
+    const int i = rows[k].id;
+    seen[i] = true;
+    if (streamActive(rows[k])) {
+      last_active_[i] = rows[k];
+      was_active_[i] = true;
+      lingering_[i] = false;
+    } else if (was_active_[i]) {
+      was_active_[i] = false;
+      lingering_[i] = true;
+      ended_ms_[i] = s.t_ms;
+    }
+  }
+  for (int i = 0; i < SAMPLE_STREAMS; i++)
+    if (!seen[i]) was_active_[i] = lingering_[i] = false;  // slot no longer reported
   return restart;
 }
 
@@ -140,9 +195,6 @@ void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, bool wifi_ok,
   v.wifi_bars = out.wifi_bars;
   v.server_index = out.server_index;
   v.server_count = out.server_count;
-  float slot_tg[SAMPLE_STREAMS];
-  for (float& x : slot_tg) x = NAN;
-
   v.ring_span_s = (uint16_t)(RING_LEN * poll_ms / 1000);
 
   // Identity and model
@@ -180,13 +232,6 @@ void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, bool wifi_ok,
       const Sample& first = at(0);
       const float span = (cur.t_ms - first.t_ms) / 1000.0f;
       if (span > 0) v.pp_avg = ratio(cur.get(F_PROMPT_TOKENS) - first.get(F_PROMPT_TOKENS), span);
-
-      // Per-stream TG while the same request keeps the slot.
-      for (int i = 0; i < SAMPLE_STREAMS; i++) {
-        const StreamSample &a = cur.streams[i], &b = prev.streams[i];
-        if (a.phase == StreamPhase::DECODING && b.present && a.start_s == b.start_s && dt > 0)
-          slot_tg[i] = ratio(a.gen_tokens - b.gen_tokens, dt);
-      }
     }
 
     v.tg_max = tg_peak_;
@@ -204,20 +249,16 @@ void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, bool wifi_ok,
     v.kv_capacity = cur.has(F_KV_POOL_TOKENS) ? cur.get(F_KV_POOL_TOKENS) : v.ctx_window;
     v.kv_tokens = v.kv_pct / 100.0f * v.kv_capacity;
 
-    // Streams: one row per slot the server reports, in slot order.
+    // Streams: one row per slot the server reports, in slot order. A slot
+    // whose request just ended shows its last active row, marked done.
     StreamView rows[MAX_STREAMS];
-    int n = 0;
-    for (int i = 0; i < SAMPLE_STREAMS && n < MAX_STREAMS; i++) {
-      const StreamSample& st = cur.streams[i];
-      if (!st.present) continue;
-      StreamView r;
-      r.id = (uint8_t)i;
-      r.state = toState(st.phase);
-      r.ctx_pct = isnan(st.kv) ? NAN : st.kv * 100.0f;
-      r.tokens = st.kv * v.ctx_window;
-      r.ttft_s = st.ttft_s;
-      r.tg = slot_tg[i];
-      rows[n++] = r;
+    const int n = liveStreams(rows, v.ctx_window);
+    for (int k = 0; k < n; k++) {
+      const int i = rows[k].id;
+      if (!streamActive(rows[k]) && lingering_[i] && now_ms - ended_ms_[i] < STREAM_LINGER_MS) {
+        rows[k] = last_active_[i];
+        rows[k].state = StreamState::DONE;
+      }
     }
     for (int i = 0; i < MAX_STREAMS; i++) v.streams[i] = i < n ? rows[i] : StreamView{};
     v.n_streams = (uint8_t)n;

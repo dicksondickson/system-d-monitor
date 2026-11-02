@@ -10,7 +10,9 @@ constexpr int MAX_STREAMS = 8;
 
 enum class ServerState : uint8_t { IDLE, BUSY, WARMING, RESTART, STALE, DOWN, NO_WIFI, UNKNOWN };
 
-enum class StreamState : uint8_t { NO_DATA, IDLE, PREFILL, DECODING };
+// DONE: the request just finished; the row keeps its last values for a few
+// seconds (Deriver::STREAM_LINGER_MS) so it can still be read.
+enum class StreamState : uint8_t { NO_DATA, IDLE, PREFILL, DECODING, DONE };
 
 struct StreamView {
   uint8_t id = 0;

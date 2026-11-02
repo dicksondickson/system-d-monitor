@@ -12,6 +12,9 @@ class Deriver {
  public:
   static constexpr int WINDOW = 15;               // samples (~30 s at 2 s)
   static constexpr uint32_t RESTART_SHOW_MS = 30000;
+  // A finished stream keeps its last active row, marked done, this long
+  // (user request: rows vanished too quickly to read).
+  static constexpr uint32_t STREAM_LINGER_MS = 10000;
 
   // A successful /metrics poll. Returns true if it detected an engine
   // restart (a counter went down), so the caller can re-fetch info.
@@ -29,6 +32,9 @@ class Deriver {
  private:
   const Sample& at(int i) const;  // 0 = oldest in window
   void pushRings(float tg, float pp, float kv);
+  // Stream rows from the latest poll (and the one before, for TG), in slot
+  // order; returns how many.
+  int liveStreams(StreamView rows[MAX_STREAMS], float ctx_window) const;
 
   Sample win_[WINDOW];
   int n_ = 0, head_ = 0;  // head_ = next write slot
@@ -50,6 +56,12 @@ class Deriver {
   float tg_peak_ = NAN;
   double tg_sum_ = 0;
   uint32_t tg_busy_polls_ = 0;
+
+  // Per slot: the last row while a request was active, and when it ended.
+  StreamView last_active_[SAMPLE_STREAMS];
+  bool was_active_[SAMPLE_STREAMS] = {};
+  bool lingering_[SAMPLE_STREAMS] = {};
+  uint32_t ended_ms_[SAMPLE_STREAMS] = {};
 
   // Per-request prefill (see View::pp_per_request)
   float last_pp_eng_ = NAN;

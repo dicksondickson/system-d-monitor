@@ -4,6 +4,7 @@
 //   tap left third / right third   previous / next server (with > 1 server)
 //   tap centre                     overview ↔ graphs (anywhere with 1 server)
 //   tap bottom-left corner (≡)     settings: refresh rate, brightness, theme
+//   hold 2.2 s anywhere            screen off (backlight); a tap turns it back on
 //
 // One poller task per server (core 0) fetches the data; this loop (core 1)
 // handles touch and redraws after every poll and every clock second. Theme,
@@ -30,6 +31,9 @@ namespace {
 constexpr uint32_t TOUCH_POLL_MS = 33;  // ~30 Hz
 constexpr uint32_t TAP_MAX_MS = 500;    // spec.md §9
 constexpr uint32_t HOLD_MS = 700;
+// Hold this long: screen off. 2.2 s on the board; the README says "3 s" so a
+// user who counts to three is sure to get there (user request).
+constexpr uint32_t SLEEP_HOLD_MS = 2200;
 constexpr int TAP_MAX_MOVE = 24;
 constexpr uint32_t ROTATE_PAUSE_MS = 60000;  // a touch pauses auto-rotate (spec.md §9)
 
@@ -45,10 +49,14 @@ uint8_t brightness_pct = BRIGHTNESS_PCT;
 int server = 0;  // index into kServers
 uint32_t last_rotate = 0, last_touch_ms = 0;
 bool touch_ok = false;
+// Screen sleep: only the backlight goes off. The poller tasks keep running so
+// history and averages are current on wake; redraws pause meanwhile.
+bool asleep = false;
 
 // Gesture state
 bool pressed = false;
 bool hold_fired = false;
+bool swallow = false;  // this press woke or slept the screen: it does nothing else
 uint32_t press_ms = 0;
 int press_x = 0, press_y = 0, last_x = 0, last_y = 0;
 
@@ -165,6 +173,19 @@ void onTap(int x, int y) {
   redraw();
 }
 
+void sleepScreen() {
+  asleep = true;
+  backlight::set(0);
+  Serial.println("screen -> off");
+}
+
+void wakeScreen() {
+  asleep = false;
+  redraw();  // catch up first, so the backlight comes on over a fresh frame
+  backlight::set(pages::brightnessDuty(brightness_pct));
+  Serial.println("screen -> on");
+}
+
 void pollTouch(uint32_t now) {
   touch::Point p = touch::read();
   if (p.fresh && p.down) {
@@ -175,15 +196,25 @@ void pollTouch(uint32_t now) {
       press_ms = now;
       press_x = p.x;
       press_y = p.y;
+      swallow = asleep;
+      if (asleep) wakeScreen();  // on touch-down, so it feels immediate
     }
     last_x = p.x;
     last_y = p.y;
   } else if (p.fresh && pressed) {  // released
     pressed = false;
     const int moved = abs(last_x - press_x) + abs(last_y - press_y);
-    if (!hold_fired && now - press_ms <= TAP_MAX_MS && moved < TAP_MAX_MOVE) onTap(press_x, press_y);
+    if (!swallow && !hold_fired && now - press_ms <= TAP_MAX_MS && moved < TAP_MAX_MOVE)
+      onTap(press_x, press_y);
   }
   if (pressed && !hold_fired && now - press_ms >= HOLD_MS) hold_fired = true;  // a hold isn't a tap
+  // Sleep fires while the finger is still down, so it's clear it worked;
+  // lifting that finger doesn't wake it. A drag doesn't count.
+  if (pressed && !swallow && now - press_ms >= SLEEP_HOLD_MS &&
+      abs(last_x - press_x) + abs(last_y - press_y) < TAP_MAX_MOVE) {
+    swallow = true;
+    sleepScreen();
+  }
 }
 
 }  // namespace
@@ -230,6 +261,10 @@ void loop() {
   if (touch_ok && now - last_touch >= TOUCH_POLL_MS) {
     last_touch = now;
     pollTouch(now);
+  }
+  if (asleep) {  // nothing visible: skip auto-rotate and redraws
+    delay(1);
+    return;
   }
   if (ROTATE_S > 0 && kServerCount > 1 && now - last_rotate >= ROTATE_S * 1000u &&
       now - last_touch_ms >= ROTATE_PAUSE_MS) {

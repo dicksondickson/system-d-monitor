@@ -303,6 +303,37 @@ static void test_not_an_engine() {
   TEST_ASSERT_EQUAL_STRING("???", v.engine);
 }
 
+static void test_finished_stream_lingers() {
+  // dgx042 exports only kv_cache_usage_perc{stream}: a stream is active while
+  // it holds cache. When it frees it, the row stays (marked done) for 10 s.
+  Rig r;
+  Sample s = r.at(0, 0, 0, 0, 0, 0, 1);
+  s.streams[0].kv = 0.126f;
+  r.d.onSample(s, r.id, r.info);
+  View v = r.view(500);
+  TEST_ASSERT_EQUAL(StreamState::NO_DATA, v.streams[0].state);
+  TEST_ASSERT_FLOAT_WITHIN(0.01, 12.6, v.streams[0].ctx_pct);
+
+  Sample done = r.at(2000, 0, 0, 0, 0, 0, 0);
+  done.streams[0].kv = 0;
+  r.d.onSample(done, r.id, r.info);
+  v = r.view(2000 + Deriver::STREAM_LINGER_MS - 1);
+  TEST_ASSERT_EQUAL(StreamState::DONE, v.streams[0].state);
+  TEST_ASSERT_FLOAT_WITHIN(0.01, 12.6, v.streams[0].ctx_pct);  // the last active values
+
+  v = r.view(2000 + Deriver::STREAM_LINGER_MS);
+  TEST_ASSERT_EQUAL(StreamState::NO_DATA, v.streams[0].state);  // back to the live row
+  TEST_ASSERT_EQUAL_FLOAT(0, v.streams[0].ctx_pct);
+
+  // A new request in the slot ends the linger at once.
+  Sample again = r.at(4000, 0, 0, 0, 0, 0, 1);
+  again.streams[0].kv = 0.02f;
+  r.d.onSample(again, r.id, r.info);
+  v = r.view(4500);
+  TEST_ASSERT_EQUAL(StreamState::NO_DATA, v.streams[0].state);
+  TEST_ASSERT_FLOAT_WITHIN(0.01, 2.0, v.streams[0].ctx_pct);
+}
+
 static void test_prefilling_and_per_request_pp() {
   // From the 2026-11-01 load test: a 127K-token prompt prefilled for ~38 s
   // with prompt_tokens_total only advancing when the request finished.
@@ -461,5 +492,6 @@ int main() {
   RUN_TEST(test_vllm_derived_view);
   RUN_TEST(test_footer_shows_server_position);
   RUN_TEST(test_derived_view_renders_cleanly);
+  RUN_TEST(test_finished_stream_lingers);
   return UNITY_END();
 }

@@ -127,6 +127,8 @@ with Wi-Fi off) and shows `NO WIFI` with `no include/config.h`.
 | tap the **left / right third** | previous / next server (the footer shows which, e.g. `1/2`) |
 | tap the **centre** | overview ↔ graphs |
 | tap the **bottom-left corner** (`≡`) | **Settings**: refresh rate (1, 2, 3, 5, 10 or 30 s), screen brightness (60–100 %) and theme. Tap a theme to apply it; `done` returns |
+| **hold 3 s** anywhere | screen off (the board keeps polling in the background) |
+| tap while off | screen back on |
 
 Theme, refresh rate, brightness, page and server survive a reboot. `ROTATE_S` in
 `config.h` auto-advances between servers.
@@ -143,8 +145,9 @@ Theme, refresh rate, brightness, page and server survive a reboot. `ROTATE_S` in
 | **PP last** | prefill speed of the most recently finished request (prompt tokens ÷ its prefill seconds). Neither engine reports prefill progress live, so there's no live PP |
 | **prefilling Ns** | a request is running, no tokens have been generated yet and its KV cache is filling, so it's in prefill, N seconds so far |
 | **run x/max · wait n** | requests running (out of the batch limit; TensorFold only) and queued |
-| **KV** | KV-cache use. vLLM: the shared pool (`used/pool tok`). TensorFold: the busiest stream's share of its context window |
-| **Streams** | per-request slots (TensorFold). Columns read `no data` unless the server exports per-stream metrics (`spec.md`, Appendix A) |
+| **KV** | KV-cache use right now. vLLM: the shared pool (`used/pool tok`). TensorFold: the busiest stream's share of its context window. The cache is freed when a request ends, so it reads 0 between requests |
+| **KV peak** | the highest KV reading in the recent history (the last 60 polls: 60 s at a 1 s refresh, 2 min at 2 s), so you can still see how full the cache got after a request finishes |
+| **Streams** | per-request slots (TensorFold). Columns read `no data` unless the server exports per-stream metrics (`spec.md`, Appendix A). When a request finishes, its row stays for **10 s** marked `done`, showing its final values, so you can still read it |
 | **TTFT · MTP · cache-hit** | mean time to first token · speculative-decoding acceptance (accepted ÷ drafted tokens) · prompt tokens served from the prefix cache |
 | **header** | `SYSTEM-D`, the time and the board's Wi-Fi signal as braille bars `⣀⣤⣶⣿` (top right); then server name · IP with its state (`OK IDLE`, `OK BUSY`, `STALE`, `DOWN`, `NO WIFI`, `UNKNOWN`); then engine · model |
 | **footer** | `≡` (settings), then `poll 2s · ok 0.4s ago`, or the problem (`timeout · retry 8s`, `dns gpu-box.lan`, `not TensorFold or vLLM`, …) |

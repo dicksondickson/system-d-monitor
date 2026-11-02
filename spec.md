@@ -238,9 +238,11 @@ response end) plus the values above. `prev` is the previous good sample and
 | **TG max** | highest live TG over the same span |
 | PP `avg` | first-vs-last over `win` (not shown in per-request PP mode) |
 | run / wait | `num_requests_running` / `max_batch_size` (`/health`) · `num_requests_waiting` |
-| **KV** | TensorFold: max over pools of `kv_cache_usage_ratio`; vLLM: `kv_cache_usage_perc` (one shared pool); × 100 |
+| **KV** | TensorFold: max over pools of `kv_cache_usage_ratio`; vLLM: `kv_cache_usage_perc` (one shared pool); × 100. A snapshot of cache held by **running** requests, read every poll: it drops to 0 as soon as a request ends (vLLM counts reusable prefix-cache blocks as free), so it is 0 most of the time when idle, and a request that starts and ends between two polls is never seen |
+| **KV peak** | the highest KV reading in the history window (the same `RING_LEN` = 60 polls as the KV graph: 60 s at a 1 s refresh, 2 min at 2 s). After a request ends the live value drops to 0 but the peak holds until that reading ages out. Not shown when there's no KV data. The KV bar shrinks (3–16 cells) so the row fits with worst-case values (user request, 2026-11-02) |
 | KV tokens | KV ratio × capacity / capacity. Capacity = `kv_cache_size_tokens` (vLLM pool) or `context_length` (TensorFold, whose ratio is per stream) |
 | **Stream n** ctx / tokens | `kv_cache_usage_perc{stream=n}` × 100 / × `context_length`; state `used` if > 0, else `free` |
+| **Stream linger** | when a stream's request ends (it was prefilling or decoding, or, without `stream_state`, held cache; now it doesn't), the row keeps its **last active values** (ctx, tokens, TTFT, TG) for `Deriver::STREAM_LINGER_MS` = **10 s** after the poll that saw it end, with the state shown as `done` (LABEL colour). A new request in the slot replaces it at once; a restart or a slot that disappears clears it. Requests that start and end between two polls are never seen (user request, 2026-11-02) |
 | **TTFT / lat** | sum / count (cumulative) of TTFT / e2e latency, `n` = TTFT count |
 | live TTFT | Δsum / Δcount; `no data` when nothing finished in the window |
 | **cache-hit** | `prompt_tokens_cached_total` / `prompt_tokens_total` (cumulative), App. A |
@@ -410,7 +412,7 @@ Values are illustrative, and assume TensorFold already exports Appendix A.
 │                live ▁▁▁██████████·██████     │
 │ PP last 3,354/s · prefilling 12s             │
 │ run 2/4 · wait 1 · TG avg 95.1 · max 104.2   │
-│ KV 31.4% █████░░░░░░░░░░░ · 329K/1.0M tok    │
+│ KV 31.4% ██░░░░ · peak 31.4% · 329K/1.0M tok │
 ╰──────────────────────────────────────────────╯
 ╭─┐Streams┌────────ctx─tokens───TTFT──────TG───╮
 │  0  decoding   31.4%   329K   1.2s  62.7/s   │
@@ -429,7 +431,7 @@ device it is drawn at 2× and spans rows 4–5, 2 columns per character.)
 | Rows | Box | Content |
 |---|---|---|
 | 1–4 | header (BORDER) | top edge: `┐SYSTEM-D┌─┐7:42:10 PM┌` (two notches; the border between them is the divider) and the Wi-Fi strength as braille bars `┐⣀⣤⣶⣿┌` in the top-right notch (RSSI ≥ −55/−67/−75/−85 dBm → 4/3/2/1 lit); row 2: **server name · IP** (the resolved address), state right-aligned (§8); row 3: **engine · model**; bottom edge |
-| 5–11 | Throughput (BOX2) | hero TG live at 2× + 2-row 120 s sparkline; `PP last 3,354/s · prefilling 12s`; `run x/max · wait n · TG avg … · max …` (since start, §5); `KV 31.4% ████░░ · 329K/1.0M tok` (Cache folded in) |
+| 5–11 | Throughput (BOX2) | hero TG live at 2× + 2-row 120 s sparkline; `PP last 3,354/s · prefilling 12s`; `run x/max · wait n · TG avg … · max …` (since start, §5); `KV 31.4% ██░░░░ · peak 31.4% · 329K/1.0M tok` (Cache folded in; peak and the bar's width: §5 KV row) |
 | 12–17 | Streams (BOX3) | column labels `ctx tokens TTFT TG` in the top edge over their columns; 4 stream rows (dgx042's batch size) |
 | 18–20 | Averages (BOX4) | `TTFT · MTP · cache-hit`; bottom edge = footer: `┘≡└` settings notch, `┘poll 2s · ok 0.4s ago└` (or the problem, §8), `┘tap: graphs└` or `┘1/2└` |
 
@@ -573,13 +575,15 @@ the new baseline (so it can trigger restart detection).
 | tap right third (x ≥ 320) | next server (with > 1 server) |
 | tap centre (anywhere with 1 server) | overview ↔ graphs |
 | tap bottom-left corner (`≡`, row 20, x < 120) | Settings (§7.3) |
-| hold ≥ 0.7 s | nothing (it used to cycle the theme; with 42 themes that moved to Settings) |
+| hold 0.7–2.2 s | nothing (it used to cycle the theme; with 42 themes that moved to Settings) |
+| hold ≥ 2.2 s, without dragging | **screen off** (`SLEEP_HOLD_MS`; the README says "3 s" on purpose, so counting to three always works): the backlight goes off as soon as the 2.2 s pass (finger still down; lifting it doesn't wake). Only the backlight: polling continues, so history and averages are current on wake; redraws and auto-rotate pause. Not saved, so a reboot comes back on (user request, 2026-11-02) |
+| any touch while off | **screen on**: wakes on touch-down, redraws, then the backlight returns at the Settings brightness. That press does nothing else (no server/page change) |
 | `ROTATE_S > 0` | auto-advance to the next server every N s; any touch pauses it for 60 s |
 
 A tap is a press and release within 500 ms, with movement < 24 px.
 GT911 is polled at ~30 Hz. Touch coordinates match the display at rotation
-0 with no transform (verified in M1). Theme (by name), refresh rate, page
-and the current server are saved in NVS. The footer's right label shows `‹ 1/2 ›` (current/total)
+0 with no transform (verified in M1). Theme (by name), refresh rate,
+brightness, page and the current server are saved in NVS; screen sleep is not. The footer's right label shows `‹ 1/2 ›` (current/total)
 (`┘1/2└`) instead of `tap: graphs` when more than one server is configured. It
 has no `‹ ›`: it isn't a button, and a `‹` drawn in the right third would point
 the wrong way. Every tap is logged on serial (`tap x=… y=… (col, row)` plus the

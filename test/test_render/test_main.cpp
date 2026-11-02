@@ -57,6 +57,32 @@ static void test_every_row_is_48_columns() {
   }
 }
 
+// Row 10 of the dump (the KV row) as a string.
+static std::string kvRow(const View& v) {
+  std::istringstream in(render(pages::Page::OVERVIEW, v));
+  std::string line;
+  for (int r = 0; r <= 9 && std::getline(in, line); r++) {}
+  return line;
+}
+
+static void test_kv_peak_over_window() {
+  View v = demoView();
+  for (int i = 0; i < RING_LEN; i++) v.kv_hist[i] = 0;
+  v.kv_hist[20] = 12.6f;  // a request that has since finished
+  v.kv_pct = 0;
+  v.kv_tokens = 0;
+  std::string row = kvRow(v);
+  TEST_ASSERT_TRUE_MESSAGE(row.find("KV 0.0%") != std::string::npos, row.c_str());
+  TEST_ASSERT_TRUE_MESSAGE(row.find("peak 12.6%") != std::string::npos, row.c_str());
+  // Worst case still fits in the box: the bar gives way.
+  for (int i = 0; i < RING_LEN; i++) v.kv_hist[i] = 100;
+  v.kv_pct = 100;
+  v.kv_tokens = v.kv_capacity = 1.0e6f;
+  row = kvRow(v);
+  TEST_ASSERT_EQUAL_INT_MESSAGE(GRID_COLS, displayCols(row), row.c_str());
+  TEST_ASSERT_TRUE_MESSAGE(row.find("peak 100.0% \xC2\xB7 1.0M/1.0M tok \xE2\x94\x82") != std::string::npos, row.c_str());
+}
+
 static void test_empty_view_says_no_data() {
   View v;  // nothing received yet
   std::string ov = render(pages::Page::OVERVIEW, v);
@@ -189,6 +215,7 @@ int main() {
   RUN_TEST(test_graphs_matches_golden);
   RUN_TEST(test_every_row_is_48_columns);
   RUN_TEST(test_empty_view_says_no_data);
+  RUN_TEST(test_kv_peak_over_window);
   RUN_TEST(test_settings_screen);
   RUN_TEST(test_brightness_duty);
   RUN_TEST(test_pixel_sparkline);
