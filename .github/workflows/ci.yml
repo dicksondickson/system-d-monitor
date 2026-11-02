@@ -20,7 +20,7 @@ jobs:
         run: pip install platformio
       - name: Host tests (parser, derivation, layouts, touch)
         run: pio test -e native
-      - name: Firmware build (no config.h: builds from the template)
+      - name: "Firmware build (no config.h: builds from the template)"
         run: pio run -e board
       - name: Generated files are up to date
         run: |
