@@ -54,7 +54,7 @@ Never: auth/HTTPS (the server is plain HTTP on the LAN), battery operation.
 - Guition/JCZN ESP32-4848S040, relay-less "no bottom shell" variant
   (ESP32-S3-WROOM-1 **N16R8**: 16 MB QIO flash, 8 MB **OPI** PSRAM)
 - 480×480 ST7701 RGB panel, GT911 capacitive touch (polled, INT/RST not wired)
-- USB-C power + flashing through CH340, serial @ 115200
+- USB-C power (5 V, 210 mA ≈ 1 W measured) + flashing through CH340, serial @ 115200
 - **Mounting: native orientation (rotation 0).** No display or touch
   transforms.
 
