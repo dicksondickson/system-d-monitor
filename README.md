@@ -76,3 +76,4 @@ On a healthy boot the log shows `psram 8192 KB`, `panel ok` and
 - Upload at **460800**. 921600 corrupts over the CH340.
 - Build with **`-O2`**. The platform passes no optimisation flag, so the default is `-O0`.
 - **Bounce buffers** on the RGB panel. Without them the screen flickers whenever Wi-Fi is busy.
+- Bring the panel up **before** Wi-Fi, and never block on the connection. Black-screen-with-Wi-Fi causes are in bring-up §2.8.

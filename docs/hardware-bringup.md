@@ -134,6 +134,31 @@ ready — touch the screen
   internal SRAM, which the CPU refills from PSRAM in an interrupt. That
   costs ~19 KB of internal RAM. The user confirmed the flicker is gone.
 
+### 2.8 Screen goes black when Wi-Fi comes up (another session)
+
+- **Report:** in an earlier, separate development session (not this
+  codebase), the screen worked on its own but went black as soon as Wi-Fi
+  was brought up. That code wasn't available, so the cause wasn't
+  confirmed. These are the usual causes, most likely first, with how to
+  tell them apart from the serial log:
+
+| # | Cause | Serial log shows | How this firmware avoids it |
+|---|---|---|---|
+| 1 | **Blocking wait for the connection**: `WiFi.begin()` then `while (WiFi.status() != WL_CONNECTED) delay(…)` before the first frame or the backlight. If Wi-Fi never connects (wrong password, 5 GHz SSID, typo), the screen stays black forever. | stops after "connecting", no further output | `WiFi.begin()` is non-blocking, and all polling runs in the poller task (`src/net/poller.cpp`). The UI loop never waits on the network, and a missing link shows as `NO WIFI` |
+| 2 | **Internal RAM exhausted.** Wi-Fi takes a large share of internal (DMA-capable) RAM. If it starts first, the display's bounce buffers, DMA descriptors or LVGL draw buffers can fail to allocate, `begin()` returns false, and nothing is drawn | a panel/LCD init failure, or `esp_lcd` allocation errors | `panel::begin()`, which allocates the bounce buffers, runs **before** `net::begin()` in `setup()`; failure prints `FATAL panel begin failed` |
+| 3 | **Brownout reboot.** Wi-Fi transmit bursts add a few hundred mA on top of the panel (~260 mA). A weak USB port or thin cable sags, the brownout detector resets the board, and it loops before drawing | `Brownout detector was triggered`, repeated boot banners | not handled in code: use a good data cable and a port or supply that can deliver ≥ 500 mA |
+| 4 | **PSRAM bandwidth.** Without bounce buffers the LCD DMA reads PSRAM directly, and Wi-Fi traffic starves it. Here that showed as flicker (§2.7); worse cases can make the panel lose sync and go dark | normal boot, polls running | bounce buffers (§2.7) |
+
+- **Also rule out the backlight:** if that build drove GPIO38 with LEDC
+  PWM at 20 kHz, the screen is black regardless of Wi-Fi (§2.1).
+- **Init order this firmware uses** (`src/main.cpp`, `setup()`):
+  1. `panel::begin()`: ST7701 init, RGB bus, framebuffer and bounce
+     buffers;
+  2. `net::begin()`: Wi-Fi starts, non-blocking, plus SNTP;
+  3. `poller::begin()`: the polling task on core 0;
+  4. first `redraw()`;
+  5. `backlight::begin()` + `set()` (1 kHz).
+
 ---
 
 ## 3. How it was found (diagnostic rounds)
@@ -180,6 +205,7 @@ alternative to type9 if ever needed.
    (§2.3).
 4. **Flicker that comes and goes with network activity:** check that
    bounce buffers are still enabled (§2.7).
+   **Black only once Wi-Fi is on:** go through §2.8.
 5. **Shifted or cropped image / missing edge of the border:** tune the
    porch values in `src/hw/panel.cpp` (guide §3).
 6. **Touch dead:** the boot log should show `GT911 … addr=0x5D`. INT/RST
