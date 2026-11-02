@@ -6,6 +6,7 @@
 View demoView() {
   View v;
   strcpy(v.clock, "12:47:33");
+  strcpy(v.server, "dgx042");
   strcpy(v.ip, "192.168.50.57");
   v.wifi_bars = 3;
   strcpy(v.engine, "TensorFold");
@@ -16,11 +17,10 @@ View demoView() {
   for (int i = 0; i < RING_LEN; i++) {
     const bool idle = i <= 8, gap = i >= 38 && i <= 41;
     v.tg_hist[i] = gap ? NAN : idle ? 0.0f : 85.0f + 15.0f * sinf(i / 4.0f) + (float)(i % 5);
-    v.pp_hist[i] = gap ? NAN : idle ? 0.0f : (i == 14 || i == 15 || i == 44) ? 6800.0f
-                                             : i == 28 ? 3000.0f : 300.0f;
+    // TensorFold PP: prefill speed of each request at the poll it finished.
+    v.pp_hist[i] = gap ? NAN : i == 14 ? 6800.0f : i == 28 ? 3000.0f : i == 44 ? 3354.0f : 0.0f;
     v.kv_hist[i] = gap ? NAN : idle ? 0.0f : 31.4f * i / (RING_LEN - 1);
   }
-  v.pp_hist[RING_LEN - 1] = 1331.0f;
 
   v.tg_live = v.tg_hist[RING_LEN - 1];
   v.tg_avg = 95.1f;
@@ -28,6 +28,9 @@ View demoView() {
   v.pp_live = 1331.0f;
   v.pp_avg = 1290.0f;
   v.pp_eng = 6802.0f;
+  v.pp_per_request = true;  // TensorFold
+  v.pp_last = 3354.0f;
+  v.prefilling_s = 12.0f;
   v.running = 2;
   v.max_batch = 4;
   v.waiting = 1;

@@ -69,6 +69,10 @@ Never: auth/HTTPS (the server is plain HTTP on the LAN), battery operation.
 | Backlight PWM (LEDC) | 38 |
 | GT911 SDA / SCL (I²C @ 0x5D) | 19 / 45 |
 
+**Bounce buffers** (2 × 10 lines in internal SRAM, `BOUNCE_PX` in
+`src/hw/panel.cpp`): without them the LCD DMA reads PSRAM directly and the
+screen flickers every poll once Wi-Fi is active (§2.7 of the bring-up log).
+
 Timing starting point: PCLK 12–14 MHz, HSYNC pol 1 / fp 10 / pw 8 / bp 50,
 VSYNC pol 1 / fp 10 / pw 8 / bp 20. ST7701 needs Arduino_GFX's "type 9" init
 sequence **plus an explicit `0x20` INVOFF** (found by the display diag,
@@ -208,10 +212,12 @@ response end) plus the values above. `prev` is the previous good sample and
 
 | Shown as | Formula |
 |---|---|
-| **TG live** (hero) | Δ(`generation_tokens_total` + `generation_tokens_running`) / Δt, so in-flight tokens count ⚠ §12 |
+| **TG live** (hero) | Δ(`generation_tokens_total` + `generation_tokens_running`) / Δt, so in-flight tokens count. Verified under load (§12 Q1) |
 | TG eng | Δ`generation_tokens_total` / Δ`request_decode_time_seconds_sum` |
-| **PP live** | Δ`prompt_tokens_total` / Δt ⚠ §12 |
-| PP eng | Δ`prompt_tokens_total` / Δ`request_prefill_time_seconds_sum` |
+| PP live | Δ`prompt_tokens_total` / Δt. **vLLM only.** TensorFold counts prompt tokens when a request *finishes* (§12 Q2), so this would read 0 during prefill and spike at completion |
+| PP eng | Δ`prompt_tokens_total` / Δ`request_prefill_time_seconds_sum`: prefill speed of the request(s) that finished in this poll |
+| **PP last** (TensorFold) | the most recent non-`no data` PP eng, kept until the next request finishes |
+| **prefilling Ns** (TensorFold) | shown while `num_requests_running` > 0, live TG = 0 and KV > 0; N = seconds since the first poll that matched |
 | `avg` | first-vs-last over `win` |
 | run / wait | `num_requests_running` / `max_batch_size` (`/health`) · `num_requests_waiting` |
 | **KV** | max over pools of `kv_cache_usage_ratio` × 100 |
@@ -237,8 +243,10 @@ response end) plus the values above. `prev` is the previous good sample and
   `_count` goes **down**, clear `win` and `prev`, push a gap into the rings,
   show `OK RESTART` on the server rule for 30 s, and re-fetch `/v1/models`
   and `/health`.
-- **Rings:** 60 slots (120 s at 2 s) each for TG live, PP live and KV.
-  A missed poll pushes a gap (NaN), so time spacing is preserved.
+- **Rings:** 60 slots (120 s at 2 s) each for TG live, PP and KV.
+  A missed poll pushes a gap (NaN), so time spacing is preserved. The PP
+  ring holds PP live on vLLM. On TensorFold it holds **PP eng at the poll a
+  request finished, and 0 otherwise**: one point per finished request.
 
 **Colours** (EngineMetrics thresholds):
 - TG live: ≥ 30 good, > 0 warn, otherwise dim.
@@ -352,13 +360,13 @@ Values are illustrative, and assume TensorFold already exports Appendix A.
 ### 7.1 Overview
 
 ```
-┌─┤ SYSTEM-D 12:47:33  LAN 192.168.50.57 ▂▄▆█ ├┐
+┌─┤ SYSTEM-D 12:47:33  dgx042 ▂▄▆█ ├───────────┐
 ├─┤ TensorFold · deepseek-v4.1-… ├─┤ OK BUSY ├─┤
 ├─┤ Throughput ├───────────────────────────────┤
 │ TG １０１．３ tok/s    █▆▄▄▅▆███▆ ▄▄▅▇██     │
 │                live ▁▁▁██████████·██████     │
-│ PP 1,331/s  avg 1,290 · eng 6,802/s          │
-│ PP ▁▁▁▁▁▁▁█▁▁▁▁▁▁▄▁▁▁▁··▁█▁▁▁▁▁▁▂ 6.8K       │
+│ PP last 3,354/s · prefilling 12s             │
+│ PP ▁▁▁▁▁▁▁█▁▁▁▁▁▁▄▁▁▁▁··▁▄▁▁▁▁▁▁▁ 6.8K       │
 │ run 2/4 · wait 1 · TG avg 95.1 · eng 91.2    │
 ├─┤ Cache ├────────────────────────────────────┤
 │ KV 31.4% █████░░░░░░░░░░░ · 329K/1.0M tok    │
@@ -383,9 +391,9 @@ device it is drawn at 2× and spans rows 4–5, 2 columns per character.)
 
 | Rows | Section | Content |
 |---|---|---|
-| 1 | header | `SYSTEM-D`, clock `HH:MM:SS`, `LAN <ip>` and Wi-Fi signal bars `▂▄▆█` (RSSI ≥ −55 / −67 / −75 / −85 dBm → 4/3/2/1 bars, none = no link) |
+| 1 | header | `SYSTEM-D`, clock `HH:MM:SS` (SNTP, `TZ_POSIX`), **server name** (`SERVER_NAME`, default `SERVER_HOST` up to the first dot, e.g. `dgx042`) and the monitor's Wi-Fi signal bars `▂▄▆█` from `WiFi.RSSI()` (≥ −55 / −67 / −75 / −85 dBm → 4/3/2/1 bars, none = no link). The monitor's own IP goes to the serial log only |
 | 2 | server | **detected engine, spelled out** (`TensorFold` or `vLLM`, §4.3) · model id, state on the right (§8). The model id is cut with `…` to fit; the boot screen shows it in full |
-| 3–8 | Throughput | **hero: TG live** at 2× in the decode colour + 2-row, 20-cell sparkline (3 samples per cell = 120 s, 16 levels); PP live + avg + engine rate in the prefill colour; PP 30-cell sparkline; `run x/max · wait n` + TG avg and engine rate |
+| 3–8 | Throughput | **hero: TG live** at 2× in the decode colour + 2-row, 20-cell sparkline (3 samples per cell = 120 s, 16 levels); the PP row (TensorFold: `PP last 3,354/s · prefilling 12s`; vLLM: PP live + avg + eng); the PP 30-cell sparkline; `run x/max · wait n` + TG avg and engine rate |
 | 9–10 | Cache | KV bar + used / window tokens |
 | 11–16 | Streams | header + one row per stream slot, up to `max_batch_size` (4 now; spare rows 20–23 allow up to 8): id, state, ctx %, tokens, TTFT, TG |
 | 17–19 | Averages | cumulative TTFT · MTP acceptance · cache-hit; then live TTFT · e2e latency · `n` |
@@ -407,26 +415,26 @@ rates can't be confused at a glance.
 ### 7.2 Graphs
 
 ```
-┌─┤ SYSTEM-D 12:47:33  LAN 192.168.50.57 ▂▄▆█ ├┐
+┌─┤ SYSTEM-D 12:47:33  dgx042 ▂▄▆█ ├───────────┐
 ├─┤ TensorFold · deepseek-v4.1-… ├─┤ OK BUSY ├─┤
 ├─┤ TG live tok/s ├───────────────────┤ 120s ├─┤
-│ ⠀⠀⠀⠀⢸⣀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣾⣿⣧⡀⠀⠀⠀⠀⠀⠀⠀⣰⣷⣿⣿  now 101.3    │
-│ ⠀⠀⠀⠀⢸⣿⣷⡄⠀⠀⠀⢀⣶⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⣠⣼⣿⣿⣿⣿  avg  73.7    │
-│ ⠀⠀⠀⠀⢸⣿⣿⣿⣶⣶⣴⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣶⣦⣾⣿⣿⣿⣿⣿⣿  max 102.0    │
-│ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿  min   0.0    │
+│ ⠀⠀⠀⠀⢸⣀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣾⣿⣧⡀⠀⠀⠀⠀⠀⠀⠀⣰⣷⣿⣿ now  101.3    │
+│ ⠀⠀⠀⠀⢸⣿⣷⡄⠀⠀⠀⢀⣶⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⣠⣼⣿⣿⣿⣿ avg   73.7    │
+│ ⠀⠀⠀⠀⢸⣿⣿⣿⣶⣶⣴⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣶⣦⣾⣿⣿⣿⣿⣿⣿ max  102.0    │
+│ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿ min    0.0    │
 │ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
 │ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
 │ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
 │ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
-├─┤ PP live tok/s ├───────────────────┤ 120s ├─┤
-│ ⠀⠀⠀⠀⠀⠀⠀⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀  now 1,331    │
-│ ⠀⠀⠀⠀⠀⠀⠀⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀  avg 666.6    │
-│ ⠀⠀⠀⠀⠀⠀⠀⣿⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀  max 6,800    │
-│ ⠀⠀⠀⠀⠀⠀⠀⣿⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀  min   0.0    │
-│ ⠀⠀⠀⠀⢀⣀⣀⣿⣀⣀⣀⣀⣀⣀⣇⣀⣀⣀⣀⠀⠀⣀⣇⣀⣀⣀⣀⣀⣀⣸               │
+├─┤ PP per request tok/s ├────────────┤ 120s ├─┤
+│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ last 3,354    │
+│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ avg  4,385    │
+│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⡄⠀⠀⠀⠀⠀⠀⠀ max  6,800    │
+│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀ min  3,000    │
+│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀               │
 ├─┤ KV % ├────────────────────────────┤ 120s ├─┤
-│ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀  now 31.4%    │
-│ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀  max 31.4%    │
+│ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ now  31.4%    │
+│ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ max  31.4%    │
 │ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣀⣀               │
 │ ⠀⠀⠀⠀⢀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣶⣶⣶⣶⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
 │                                              │
@@ -437,8 +445,11 @@ rates can't be confused at a glance.
 look ragged. On the device every glyph is one 10×20 cell.)
 
 - Rows 1–2 and the footer rule are the same as the overview.
-- TG live gets 8 rows (32 levels, decode colour), PP live 5 (prefill
-  colour), KV 4. Right column: `now / avg / max / min` for the window.
+- TG live gets 8 rows (32 levels, decode colour), PP 5 (prefill colour),
+  KV 4. Right column: `now / avg / max / min` for the window.
+- On TensorFold the PP graph is titled **PP per request tok/s**: one bar
+  per finished request. Its stats cover finished requests only, and
+  `last` replaces `now`.
 - The y-scale is the window max, with a floor (TG 10, PP 100) so idle noise
   doesn't fill the box. KV is fixed at 0–100 %.
 - The column gap in TG is a missed poll or a restart.
@@ -500,24 +511,33 @@ left/right zones arrive with multi-server support.
 
 ## 10. Firmware architecture
 
-### Config — `include/config.h` (gitignored; commit `config.example.h`)
+### Config — `include/config.h` (gitignored; template `include/config.example.h`)
 
 ```cpp
 #pragma once
-#define WIFI_SSID   "…"
-#define WIFI_PASS   "…"
-#define TZ_POSIX    "PST8PDT,M3.2.0,M11.1.0"   // header clock
+// System-D Monitor configuration (spec.md §10).
+//
+// Copy this file to include/config.h and fill it in. config.h is gitignored,
+// so your Wi-Fi password never ends up in the repo. Without a config.h the
+// firmware still builds (from this file) and shows NO WIFI.
 
-#define SERVER_NAME "dgx042"
-#define SERVER_HOST "dgx042.lan"                // or "192.168.50.192"
+#define WIFI_SSID   ""          // 2.4 GHz network (the ESP32-S3 has no 5 GHz)
+#define WIFI_PASS   ""
+#define TZ_POSIX    "PST8PDT,M3.2.0,M11.1.0"   // header clock; POSIX TZ string
+
+#define SERVER_HOST "dgx042.lan"  // bare "dgx042" won't resolve: no DNS search domain
 #define SERVER_PORT 40000
+// #define SERVER_NAME "dgx042"   // header label; default: SERVER_HOST up to the first dot
 
-constexpr uint32_t POLL_MS    = 2000;
-constexpr uint8_t  WINDOW     = 15;     // samples for avg / live
-constexpr uint8_t  BRIGHTNESS = 200;    // 0–255 backlight PWM
-constexpr uint16_t CONNECT_MS = 800;
-constexpr uint16_t READ_MS    = 1500;
+#define POLL_MS     2000          // /metrics every 2 s
+#define CONNECT_MS  800
+#define READ_MS     1500
+#define BRIGHTNESS  200           // 0–255 backlight PWM
 ```
+
+`src/app_config.h` uses `config.h` if it exists. Otherwise it builds from
+the example with Wi-Fi off, the footer reads `no include/config.h`, and the
+compiler prints a `#warning`.
 
 ### Tasks
 
@@ -576,10 +596,10 @@ third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
 | M0 | Hardware sanity | Factory demo shows UI, touch responds (data cable) |
 | M1 ✅ 2026-11-01 | Skeleton | `platformio.ini` pinned; colour bars show **R/G/B in the right places**; backlight PWM works; touch dot follows the finger; serial log at 115200 |
 | M2 ✅ 2026-11-01 | Renderer | Font + widgets; static §7.1 / §7.2 on the panel in both themes; tap/hold gestures; host golden tests. Full-page repaint ~28 ms (PSRAM-bound, §6), incremental < 1 ms |
-| M3 | Data in | Wi-Fi + SNTP; streaming HTTP; parser passes native tests on the idle fixture + a load capture; engine identification passes tests for TensorFold (real fixture), vLLM (synthetic `/metrics` + `/version`) and UNKNOWN (an HTML page, an empty body); serial prints parsed samples from dgx042 |
+| M3 ✅ 2026-11-01 | Data in | Wi-Fi + SNTP; streaming HTTP; parser passes native tests on the idle fixture; engine identification passes tests for TensorFold (real fixture), vLLM (synthetic `/metrics`) and UNKNOWN (an HTML page, an empty body, another exporter); serial prints parsed samples from dgx042. *Differences:* the load behaviour was checked from the live serial log, not a saved load fixture; the vLLM `/version` confirmation is deferred with vLLM support |
 | M3a | TensorFold exports (in the TensorFold repo) | Appendix A metrics live on dgx042; a load capture with ≥ 2 concurrent requests saved as `test/fixtures/tensorfold-<ver>-load/` |
-| M4 | Derive | Rates, window, rings, restart detection; native tests on captured sequences, including a server restart |
-| M5 | Live UI | Both pages fed by real data; tap/hold work; every §8 state reachable (pull Wi-Fi, stop the server) |
+| M4 ✅ 2026-11-01 | Derive | Rates, window, rings, restart detection, prefill detection; native tests on sequences built from the real capture (rates, idle, restart, stale/down/no-wifi, not-an-engine, prefill), plus the live load test |
+| M5 (in progress) | Live UI | Both pages fed by real data; tap/hold work; every §8 state reachable (pull Wi-Fi, stop the server) |
 | M6 | Hardening | NVS persistence; backoff; 24 h soak with flat heap and no stuck states |
 
 ---
@@ -589,41 +609,54 @@ third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
 **Decided (2026-11-01)**
 - v1 monitors one TensorFold server (dgx042). vLLM and multi-server come
   later.
-- Overview layout follows the sketch: header with clock / LAN IP / signal,
-  server rule with state, Throughput with a 2× TG hero, Cache, Streams
-  table, Averages. EngineMetrics supplies the metric vocabulary and
-  colours, not the layout.
+- Overview layout follows the sketch: a header with clock / server name /
+  signal, a server rule with state, Throughput with a 2× TG hero, Cache,
+  Streams table and Averages, closed into one btop-style frame (§7).
+  EngineMetrics supplies the metric vocabulary and colours, not the
+  layout.
 - Decode and prefill always use distinct colours.
 - Unavailable values read `no data` (rules in §5), never `—` or a hidden
   column.
 - The monitor confirms that the server is TensorFold or vLLM (§4.3),
   spells out which one on screen, and treats anything else as UNKNOWN.
 - TensorFold's exports will be extended (Appendix A) to fill the Streams
-  table and cache-hit.
+  table and cache-hit. Deferred for now: those values read `no data`.
 - Config: compile-time `config.h`.
 - Renderer: custom char grid on Arduino_GFX, no LVGL.
 - Density: 48 × 24 cells, 10 × 20 font.
 - Orientation: native (rotation 0).
+- **Header shows the server's name** (`dgx042`), not the monitor's IP.
+- **TensorFold PP:** no live prefill rate. The PP row shows `PP last
+  <rate>` plus `prefilling Ns` while a prefill runs, and the PP
+  sparkline/graph plots per-request prefill speed (§5, §7). The user chose
+  this over keeping Δprompt/Δt and over a per-request-only display.
 
-**Open: verify with a capture under load (`tools/capture.sh`, M3)**
-1. Is `generation_tokens_total + generation_tokens_running` continuous when
-   a request finishes? Does it double-count or dip?
-2. Does `prompt_tokens_total` increment at prefill end, or at request end?
-   PP live depends on it.
+**Answered by the 2026-11-01 load test** (live serial log, single requests
+of up to a 127K-token prompt)
+1. **In-flight tokens: yes, continuous.** While decoding, TG live read a
+   steady 50–61 tok/s with no double count. The poll where a request
+   finishes reads lower (34–45 tok/s), one dip per request. That's
+   acceptable for now.
+2. **`prompt_tokens_total` increments when the request finishes**, not at
+   prefill end. During a ~36 s prefill it stayed flat, then jumped by
+   ~127K in one poll, so Δprompt/Δt read 0 and then 63K tok/s. That led to
+   the TensorFold PP decision above. PP eng from the same poll gives the
+   real prefill speed: 3,354 tok/s.
+3. **Partly answered.** KV drops to 0.0% the poll a request finishes, so a
+   stream with non-zero KV is serving a request, not just holding cache.
+   Not yet seen: several requests in flight at once.
+5. **`dgx042.lan` resolves** from the ESP32 via the router's DNS. Polls
+   take 16–50 ms on Wi-Fi (114 ms worst seen) at −31 to −46 dBm.
+
+**Still open**
 3. With several requests in flight, how many `kv_cache_usage_perc{stream=…}`
-   series appear? Does a finished stream keep a non-zero value (cached
-   prompt), which would make `used` mean "holds cache" rather than "busy"?
+   series appear?
 4. Do `kv_cache_usage_ratio{pool=…}` and `kv_cache_usage_perc{stream=…}`
-   differ under load? `HELP` says they share streams and ratios, but the
-   labels differ. If they're identical, KV = max stream and the pool series
-   is ignored.
-5. Does `dgx042.lan` resolve from the ESP32 (router DNS), or should the
-   config use the IP?
-
-**Open: TensorFold side**
-6. Implement Appendix A in TensorFold (M3a). While you're in there, item 4
-   (`kv_cache_usage_ratio{pool}` vs `kv_cache_usage_perc{stream}`) can be
-   settled from the source rather than by capture.
+   differ under load? The monitor currently shows KV = max of the pool
+   series. Capture with `tools/capture.sh dgx042:40000 30 <name>` during
+   concurrent requests.
+6. Implement Appendix A in TensorFold (M3a), including A.4. Item 4 can be
+   settled from the TensorFold source.
 
 ---
 
@@ -696,3 +729,13 @@ It reads `no data` until this counter exists.
   anything else scraping TensorFold keep working.
 - The monitor reads `version` from `/health`. Bump it with this change so
   the boot screen shows which build is running.
+
+### A.4 Live prefill progress (optional, makes PP live possible)
+
+| Metric | Type | Value |
+|---|---|---|
+| `tensorfold:prompt_tokens_prefilled_total` | counter | prompt tokens prefilled so far, **incremented as prefill chunks complete** (not at request end) |
+
+With it, the monitor can show a true live PP rate (Δ/Δt), as on vLLM,
+instead of `prefilling Ns` (§12, load test Q2). Until then, PP on TensorFold
+is per request.

@@ -16,13 +16,21 @@ struct Stats {
   float now = NAN, avg = NAN, max = NAN, min = NAN;
 };
 
-Stats stats(const float* d) {
+// events_only: per-request series (TensorFold PP), where 0 means "no
+// request finished in that poll"; stats then cover finished requests only and
+// "now" is the latest one.
+Stats stats(const float* d, bool events_only = false) {
   Stats s;
   s.now = d[RING_LEN - 1];
+  if (events_only) {
+    s.now = NAN;
+    for (int i = RING_LEN - 1; i >= 0; i--)
+      if (!isnan(d[i]) && d[i] > 0) { s.now = d[i]; break; }
+  }
   float sum = 0;
   int n = 0;
   for (int i = 0; i < RING_LEN; i++) {
-    if (isnan(d[i])) continue;
+    if (isnan(d[i]) || (events_only && d[i] <= 0)) continue;
     sum += d[i];
     n++;
     if (isnan(s.max) || d[i] > s.max) s.max = d[i];
@@ -34,12 +42,13 @@ Stats stats(const float* d) {
 
 using Formatter = fmt::Str (*)(float);
 
-// "now 100.9" — label, then the value right-aligned in 5 columns.
+// "now  100.9" — label padded to 4, then the value right-aligned in 5 columns.
 void statLine(Grid& g, int row, const char* label, float v, Formatter f, uint8_t role) {
-  char buf[32];
+  char lab[8], buf[32];
   fmt::Str s = f(v);
+  snprintf(lab, sizeof lab, "%-4s", label);  // "now ", "last" line up
   snprintf(buf, sizeof buf, "%5s", s.s);
-  Writer(g, row, 34).put(label, theme::LABEL).put(" ", theme::BG).put(buf, isnan(v) ? (uint8_t)theme::DIM : role);
+  Writer(g, row, 33).put(lab, theme::LABEL).put(" ", theme::BG).put(buf, isnan(v) ? (uint8_t)theme::DIM : role);
 }
 
 struct GraphSpec {
@@ -50,20 +59,23 @@ struct GraphSpec {
   bool fixed_100;   // KV: always 0–100 %
   Formatter fmt;
   uint8_t role;
-  bool full_stats;  // now/avg/max/min, else now/max
+  bool full_stats;   // now/avg/max/min, else now/max
+  bool events_only;  // per-request series: stats over finished requests, "last"
 };
 
 int graph(Grid& g, int row, const GraphSpec& s) {
   section(g, row++, s.title, "120s");
-  Stats st = stats(s.data);
+  Stats st = stats(s.data, s.events_only);
   float vmax = s.fixed_100 ? 100.0f : fmaxf(isnan(st.max) ? 0.0f : st.max, s.floor);
   for (int r = 0; r < s.rows; r++) boxRow(g, row + r);
-  if (isnan(st.max)) {  // empty window: one centred "no data", no stats
+  bool empty = true;
+  for (int i = 0; i < RING_LEN; i++) empty &= isnan(s.data[i]);
+  if (empty) {  // empty window: one centred "no data", no stats
     g.text((GRID_COLS - 7) / 2, row + (s.rows - 1) / 2, fmt::NO_DATA, theme::DIM);
     return row + s.rows;
   }
   braille(g, CONTENT_COL, row, s.rows, 30, s.data, vmax, s.role);
-  statLine(g, row, "now", st.now, s.fmt, s.role);
+  statLine(g, row, s.events_only ? "last" : "now", st.now, s.fmt, s.role);
   if (s.full_stats) {
     statLine(g, row + 1, "avg", st.avg, s.fmt, s.role);
     statLine(g, row + 2, "max", st.max, s.fmt, s.role);
@@ -81,9 +93,10 @@ void graphs(Grid& g, const View& v) {
   header(g, v);
   serverRule(g, v);
   int row = 2;
-  row = graph(g, row, {"TG live tok/s", v.tg_hist, 8, 10, false, fmt::speed, theme::DECODE, true});
-  row = graph(g, row, {"PP live tok/s", v.pp_hist, 5, 100, false, fmt::speed, theme::PREFILL, true});
-  row = graph(g, row, {"KV %", v.kv_hist, 4, 0, true, fmt::pct, theme::GOOD, false});
+  row = graph(g, row, {"TG live tok/s", v.tg_hist, 8, 10, false, fmt::speed, theme::DECODE, true, false});
+  row = graph(g, row, {v.pp_per_request ? "PP per request tok/s" : "PP live tok/s", v.pp_hist, 5, 100,
+                       false, fmt::speed, theme::PREFILL, true, v.pp_per_request});
+  row = graph(g, row, {"KV %", v.kv_hist, 4, 0, true, fmt::pct, theme::GOOD, false, false});
   footer(g, v, "tap: overview");
   closeFrame(g);
 }

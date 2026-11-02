@@ -48,21 +48,15 @@ void truncate(char* dst, size_t n, const char* src, int cols) {
 
 void header(Grid& g, const View& v) {
   static const uint32_t BARS[4] = {0x2582, 0x2584, 0x2586, 0x2588};  // ▂▄▆█
-  const char* ip = v.ip[0] ? v.ip : fmt::NO_DATA;
-  // "SYSTEM-D hh:mm:ss  LAN <ip> ▂▄▆█" must fit before the rule's tail; a
-  // long IP drops the "LAN" label first.
-  const int room = GRID_COLS - 4 - ruleTail(nullptr);
-  const int clock = v.clock[0] ? 1 + utf8Columns(v.clock) : 0;
-  const bool label = 8 + clock + 2 + 4 + utf8Columns(ip) + 1 + 4 <= room;
-
-  Writer w(g, 0, ruleStart(g, 0, Edge::TOP), GRID_COLS - ruleTail(nullptr));
+  // "SYSTEM-D hh:mm:ss  <server> ▂▄▆█", clipped before the rule's tail.
+  const int end = GRID_COLS - ruleTail(nullptr) - 5;  // leave " ▂▄▆█"
+  Writer w(g, 0, ruleStart(g, 0, Edge::TOP), end);
   w.put("SYSTEM-D", theme::TITLE, ATTR_BOLD);
-  if (clock) w.put(" ", theme::BORDER).put(v.clock, theme::VALUE);
-  if (label) w.put("  ", theme::BORDER).put("LAN", theme::LABEL);
-  w.put(" ", theme::BORDER).put(ip, v.ip[0] ? theme::VALUE : theme::DIM).put(" ", theme::BORDER);
+  if (v.clock[0]) w.put(" ", theme::BORDER).put(v.clock, theme::VALUE);
+  w.put("  ", theme::BORDER).put(v.server[0] ? v.server : fmt::NO_DATA, v.server[0] ? theme::VALUE : theme::DIM);
+  w.put(" ", theme::BORDER);
   int col = w.col();
-  for (int i = 0; i < 4 && col + i < GRID_COLS - ruleTail(nullptr); i++)
-    g.put(col + i, 0, BARS[i], i < v.wifi_bars ? theme::GOOD : theme::DIM);
+  for (int i = 0; i < 4; i++) g.put(col + i, 0, BARS[i], i < v.wifi_bars ? theme::GOOD : theme::DIM);
   ruleEnd(g, 0, col + 4, Edge::TOP);
 }
 

@@ -1,0 +1,23 @@
+#pragma once
+#include <stddef.h>
+#include <stdint.h>
+
+namespace net {
+
+// Station mode with auto-reconnect, plus SNTP for the header clock.
+// An empty SSID leaves Wi-Fi off.
+void begin(const char* ssid, const char* pass, const char* tz);
+
+bool up();
+
+// Header info: IP ("" when down) and signal bars 0–4 (-1 when down);
+// RSSI ≥ −55/−67/−75/−85 dBm → 4/3/2/1 bars (spec.md §7.1).
+void info(char* ip, size_t ip_len, int8_t* bars);
+
+// Raw signal strength in dBm (0 when down).
+int rssi();
+
+// "HH:MM:SS", or "" until SNTP has set the time.
+void clock(char* out, size_t len);
+
+}  // namespace net

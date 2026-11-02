@@ -101,7 +101,17 @@ void overview(Grid& g, const View& v) {
   throughputHero(g, 3, v);
 
   boxRow(g, 5);
-  if (!noDataRow(g, 5, {v.pp_live, v.pp_avg, v.pp_eng}, "PP ", theme::PREFILL, ATTR_BOLD))
+  if (v.pp_per_request) {
+    // "PP last 3,354/s · prefilling 12s" (spec.md §7.1)
+    Writer w(g, 5, CONTENT_COL);
+    w.put("PP ", theme::PREFILL, ATTR_BOLD).put("last ", theme::LABEL);
+    w.put(fmt::rate(v.pp_last), valueRole(v.pp_last, theme::PREFILL));
+    if (!isnan(v.prefilling_s)) {
+      char s[24];
+      snprintf(s, sizeof s, "prefilling %.0fs", v.prefilling_s);
+      w.put(SEP, theme::DIM).put(s, theme::WARN);
+    }
+  } else if (!noDataRow(g, 5, {v.pp_live, v.pp_avg, v.pp_eng}, "PP ", theme::PREFILL, ATTR_BOLD))
   Writer(g, 5, CONTENT_COL)
       .put("PP ", theme::PREFILL, ATTR_BOLD)
       .put(fmt::rate(v.pp_live), valueRole(v.pp_live, theme::PREFILL))

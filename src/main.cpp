@@ -1,15 +1,17 @@
-// System-D Monitor — M2 (spec.md §11): the renderer and both pages on the
-// panel, fed with static demo data (no networking yet).
+// System-D Monitor (spec.md): live TensorFold/vLLM dashboard on the Guition
+// ESP32-S3-4848S040.
 //
 //   tap        overview ↔ graphs
 //   hold 0.7 s cycle theme (ansi → btop)
 //
-// Theme and page are saved in NVS. The header clock ticks from millis() so
-// the diff-blit has something to do; serial logs repaint timings.
+// The poller task (core 0) fetches the server; this loop (core 1) handles
+// touch and redraws after every poll and every clock second. Theme and page
+// are saved in NVS. Configuration: include/config.h (see config.example.h).
 
 #include <Arduino.h>
 #include <Preferences.h>
 
+#include "app_config.h"
 #include "board_pins.h"
 #include "gfx/grid.h"
 #include "gfx/theme.h"
@@ -17,12 +19,12 @@
 #include "hw/panel.h"
 #include "hw/screen.h"
 #include "hw/touch_gt911.h"
-#include "ui/demo_view.h"
+#include "net/poller.h"
+#include "net/wifi.h"
 #include "ui/pages.h"
 
 namespace {
 
-constexpr uint8_t BRIGHTNESS = 200;
 constexpr uint32_t TOUCH_POLL_MS = 33;  // ~30 Hz
 constexpr uint32_t TAP_MAX_MS = 500;    // spec.md §9
 constexpr uint32_t HOLD_MS = 700;
@@ -42,27 +44,35 @@ bool hold_fired = false;
 uint32_t press_ms = 0;
 int press_x = 0, press_y = 0, last_x = 0, last_y = 0;
 
-void redraw(const char* why) {
-  uint32_t t0 = micros();
-  pages::draw(page, grid, view);
-  uint32_t t1 = micros();
-  int cells = screen::present(grid, theme::get(theme_index));
-  uint32_t t2 = micros();
-  Serial.printf("%-6s layout %4u us, blit %5u us, %4d cells\n", why, (unsigned)(t1 - t0),
-                (unsigned)(t2 - t1), cells);
+// Header label: SERVER_NAME, or SERVER_HOST up to the first dot.
+void serverName(char* out, size_t len) {
+#ifdef SERVER_NAME
+  snprintf(out, len, "%s", SERVER_NAME);
+#else
+  const char* dot = strchr(SERVER_HOST, '.');
+  int n = dot ? (int)(dot - SERVER_HOST) : (int)strlen(SERVER_HOST);
+  snprintf(out, len, "%.*s", n, SERVER_HOST);
+#endif
 }
 
-void tickClock() {
-  // Demo clock: 12:47:33 + uptime.
-  uint32_t s = 12 * 3600 + 47 * 60 + 33 + millis() / 1000;
-  snprintf(view.clock, sizeof view.clock, "%02u:%02u:%02u", (unsigned)(s / 3600 % 24),
-           (unsigned)(s / 60 % 60), (unsigned)(s % 60));
+void refreshView() {
+  net::clock(view.clock, sizeof view.clock);
+  serverName(view.server, sizeof view.server);
+  net::info(view.ip, sizeof view.ip, &view.wifi_bars);
+  poller::snapshot(view, net::up());
+  if (!CONFIG_PRESENT) snprintf(view.status, sizeof view.status, "no include/config.h");
+}
+
+void redraw() {
+  refreshView();
+  pages::draw(page, grid, view);
+  screen::present(grid, theme::get(theme_index));
 }
 
 void onTap() {
   page = page == pages::Page::OVERVIEW ? pages::Page::GRAPHS : pages::Page::OVERVIEW;
   prefs.putUChar("page", (uint8_t)page);
-  redraw("tap");
+  redraw();
 }
 
 void onHold() {
@@ -70,7 +80,7 @@ void onHold() {
   prefs.putUChar("theme", (uint8_t)theme_index);
   Serial.printf("theme -> %s\n", theme::get(theme_index).name);
   screen::invalidate();
-  redraw("theme");
+  redraw();
 }
 
 void pollTouch(uint32_t now) {
@@ -101,7 +111,9 @@ void pollTouch(uint32_t now) {
 void setup() {
   Serial.begin(115200);
   delay(200);
-  Serial.println("\n\nsystem-d monitor — M2 renderer (demo data)");
+  Serial.printf("\n\nsystem-d monitor — server %s:%u, poll %u ms%s\n", SERVER_HOST,
+                (unsigned)SERVER_PORT, (unsigned)POLL_MS,
+                CONFIG_PRESENT ? "" : " (no config.h: Wi-Fi off)");
 
   gfx = panel::begin();
   if (!gfx) {
@@ -118,28 +130,28 @@ void setup() {
   touch_ok = touch::begin(&tinfo);
   Serial.printf("touch %s\n", touch_ok ? "ok" : "not found");
 
-  view = demoView();
-  tickClock();
-  redraw("boot");
+  net::begin(WIFI_SSID, WIFI_PASS, TZ_POSIX);
+  poller::begin(SERVER_HOST, SERVER_PORT, POLL_MS, CONNECT_MS, READ_MS);
 
+  redraw();
   backlight::begin();  // after panel::begin(), see backlight.h
   backlight::set(BRIGHTNESS);
-  Serial.printf("theme %s, page %s\n", theme::get(theme_index).name,
-                page == pages::Page::OVERVIEW ? "overview" : "graphs");
 }
 
 void loop() {
   if (!gfx) return;
-  static uint32_t last_touch = 0, last_clock = 0;
-  uint32_t now = millis();
+  static uint32_t last_touch = 0, last_tick = 0, seen_gen = 0;
+  const uint32_t now = millis();
 
   if (touch_ok && now - last_touch >= TOUCH_POLL_MS) {
     last_touch = now;
     pollTouch(now);
   }
-  if (now - last_clock >= 1000) {
-    last_clock = now;
-    tickClock();
-    redraw("clock");
+  const uint32_t gen = poller::generation();
+  if (gen != seen_gen || now - last_tick >= 1000) {
+    seen_gen = gen;
+    last_tick = now;
+    redraw();
   }
+  delay(1);
 }

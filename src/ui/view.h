@@ -24,7 +24,8 @@ struct StreamView {
 struct View {
   // Header (row 1)
   char clock[9] = "";     // HH:MM:SS, empty until NTP
-  char ip[16] = "";
+  char server[24] = "";   // server name, e.g. "dgx042"
+  char ip[16] = "";       // the monitor's own IP (serial log only)
   int8_t wifi_bars = -1;  // 0–4, -1 = no link
 
   // Server rule (row 2)
@@ -35,6 +36,13 @@ struct View {
   // Throughput
   float tg_live = NAN, tg_avg = NAN, tg_eng = NAN;
   float pp_live = NAN, pp_avg = NAN, pp_eng = NAN;
+  // TensorFold counts prompt tokens only when a request finishes, so a live
+  // prefill rate isn't measurable (spec.md §5). In this mode the PP row shows
+  // the last finished request's prefill speed and "prefilling Ns" while one
+  // runs, and pp_hist holds per-request prefill speeds at completion.
+  bool pp_per_request = false;
+  float pp_last = NAN;        // last finished request: prompt ÷ prefill time
+  float prefilling_s = NAN;   // seconds the current prefill has run, NaN = none
   float running = NAN, max_batch = NAN, waiting = NAN;
 
   // Cache

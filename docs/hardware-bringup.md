@@ -24,6 +24,7 @@ dot lands under the finger.
 | RGB pins | R0–R4 = 11,12,13,14,0 · G0–G5 = 8,20,3,46,9,10 · B0–B4 = 4,5,6,7,15 | `include/board_pins.h` |
 | Control pins | DE 18, VSYNC 17, HSYNC 16, PCLK 21; init SPI CS 39 / SCK 48 / MOSI 47 (`Arduino_SWSPI`) | `include/board_pins.h` |
 | Timing | PCLK 12 MHz; HSYNC pol 1 / fp 10 / pw 8 / bp 50; VSYNC pol 1 / fp 10 / pw 8 / bp 20 | `src/hw/panel.cpp` |
+| **Bounce buffers** | 2 × 10 lines (`BOUNCE_PX = 480 × 10`) in internal SRAM; needed once Wi-Fi is on (§2.7) | `src/hw/panel.cpp` |
 | **Init sequence** | Arduino_GFX `st7701_type9_init_operations` **+ `0x20` INVOFF**, spliced in before the colour-mode command and re-sent 50 ms after `begin()` | `src/hw/panel.cpp` |
 | Rotation | 0 (native) | `src/hw/panel.cpp` |
 | **Backlight** | GPIO38, LEDC **1 kHz**, 8-bit, attached after `panel::begin()` | `src/hw/backlight.cpp` |
@@ -119,6 +120,20 @@ ready — touch the screen
 - A stray touch (`x=470 y=0`) was logged once at boot. It's harmless, but
   if it causes false taps later, drop the first reading after `begin()`.
 
+### 2.7 Flicker every few seconds once Wi-Fi is on: bounce buffers
+
+- **Symptom (M3):** with live polling over Wi-Fi, the screen flickered
+  every few seconds, roughly once per 2 s poll. The M2 demo build (no
+  Wi-Fi, a redraw every second) never flickered.
+- **Cause:** without bounce buffers the LCD's DMA streams the frame
+  straight from PSRAM. Wi-Fi traffic and the post-poll framebuffer writes
+  (copy + cache writeback) compete for the same PSRAM/MSPI bandwidth, the
+  DMA underruns, and the panel shows a glitch.
+- **Fix:** pass `bounce_buffer_size_px = 480 × 10` to
+  `Arduino_ESP32RGBPanel`. The DMA then reads two 10-line buffers in
+  internal SRAM, which the CPU refills from PSRAM in an interrupt. That
+  costs ~19 KB of internal RAM. The user confirmed the flicker is gone.
+
 ---
 
 ## 3. How it was found (diagnostic rounds)
@@ -163,7 +178,9 @@ alternative to type9 if ever needed.
    white → black. A pin problem gives red ↔ blue only, with white still
    white. Fix inversion with `0x20` (§2.2) and pins in `board_pins.h`
    (§2.3).
-4. **Shifted or cropped image / missing edge of the border:** tune the
+4. **Flicker that comes and goes with network activity:** check that
+   bounce buffers are still enabled (§2.7).
+5. **Shifted or cropped image / missing edge of the border:** tune the
    porch values in `src/hw/panel.cpp` (guide §3).
-5. **Touch dead:** the boot log should show `GT911 … addr=0x5D`. INT/RST
+6. **Touch dead:** the boot log should show `GT911 … addr=0x5D`. INT/RST
    aren't wired, so a wedged GT911 needs a power cycle (unplug USB).
