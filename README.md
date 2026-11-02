@@ -32,7 +32,7 @@ are btop's. See [Credits](#credits).
 
 | | |
 |---|---|
-| **Board** | **Guition ESP32-S3-4848S040** (also listed as "JCZN" / "ESP32-4848S040" / "4 inch 86 box smart display"): ESP32-S3-WROOM-1 **N16R8** (16 MB flash, 8 MB PSRAM), 480×480 ST7701 IPS panel, GT911 touch. The variants with or without relays and the bottom shell all work |
+| **Board** | **Guition ESP32-S3-4848S040** (also listed as "JCZN" / "ESP32-4848S040" / "4 inch 86 box smart display"): ESP32-S3-WROOM-1 **N16R8** (16 MB flash, 8 MB PSRAM), 480×480 ST7701 IPS panel, GT911 touch. The variants with or without relays and the bottom shell all work. The one used here was bought on **AliExpress** (search "ESP32-4848S040") |
 | **Cable** | USB-C **data** cable (a charge-only cable won't show up as a serial port) |
 | **Computer** | macOS, Linux or Windows, with Python 3.9+ for PlatformIO |
 | **Wi-Fi** | a **2.4 GHz** network (the ESP32-S3 has no 5 GHz radio) on the same LAN as your servers |
