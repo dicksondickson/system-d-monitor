@@ -13,7 +13,7 @@ boot screen) is in progress. History: [`docs/devlog.md`](docs/devlog.md).
 
 | Touch | Does |
 |---|---|
-| tap the left / right third | previous / next server (footer shows `‹ 1/2 ›`) |
+| tap the left / right third | previous / next server (footer shows which, e.g. `1/2`) |
 | tap the centre | overview ↔ graphs |
 | tap the bottom-left corner (`≡`) | **Settings**: refresh rate (1–30 s) and theme (43: EngineMetrics + all of btop's) |
 

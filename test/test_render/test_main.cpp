@@ -82,6 +82,9 @@ static void test_settings_screen() {
   }
   TEST_ASSERT_EQUAL_INT(GRID_ROWS, rows);
   TEST_ASSERT_TRUE(d.find("2 s") != std::string::npos);
+  // ‹ in the left half, › in the right half of the refresh row
+  TEST_ASSERT_EQUAL_UINT16(0x2039, g.at(14, 1).ch);
+  TEST_ASSERT_EQUAL_UINT16(0x203A, g.at(33, 1).ch);
   TEST_ASSERT_TRUE(d.find("\xE2\x96\xB6nord") != std::string::npos);  // ▶ marks the current theme
 }
 
@@ -103,8 +106,12 @@ static void test_themes_and_hits() {
 
   pages::Settings s{2000, 0, 0};
   using H = pages::SettingsHit;
-  TEST_ASSERT_EQUAL(H::POLL_PREV, pages::settingsHit(50, 30, s).kind);    // row 1, left half
-  TEST_ASSERT_EQUAL(H::POLL_NEXT, pages::settingsHit(400, 30, s).kind);   // row 1, right half
+  // The visible ‹ and › must fall in their own zones (this was wrong: both
+  // sat in the left half, so tapping › lowered the rate).
+  TEST_ASSERT_EQUAL(H::POLL_PREV, pages::settingsHit(14 * 10 + 5, 30, s).kind);  // on ‹
+  TEST_ASSERT_EQUAL(H::POLL_NEXT, pages::settingsHit(33 * 10 + 5, 30, s).kind);  // on ›
+  TEST_ASSERT_EQUAL(H::POLL_PREV, pages::settingsHit(50, 5, s).kind);    // anywhere in the box, left
+  TEST_ASSERT_EQUAL(H::POLL_NEXT, pages::settingsHit(400, 70, s).kind);  // … right, bottom edge
   H h = pages::settingsHit(30, 5 * 24 + 5, s);                            // first list row, left column
   TEST_ASSERT_EQUAL(H::THEME, h.kind);
   TEST_ASSERT_EQUAL_INT(0, h.theme);
@@ -115,6 +122,9 @@ static void test_themes_and_hits() {
   TEST_ASSERT_EQUAL(H::PAGE_PREV, pages::settingsHit(20, 18 * 24 + 3, s).kind);
   TEST_ASSERT_EQUAL(H::DONE, pages::settingsHit(240, 18 * 24 + 3, s).kind);
   TEST_ASSERT_EQUAL(H::PAGE_NEXT, pages::settingsHit(470, 18 * 24 + 3, s).kind);
+  TEST_ASSERT_EQUAL(H::PAGE_NEXT, pages::settingsHit(442, 475, s).kind);   // a little low: bottom edge
+  TEST_ASSERT_EQUAL(H::DONE, pages::settingsHit(27, 468, s).kind);         // ≡ corner
+  TEST_ASSERT_EQUAL(H::PAGE_PREV, pages::settingsHit(140, 470, s).kind);   // bottom edge, left third
   TEST_ASSERT_TRUE(pages::isSettingsCorner(20, 470));
   TEST_ASSERT_FALSE(pages::isSettingsCorner(20, 440));   // row above the footer
   TEST_ASSERT_FALSE(pages::isSettingsCorner(300, 470));

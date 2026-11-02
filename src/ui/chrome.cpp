@@ -98,8 +98,11 @@ int chrome(Grid& g, const View& v) {
 void footer(Grid& g, const View& v, const char* hint, uint8_t box) {
   const int row = GRID_ROWS - 1;
   char pos[16];
-  if (v.server_count > 1) {  // which server of how many; tap left/right to switch
-    snprintf(pos, sizeof pos, "\xE2\x80\xB9 %u/%u \xE2\x80\xBA", v.server_index + 1u, (unsigned)v.server_count);
+  if (v.server_count > 1) {
+    // Which server of how many. No ‹ › here: they aren't buttons (tap the
+    // left / right third of the screen to switch), and a ‹ in the right
+    // third would point the wrong way.
+    snprintf(pos, sizeof pos, "%u/%u", v.server_index + 1u, (unsigned)v.server_count);
     hint = pos;
   }
   int col = edgeStart(g, row, Edge::BOTTOM, box);

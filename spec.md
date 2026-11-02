@@ -421,7 +421,7 @@ device it is drawn at 2× and spans rows 4–5, 2 columns per character.)
 | 1–4 | header (BORDER) | top edge: `┐SYSTEM-D┌─┐7:42:10 PM┌` (two notches; the border between them is the divider) and the Wi-Fi bars `┐▂▄▆█┌` in the top-right notch (RSSI ≥ −55/−67/−75/−85 dBm → 4/3/2/1 lit); row 2: **server name · IP** (the resolved address), state right-aligned (§8); row 3: **engine · model**; bottom edge |
 | 5–11 | Throughput (BOX2) | hero TG live at 2× + 2-row 120 s sparkline; `PP last 3,354/s · prefilling 12s`; `run x/max · wait n · TG avg … · max …` (since start, §5); `KV 31.4% ████░░ · 329K/1.0M tok` (Cache folded in) |
 | 12–17 | Streams (BOX3) | column labels `ctx tokens TTFT TG` in the top edge over their columns; 4 stream rows (dgx042's batch size) |
-| 18–20 | Averages (BOX4) | `TTFT · MTP · cache-hit`; bottom edge = footer: `┘≡└` settings notch, `┘poll 2s · ok 0.4s ago└` (or the problem, §8), `┘tap: graphs└` or `┘‹ 1/2 ›└` |
+| 18–20 | Averages (BOX4) | `TTFT · MTP · cache-hit`; bottom edge = footer: `┘≡└` settings notch, `┘poll 2s · ok 0.4s ago└` (or the problem, §8), `┘tap: graphs└` or `┘1/2└` |
 
 **Decode ≠ prefill:** the decode (TG) and prefill (PP) numbers and graphs
 always use two distinct colours (`decode`, `prefill` in §6), so the two
@@ -509,10 +509,10 @@ same corner or **done** goes back.
 
 | Row | Tap | Does |
 |---|---|---|
-| 2 | left / right half | refresh rate down / up: **1, 2, 3, 5, 10, 30 s** (default `POLL_MS`). Saved in NVS (`poll_ms`); the poller tasks pick it up on their next cycle |
+| 1–4 (the whole Settings box, 72 px) | left / right half | refresh rate down / up: **1, 2, 3, 5, 10, 30 s** (default `POLL_MS`). `‹` is drawn in the left half (col 15) and `›` in the right half (col 34), matching the zones. Saved in NVS (`poll_ms`); the poller tasks pick it up on their next cycle |
 | 3 | — | live preview of the current theme's roles |
 | 6–18 | a name | apply that theme immediately (screen repaints in it), saved in NVS by **name** (`theme`) so adding themes never shifts the choice. Two columns × 13 rows = 26 per page; `▶` marks the current one |
-| 19 | left / centre / right third | previous page / done / next page |
+| 19–20 (nav row + bottom edge, 48 px) | left / centre / right third | previous page / done / next page; the `≡` corner (row 20, x < 120) also closes Settings |
 
 ### 7.4 Boot
 
@@ -569,7 +569,10 @@ A tap is a press and release within 500 ms, with movement < 24 px.
 GT911 is polled at ~30 Hz. Touch coordinates match the display at rotation
 0 with no transform (verified in M1). Theme (by name), refresh rate, page
 and the current server are saved in NVS. The footer's right label shows `‹ 1/2 ›` (current/total)
-instead of `tap: graphs` when more than one server is configured.
+(`┘1/2└`) instead of `tap: graphs` when more than one server is configured. It
+has no `‹ ›`: it isn't a button, and a `‹` drawn in the right third would point
+the wrong way. Every tap is logged on serial (`tap x=… y=… (col, row)` plus the
+Settings action) for checking touch targets.
 
 ---
 

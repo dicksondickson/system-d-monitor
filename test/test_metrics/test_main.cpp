@@ -420,7 +420,7 @@ static void test_footer_shows_server_position() {
   v.server_count = 2;
   Grid g;
   pages::overview(g, v);
-  TEST_ASSERT_TRUE(g.dump().find("\xE2\x80\xB9 2/2 \xE2\x80\xBA") != std::string::npos);  // ‹ 2/2 ›
+  TEST_ASSERT_TRUE(g.dump().find("\xE2\x94\x98" "2/2" "\xE2\x94\x94") != std::string::npos);  // ┘2/2└, no ‹ ›
 }
 
 static void test_derived_view_renders_cleanly() {

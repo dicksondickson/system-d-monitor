@@ -111,6 +111,8 @@ void stepPoll(int dir) {
 
 void onSettingsTap(int x, int y) {
   pages::SettingsHit h = pages::settingsHit(x, y, settingsState());
+  static const char* const KIND[] = {"none", "refresh -", "refresh +", "theme", "page -", "page +", "done"};
+  Serial.printf("  -> %s%s\n", KIND[h.kind], h.kind == pages::SettingsHit::THEME ? theme::get(h.theme).name : "");
   switch (h.kind) {
     case pages::SettingsHit::POLL_PREV: return stepPoll(-1);
     case pages::SettingsHit::POLL_NEXT: return stepPoll(+1);
@@ -136,6 +138,8 @@ void showServer(int index) {
 }
 
 void onTap(int x, int y) {
+  Serial.printf("tap x=%d y=%d (col %d, row %d) on %s\n", x, y, x / 10, y / 24,
+                page == pages::Page::SETTINGS ? "settings" : "dashboard");
   if (page == pages::Page::SETTINGS) return onSettingsTap(x, y);
   if (pages::isSettingsCorner(x, y)) return openSettings();
   if (kServerCount > 1 && x < SCREEN_W / 3) return showServer(server - 1);

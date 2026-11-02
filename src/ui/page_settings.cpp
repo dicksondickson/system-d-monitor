@@ -2,7 +2,7 @@
 // tapping the ≡ notch in the bottom-left corner of the dashboard.
 //
 //   ╭─┐Settings┌─────────────────────────────────╮
-//   │ Refresh   ‹  2 s  ›                         │   tap ‹ / › halves
+//   │ Refresh   ‹          2 s          ›         │   tap left / right half
 //   │ TG 101.3 · PP 3,354/s · KV ████░░ · OK IDLE │   live preview
 //   ╰─────────────────────────────────────────────╯
 //   ╭─┐Themes┌───────────────────────────┐1/2┌─╮
@@ -26,6 +26,8 @@ constexpr int LIST_TOP = 5;     // first theme row
 constexpr int LIST_ROWS = 13;
 constexpr int NAV_ROW = 18;
 constexpr int COL_W = 22;       // per theme column
+constexpr int REFRESH_PREV_COL = 14;  // ‹, left half (x 140)
+constexpr int REFRESH_NEXT_COL = 33;  // ›, right half (x 330)
 const char* SEP = " \xC2\xB7 ";
 
 // "▶name": the marker sits in the gap before the name, so names get 21 columns.
@@ -51,14 +53,14 @@ void settings(Grid& g, const Settings& s) {
   boxTop(g, 0, box, "Settings");
   boxRow(g, 1, box);
   {
+    // ‹ sits in the left half and › in the right half, matching the tap
+    // zones (settingsHit): left half = slower, right half = faster.
     char poll[16];
     snprintf(poll, sizeof poll, "%u s", (unsigned)(s.poll_ms / 1000));
-    Writer(g, 1, CONTENT_COL)
-        .put("Refresh   ", theme::LABEL)
-        .put("\xE2\x80\xB9  ", theme::TITLE, ATTR_BOLD)
-        .put(poll, theme::VALUE, ATTR_BOLD)
-        .put("  \xE2\x80\xBA", theme::TITLE, ATTR_BOLD)
-        .put("   tap \xE2\x80\xB9 or \xE2\x80\xBA", theme::DIM);
+    g.text(CONTENT_COL, 1, "Refresh", theme::LABEL);
+    g.put(REFRESH_PREV_COL, 1, 0x2039, theme::TITLE, ATTR_BOLD);  // ‹
+    g.text(GRID_COLS / 2 - utf8Columns(poll) / 2, 1, poll, theme::VALUE, ATTR_BOLD);
+    g.put(REFRESH_NEXT_COL, 1, 0x203A, theme::TITLE, ATTR_BOLD);  // ›
   }
   // Live preview of the current theme's roles.
   boxRow(g, 2, box);
@@ -100,18 +102,23 @@ void settings(Grid& g, const Settings& s) {
 
 SettingsHit settingsHit(int x, int y, const Settings& s) {
   const int row = y / CELL_PX_H, w = GRID_PX_W;
-  if (row == 1) return {x < w / 2 ? SettingsHit::POLL_PREV : SettingsHit::POLL_NEXT, 0};
+  // The whole Settings box (rows 1–3, 72 px) is the refresh control, so it's
+  // easy to hit: left half = ‹, right half = ›.
+  if (row <= 3) return {x < w / 2 ? SettingsHit::POLL_PREV : SettingsHit::POLL_NEXT, 0};
   if (row >= LIST_TOP && row < LIST_TOP + LIST_ROWS) {
     const int i = s.list_page * THEMES_PER_PAGE + (x >= w / 2 ? LIST_ROWS : 0) + (row - LIST_TOP);
     if (i < theme::count()) return {SettingsHit::THEME, i};
     return {SettingsHit::NONE, 0};
   }
-  if (row == NAV_ROW) {
+  // Nav: the nav row and the bottom edge below it (48 px), so a tap that
+  // lands a little low still counts. The ≡ corner closes Settings, as it
+  // opened them.
+  if (row == NAV_ROW || row == GRID_ROWS - 1) {
+    if (row == GRID_ROWS - 1 && x < w / 4) return {SettingsHit::DONE, 0};
     if (x < w / 3) return {SettingsHit::PAGE_PREV, 0};
     if (x >= w * 2 / 3) return {SettingsHit::PAGE_NEXT, 0};
     return {SettingsHit::DONE, 0};
   }
-  if (row == GRID_ROWS - 1 && x < w / 4) return {SettingsHit::DONE, 0};  // ≡ corner again
   return {SettingsHit::NONE, 0};
 }
 
