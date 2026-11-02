@@ -249,14 +249,10 @@ Board quirks to know before you change anything (details in
 
 ## Credits
 
-Inspired by:
-
-- [btop](https://github.com/aristocratos/btop): the look, and all the
-  colour themes
-- [EngineMetrics](https://github.com/0rand/EngineMetrics): the metrics,
-  and the EngineMetrics theme
-- [nv-monitor](https://github.com/wentbackward/nv-monitor): the stream
-  table
+Inspired by [btop](https://github.com/aristocratos/btop),
+[EngineMetrics](https://github.com/0rand/EngineMetrics) and
+[nv-monitor](https://github.com/wentbackward/nv-monitor). Colour themes from
+btop.
 
 Font: [Terminus](https://terminus-font.sourceforge.net/). Libraries and
 licences: [`THIRD_PARTY.md`](THIRD_PARTY.md).

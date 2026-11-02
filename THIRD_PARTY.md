@@ -12,10 +12,10 @@ System-D Monitor itself is MIT-licensed (`LICENSE`). It includes or uses:
 
 ## Inspiration
 
-[btop](https://github.com/aristocratos/btop) (look and themes),
-[EngineMetrics](https://github.com/0rand/EngineMetrics) (metrics) and
-[nv-monitor](https://github.com/wentbackward/nv-monitor) (stream table). No
-code is copied from them.
+[btop](https://github.com/aristocratos/btop),
+[EngineMetrics](https://github.com/0rand/EngineMetrics) and
+[nv-monitor](https://github.com/wentbackward/nv-monitor). No code is copied
+from them.
 
 The vendor's board download pack (datasheets, demos, Windows tools) is not
 included in this repository. See `docs/board-guide.md` for where to get it.
