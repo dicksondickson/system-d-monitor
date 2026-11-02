@@ -20,7 +20,8 @@ constexpr uint32_t INFO_EVERY_MS = 30000;
 constexpr uint32_t BACKOFF_MS[] = {2000, 4000, 8000, 16000, 30000};  // spec.md §8
 
 struct Timing {
-  uint32_t poll_ms, connect_ms, read_ms;
+  std::atomic<uint32_t> poll_ms;
+  uint32_t connect_ms, read_ms;
 } g_timing;
 
 // Collects a small JSON body.
@@ -162,7 +163,9 @@ void task(void* arg) {
 
 void begin(const ServerCfg* servers, int count, uint32_t poll_ms, uint32_t connect_ms,
            uint32_t read_ms) {
-  g_timing = {poll_ms, connect_ms, read_ms};
+  g_timing.poll_ms = poll_ms;
+  g_timing.connect_ms = connect_ms;
+  g_timing.read_ms = read_ms;
   g_count = count < 4 ? count : 4;
   for (int i = 0; i < g_count; i++) {
     Slot* s = new Slot();
@@ -183,6 +186,9 @@ void begin(const ServerCfg* servers, int count, uint32_t poll_ms, uint32_t conne
 }
 
 int count() { return g_count; }
+
+void setPollMs(uint32_t ms) { g_timing.poll_ms = ms; }
+uint32_t pollMs() { return g_timing.poll_ms; }
 
 void snapshot(int index, View& v, bool wifi_up) {
   if (index < 0 || index >= g_count) return;

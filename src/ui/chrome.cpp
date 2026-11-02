@@ -4,6 +4,8 @@
 #include "pages.h"
 #include "widgets.h"
 
+#include <stdio.h>
+
 namespace pages {
 
 using namespace widgets;
@@ -46,60 +48,70 @@ void truncate(char* dst, size_t n, const char* src, int cols) {
 
 }  // namespace
 
-void header(Grid& g, const View& v) {
+// Rows 1–4, one btop box (spec.md §7):
+//   ╭─┐SYSTEM-D 7:42:10 PM┌──────────────┐▂▄▆█┌─╮
+//   │ dgx042 · 192.168.50.192           OK IDLE │
+//   │ TensorFold · deepseek-v4.1-flash-1017     │
+//   ╰───────────────────────────────────────────╯
+int chrome(Grid& g, const View& v) {
   static const uint32_t BARS[4] = {0x2582, 0x2584, 0x2586, 0x2588};  // ▂▄▆█
-  // "SYSTEM-D 7:42:10 PM" on the left, the Wi-Fi bars always in the
-  // right-hand bracket: "…├──┤ ▂▄▆█ ├─┐".
+  const uint8_t box = theme::BORDER;
   const char* bars = "\xE2\x96\x82\xE2\x96\x84\xE2\x96\x86\xE2\x96\x88";
-  Writer w(g, 0, ruleStart(g, 0, Edge::TOP), GRID_COLS - ruleTail(bars));
-  w.put("SYSTEM-D", theme::TITLE, ATTR_BOLD);
-  if (v.clock[0]) w.put(" ", theme::BORDER).put(v.clock, theme::VALUE);
-  ruleEnd(g, 0, w.col(), Edge::TOP, bars, theme::DIM);
-  const int col = GRID_COLS - 1 - (4 + 5) + 2;  // where ruleEnd put the label
-  for (int i = 0; i < 4; i++) g.put(col + i, 0, BARS[i], i < v.wifi_bars ? theme::GOOD : theme::DIM);
-}
 
-// "dgx042 · 192.168.50.192", state right-justified: "…├──┤ OK IDLE ├─┤"
-void serverLine(Grid& g, const View& v) {
+  // Top edge: title + clock in the left notch, Wi-Fi bars in the right one.
+  int col = edgeStart(g, 0, Edge::TOP, box);
+  g.put(col++, 0, 0x2510, box);  // ┐
+  col = g.text(col, 0, "SYSTEM-D", theme::TITLE, ATTR_BOLD);
+  if (v.clock[0]) {
+    col = g.text(col, 0, " ", theme::BG);
+    col = g.text(col, 0, v.clock, theme::VALUE);
+  }
+  g.put(col++, 0, 0x250C, box);  // ┌
+  edgeEnd(g, 0, col, Edge::TOP, box, bars, theme::DIM);
+  const int bars_col = notchCol(bars);
+  for (int i = 0; i < 4; i++) g.put(bars_col + i, 0, BARS[i], i < v.wifi_bars ? theme::GOOD : theme::DIM);
+
+  // Server · IP, state right-aligned.
   StateLabel st = stateLabel(v.state);
-  Writer w(g, 1, ruleStart(g, 1), GRID_COLS - ruleTail(st.text));
-  w.put(v.server[0] ? v.server : fmt::NO_DATA, v.server[0] ? theme::TITLE : theme::DIM, ATTR_BOLD);
-  w.put(" \xC2\xB7 ", theme::DIM);
-  w.put(v.server_ip[0] ? v.server_ip : fmt::NO_DATA, v.server_ip[0] ? theme::VALUE : theme::DIM);
-  ruleEnd(g, 1, w.col(), Edge::MID, st.text, st.role, ATTR_BOLD);
-}
+  boxRow(g, 1, box);
+  const int state_col = g.textRight(CONTENT_END, 1, st.text, st.role, ATTR_BOLD);
+  Writer(g, 1, CONTENT_COL, state_col - 1)
+      .put(v.server[0] ? v.server : fmt::NO_DATA, v.server[0] ? theme::TITLE : theme::DIM, ATTR_BOLD)
+      .put(" \xC2\xB7 ", theme::DIM)
+      .put(v.server_ip[0] ? v.server_ip : fmt::NO_DATA, v.server_ip[0] ? theme::VALUE : theme::DIM);
 
-void modelRule(Grid& g, const View& v) {
+  // Engine · model, with the whole row for the model name.
+  boxRow(g, 2, box);
   const char* engine = v.engine[0] ? v.engine : "???";
-  const int end = GRID_COLS - ruleTail(nullptr);
-  Writer w(g, 2, ruleStart(g, 2), end);
+  Writer w(g, 2, CONTENT_COL);
   w.put(engine, theme::TITLE, ATTR_BOLD);
   if (v.model[0]) {
-    int room = end - w.col() - 3;  // after " · "
     char model[sizeof v.model + 4];
-    truncate(model, sizeof model, v.model, room);
+    truncate(model, sizeof model, v.model, CONTENT_END - w.col() - 3);
     w.put(" \xC2\xB7 ", theme::DIM).put(model, theme::VALUE);
   }
-  ruleEnd(g, 2, w.col(), Edge::MID);
+  boxBottom(g, 3, box);
+  return 4;
 }
 
-int chrome(Grid& g, const View& v) {
-  header(g, v);
-  serverLine(g, v);
-  modelRule(g, v);
-  return 3;
-}
-
-void footer(Grid& g, const View& v, const char* hint) {
+// The last box's bottom edge: "╰─┘≡└─┘poll 2s · ok 0.4s ago└──┘tap: graphs└─╯".
+// The ≡ notch is the settings button (tap the bottom-left corner).
+void footer(Grid& g, const View& v, const char* hint, uint8_t box) {
   const int row = GRID_ROWS - 1;
   char pos[16];
   if (v.server_count > 1) {  // which server of how many; tap left/right to switch
     snprintf(pos, sizeof pos, "\xE2\x80\xB9 %u/%u \xE2\x80\xBA", v.server_index + 1u, (unsigned)v.server_count);
     hint = pos;
   }
-  Writer w(g, row, ruleStart(g, row, Edge::BOTTOM), GRID_COLS - ruleTail(hint));
-  w.put(v.status[0] ? v.status : fmt::NO_DATA, theme::DIM);
-  ruleEnd(g, row, w.col(), Edge::BOTTOM, hint, theme::DIM);
+  int col = edgeStart(g, row, Edge::BOTTOM, box);
+  col = notch(g, row, col, Edge::BOTTOM, box, "\xE2\x89\xA1", theme::TITLE, ATTR_BOLD);  // ≡
+  g.put(col++, row, 0x2500, box);
+  // Status, clipped so the right-hand notch always fits.
+  char status[sizeof v.status + 4];
+  truncate(status, sizeof status, v.status[0] ? v.status : fmt::NO_DATA,
+           GRID_COLS - edgeTail(hint) - col - 3);
+  col = notch(g, row, col, Edge::BOTTOM, box, status, theme::DIM);
+  edgeEnd(g, row, col, Edge::BOTTOM, box, hint, theme::DIM);
 }
 
 }  // namespace pages

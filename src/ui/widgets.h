@@ -4,39 +4,40 @@
 #include "gfx/grid.h"
 #include "gfx/theme.h"
 
-// The visual language of spec.md §7: btop-style section rules, │ … │ rows,
-// bars, block sparklines and braille graphs. Pages only compose these.
+// The visual language of spec.md §7: btop-style boxes, │ … │ rows, bars,
+// block sparklines and braille graphs. Pages only compose these.
 // Arduino-free.
 namespace widgets {
 
 constexpr int CONTENT_COL = 2;               // first column inside "│ "
 constexpr int CONTENT_END = GRID_COLS - 2;   // exclusive; " │" follows
 
-// Section rules form one closed frame with the │ rows (btop style):
-//   ┌─┤ title ├──────────┐   top    (Edge::TOP)
-//   ├─┤ title ├──┤ right ├─┤   middle (Edge::MID)
-//   └─┤ title ├──┤ right ├─┘   bottom (Edge::BOTTOM)
-// ruleStart() draws the left junction and "─┤ " and returns the column for
-// the title; ruleEnd() closes the title with " ├", fills with "─", adds the
-// optional "┤ right ├─" and the right junction.
-enum class Edge : uint8_t { TOP, MID, BOTTOM };
+// btop-style boxes (spec.md §7): every section is its own box with rounded
+// corners and its labels in notches on the border:
+//   ╭─┐Throughput┌──────────────┐120s┌─╮      top edge
+//   │ …                                 │      boxRow()
+//   ╰─┘≡└─┘poll 2s · ok 0.4s ago└──┘‹ 1/2 ›└─╯   bottom edge
+// edgeStart() draws the corner and one "─" and returns the next column;
+// notch() draws ┐text┌ (top) or ┘text└ (bottom) there and returns the column
+// after it; edgeEnd() fills with "─" to the optional right-hand notch and the
+// far corner. edgeTail() is how many columns edgeEnd needs.
+enum class Edge : uint8_t { TOP, BOTTOM };
 
-int ruleStart(Grid& g, int row, Edge e = Edge::MID);
-void ruleEnd(Grid& g, int row, int col, Edge e = Edge::MID, const char* right = nullptr,
+int edgeStart(Grid& g, int row, Edge e, uint8_t box);
+int notch(Grid& g, int row, int col, Edge e, uint8_t box, const char* text, uint8_t role,
+          uint8_t attr = ATTR_NONE);
+void edgeEnd(Grid& g, int row, int col, Edge e, uint8_t box, const char* right = nullptr,
              uint8_t right_role = theme::DIM, uint8_t right_attr = ATTR_NONE);
-void section(Grid& g, int row, const char* title, const char* right = nullptr,
-             uint8_t right_role = theme::DIM, Edge e = Edge::MID);
+int edgeTail(const char* right);
+int notchCol(const char* right);  // column where edgeEnd puts the right label's text
 
-// Columns a rule needs after its title: " ├" + edge, plus "─┤ right ├─"
-// when there is a right label.
-int ruleTail(const char* right);
+// Common case: "╭─┐Title┌────┐right┌─╮" with a bold title.
+void boxTop(Grid& g, int row, uint8_t box, const char* title, const char* right = nullptr,
+            uint8_t right_role = theme::DIM);
+void boxBottom(Grid& g, int row, uint8_t box);
 
-// "│" at both edges of a content row.
-void boxRow(Grid& g, int row);
-
-// Gives every row that isn't a rule its │ edges, so the frame is closed even
-// across blank rows. Call last.
-void closeFrame(Grid& g);
+// "│" at both edges of a content row, in the box's colour.
+void boxRow(Grid& g, int row, uint8_t box = theme::BORDER);
 
 // Writes consecutive coloured segments along a row, clipped at max_col.
 class Writer {

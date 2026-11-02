@@ -143,6 +143,8 @@ void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, bool wifi_ok,
   float slot_tg[SAMPLE_STREAMS];
   for (float& x : slot_tg) x = NAN;
 
+  v.ring_span_s = (uint16_t)(RING_LEN * poll_ms / 1000);
+
   // Identity and model
   snprintf(v.engine, sizeof v.engine, "%s", engineName(id_.engine));
   const char* model = info_.model[0] ? info_.model : (n_ ? at(n_ - 1).model_name : "");

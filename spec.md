@@ -345,19 +345,24 @@ Built in M2 (2026-11-01); code in `src/gfx/`, `src/ui/`, `src/hw/screen.cpp`.
 - Tearing: not visible in testing. If it shows up, switch to double
   framebuffers with a swap on VSYNC (`num_fbs = 2`, another 450 KB PSRAM).
 
-### Themes (hold 0.7 s to cycle, saved in NVS)
+### Themes (chosen in Settings, saved in NVS by name)
 
-| Role | `ansi` (EngineMetrics, default) | `btop` (alternative) |
+43 themes: **EngineMetrics** (the original curses palette, theme 0), then
+btop's built-in **Default** and its **41 bundled themes** (nord, gruvbox,
+dracula, tokyo-night, solarized, …). The btop themes are vendored in
+`third_party/btop/` (Apache-2.0, commit in `SOURCE.txt`) and converted into
+`src/gfx/themes_btop.h` by `tools/themes/import_btop.py`. As in btop, any key
+a theme doesn't set comes from Default; `"#gg"` is grey shorthand and an
+empty `main_bg` means black.
+
+| Role | btop key | Used for |
 |---|---|---|
-| bg | `#000000` | `#0b0d10` |
-| border, title | cyan `#00cdcd` (bold) | muted green `#3d7b46` / `#eeeeee` |
-| label | yellow `#cdcd00` | `#8a8f98` |
-| value | white `#e5e5e5` | `#d0d0d0` |
-| dim | `#7f7f7f` | `#4a4f57` |
-| good / warn / bad | `#00cd00` / `#cdcd00` / `#cd0000` | `#77ca9b` / `#cbc06c` / `#dc4c4c` |
-| **decode** (TG hero, TG spark/graph) | bright green `#00ff5f` | `#77ca9b` |
-| **prefill** (PP numbers, spark/graph) | magenta `#cd00cd` | `#4897d4` |
-| graph fill (KV) | `good` | `good` (a vertical good → warn → bad gradient is a later option) |
+| BG | `main_bg` | background |
+| VALUE / TITLE / LABEL / DIM | `main_fg` / `title` / `graph_text` / `inactive_fg` | text |
+| BORDER, BOX2, BOX3, BOX4 | `cpu_box`, `mem_box`, `net_box`, `proc_box` | the header / Throughput (and TG graph) / Streams (and PP graph) / Averages (and KV graph) boxes, one colour each as in btop |
+| GOOD / WARN / BAD | `cpu_start` / `cpu_mid` / `cpu_end` | thresholds and states (btop's low → high gradient) |
+| DECODE | `proc_misc` | TG numbers and graphs |
+| PREFILL | `temp_mid`, or the fallback (`temp_end`, `upload_end`, `hi_fg`, …) most distinct from DECODE and the background | PP numbers and graphs |
 
 Tune the colours on the real panel, because RGB565 shifts them.
 
@@ -365,15 +370,17 @@ Tune the colours on the real panel, because RGB565 shifts them.
 
 ## 7. Screens (48 × 20)
 
-The layout follows the 2026-11-01 sketch, closed into one btop-style frame
-(chosen on the panel, 2026-11-01):
-- corners `┌ ┐ └ ┘` on the top and bottom rules, and `├─┤ Title ├───┤`
-  junctions on every section rule;
-- an optional right-hand label in brackets (`┤ OK BUSY ├─┤`);
-- `│ … │` on every other row, blank ones included, so both edges are
-  continuous;
-- a 2× "hero" decode number;
-- a per-stream table (nv-monitor style).
+The layout follows the 2026-11-01 sketch, drawn **the way btop draws**
+(user's choice, 2026-11-01; it replaced a single frame with `├─┤ Title ├`
+junctions, which the user didn't like):
+- every section is its **own box** with rounded corners `╭ ╮ ╰ ╯`;
+- titles and labels sit in **notches** on the border: `╭─┐Throughput┌──╮`
+  on top, `╰─┘poll 2s · ok 0.4s ago└──╯` on the bottom (btop's
+  `title_left/right` and `title_left/right_down` symbols);
+- each box has its own colour (`cpu_box`, `mem_box`, `net_box`, `proc_box`);
+- the last box's bottom edge is the footer, with the **`≡` settings notch**
+  in the bottom-left corner;
+- a 2× "hero" decode number and a per-stream table (nv-monitor style).
 
 The mockups below are the real renders of the demo data: the golden files
 in `test/test_render/golden.h`, checked by `pio test -e native`.
@@ -383,42 +390,37 @@ Values are illustrative, and assume TensorFold already exports Appendix A.
 ### 7.1 Overview
 
 ```
-┌─┤ SYSTEM-D 12:47:33 PM ├────────────┤ ▂▄▆█ ├─┐
-├─┤ dgx042 · 192.168.50.192 ├──────┤ OK BUSY ├─┤
-├─┤ TensorFold · deepseek-v4.1-flash-1017 ├────┤
-├─┤ Throughput ├───────────────────────────────┤
+╭─┐SYSTEM-D 12:47:33 PM┌────────────────┐▂▄▆█┌─╮
+│ dgx042 · 192.168.50.192              OK BUSY │
+│ TensorFold · deepseek-v4.1-flash-1017        │
+╰──────────────────────────────────────────────╯
+╭─┐Throughput┌─────────────────────────────────╮
 │ TG １０１．３ tok/s    █▆▄▄▅▆███▆ ▄▄▅▇██     │
 │                live ▁▁▁██████████·██████     │
 │ PP last 3,354/s · prefilling 12s             │
 │ run 2/4 · wait 1 · TG avg 95.1 · max 104.2   │
-├─┤ Cache ├────────────────────────────────────┤
 │ KV 31.4% █████░░░░░░░░░░░ · 329K/1.0M tok    │
-├─┤ Streams ├──────────────────────────────────┤
-│  #  state        ctx tokens   TTFT      TG   │
+╰──────────────────────────────────────────────╯
+╭─┐Streams┌────────ctx─tokens───TTFT──────TG───╮
 │  0  decoding   31.4%   329K   1.2s  62.7/s   │
 │  1  prefill     2.0%    21K  no data         │
 │  2  idle        0.0%      0                  │
 │  3  idle        0.0%      0                  │
-├─┤ Averages ├─────────────────────────────────┤
+╰──────────────────────────────────────────────╯
+╭─┐Averages┌───────────────────────────────────╮
 │ TTFT 1.85s · MTP 48.9% · cache-hit 75.4%     │
-│ live TTFT 1.42s · lat 8.16s · n=42           │
-└─┤ poll 2s · ok 0.4s ago ├────┤ tap: graphs ├─┘
+╰─┘≡└─┘poll 2s · ok 0.4s ago└────┘tap: graphs└─╯
 ```
 
 (The hero `１０１．３` is written in fullwidth digits to show its width. On the
 device it is drawn at 2× and spans rows 4–5, 2 columns per character.)
 
-| Rows | Section | Content |
+| Rows | Box | Content |
 |---|---|---|
-| 1 | header | `SYSTEM-D` + 12-hour clock `2:47:33 PM` (SNTP, `TZ_POSIX`) on the left; the monitor's **Wi-Fi bars `▂▄▆█` always in the top-right bracket** (`┤ ▂▄▆█ ├─┐`), from `WiFi.RSSI()` (≥ −55 / −67 / −75 / −85 dBm → 4/3/2/1 lit, none = no link). The monitor's own IP goes to the serial log only |
-| 2 | server | **server name · IP** (`dgx042 · 192.168.50.192`; the name is the configured one or the host up to the first dot, and the IP is the address the poller resolved), with the **state right-justified** in a bracket (`┤ OK IDLE ├─┤`, §8) |
-| 3 | model | **detected engine, spelled out** (`TensorFold` / `vLLM`, §4.3) · **model id**, now with room for the full name (`deepseek-v4.1-flash-1017`); cut with `…` only if it still doesn't fit |
-| 4–8 | Throughput | **hero: TG live** at 2× in the decode colour + 2-row, 20-cell sparkline (3 samples per cell = 120 s, 16 levels); the PP row (`PP last 3,354/s · prefilling 12s`); `run x/max · wait n · TG avg … · max …` (since start, §5). The PP sparkline row was dropped for line spacing; PP history is on the graphs page |
-| 9–10 | Cache | KV bar + used / capacity tokens |
-| 11–… | Streams | header + one row per stream slot, up to 4 (the rows left above Averages; dgx042's batch size is 4): id, state, ctx %, tokens, TTFT, TG |
-| after Streams | Averages | cumulative TTFT · MTP acceptance · cache-hit; then live TTFT · e2e latency · `n` |
-| 20–23 | spare | stream overflow; otherwise blank |
-| 24 | footer rule | poll status (or error reason, §8) · touch hint |
+| 1–4 | header (BORDER) | top edge: `┐SYSTEM-D 7:42:10 PM┌` and the Wi-Fi bars `┐▂▄▆█┌` in the top-right notch (RSSI ≥ −55/−67/−75/−85 dBm → 4/3/2/1 lit); row 2: **server name · IP** (the resolved address), state right-aligned (§8); row 3: **engine · model**; bottom edge |
+| 5–11 | Throughput (BOX2) | hero TG live at 2× + 2-row 120 s sparkline; `PP last 3,354/s · prefilling 12s`; `run x/max · wait n · TG avg … · max …` (since start, §5); `KV 31.4% ████░░ · 329K/1.0M tok` (Cache folded in) |
+| 12–17 | Streams (BOX3) | column labels `ctx tokens TTFT TG` in the top edge over their columns; 4 stream rows (dgx042's batch size) |
+| 18–20 | Averages (BOX4) | `TTFT · MTP · cache-hit`; bottom edge = footer: `┘≡└` settings notch, `┘poll 2s · ok 0.4s ago└` (or the problem, §8), `┘tap: graphs└` or `┘‹ 1/2 ›└` |
 
 **Decode ≠ prefill:** the decode (TG) and prefill (PP) numbers and graphs
 always use two distinct colours (`decode`, `prefill` in §6), so the two
@@ -435,35 +437,39 @@ rates can't be confused at a glance.
 ### 7.2 Graphs
 
 ```
-┌─┤ SYSTEM-D 12:47:33 PM ├────────────┤ ▂▄▆█ ├─┐
-├─┤ dgx042 · 192.168.50.192 ├──────┤ OK BUSY ├─┤
-├─┤ TensorFold · deepseek-v4.1-flash-1017 ├────┤
-├─┤ TG live tok/s ├───────────────────┤ 120s ├─┤
-│ ⠀⠀⠀⠀⢸⣄⠀⠀⠀⠀⠀⠀⠀⢠⣾⣾⣿⣧⣀⠀⠀⠀⠀⠀⠀⠀⣴⣷⣿⣿ now  101.3    │
-│ ⠀⠀⠀⠀⢸⣿⣿⣆⠀⠀⠀⣠⣶⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⢀⣴⣾⣿⣿⣿⣿ avg   73.7    │
-│ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣾⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣷⣿⣿⣿⣿⣿⣿⣿ max  102.0    │
+╭─┐SYSTEM-D 12:47:33 PM┌────────────────┐▂▄▆█┌─╮
+│ dgx042 · 192.168.50.192              OK BUSY │
+│ TensorFold · deepseek-v4.1-flash-1017        │
+╰──────────────────────────────────────────────╯
+╭─┐TG live tok/s┌───────────────────────┐120s┌─╮
+│ ⠀⠀⠀⠀⢸⣤⡀⠀⠀⠀⠀⠀⠀⣠⣾⣾⣿⣧⣄⠀⠀⠀⠀⠀⠀⢀⣴⣷⣿⣿ now  101.3    │
+│ ⠀⠀⠀⠀⢸⣿⣿⣧⣄⣀⣀⣴⣿⣿⣿⣿⣿⣿⣿⠀⠀⣀⣀⣠⣾⣿⣿⣿⣿⣿ avg   73.7    │
+│ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿ max  102.0    │
 │ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿ min    0.0    │
 │ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
 │ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
-│ ⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿               │
-├─┤ PP per request tok/s ├────────────┤ 120s ├─┤
+╰──────────────────────────────────────────────╯
+╭─┐PP per request tok/s┌────────────────┐120s┌─╮
 │ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ last 3,354    │
-│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⡄⠀⠀⠀⠀⠀⠀⠀ avg  4,385    │
-│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀ max  6,800    │
-├─┤ KV % ├────────────────────────────┤ 120s ├─┤
+│ ⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀ avg  4,385    │
+╰──────────────────────────────────────────────╯
+╭─┐KV %┌────────────────────────────────┐120s┌─╮
 │ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ now  31.4%    │
-│ ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ max  31.4%    │
-│ ⠀⠀⠀⠀⢀⣀⣀⣀⣀⣀⣀⣀⣤⣤⣤⣤⣤⣤⣤⠀⠀⣶⣶⣶⣶⣶⣶⣾⣿⣿               │
-└─┤ poll 2s · ok 0.4s ago ├──┤ tap: overview ├─┘
+│ ⠀⠀⠀⠀⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣤⠀⠀⣤⣤⣤⣤⣤⣤⣤⣤⣴ max  31.4%    │
+╰─┘≡└─┘poll 2s · ok 0.4s ago└──┘tap: overview└─╯
 ```
 
 (Monospace terminals render braille at varying widths, so the mockup may
 look ragged. On the device every glyph is one 10×24 cell.)
 
 - Rows 1–2 and the footer rule are the same as the overview.
-- TG live gets 7 rows (28 levels, decode colour), PP 3 (prefill colour),
-  KV 3. Stats are shown for as many lines as the graph has rows (PP drops
-  `min`). Right column: `now / avg / max / min` for the window.
+- Boxes: TG live 6 rows (BOX2), PP 2 (BOX3), KV 2 (BOX4, its bottom edge
+  is the footer). Stats are shown for as many lines as the graph has rows
+  (`now/avg/max/min` for TG, `last/avg` for PP, `now/max` for KV).
+- The span in each box's right notch is 60 samples × the refresh rate:
+  `60s` at 1 s, `120s` at 2 s, `5m` at 5 s, `30m` at 30 s.
+- Braille is stretched over the full 24 px cell instead of padded, so the
+  dot rows stack without gaps. Right column: `now / avg / max / min` for the window.
 - The PP graph is titled **PP per request tok/s**: one bar
   per finished request. Its stats cover finished requests only, and
   `last` replaces `now`.
@@ -472,7 +478,42 @@ look ragged. On the device every glyph is one 10×24 cell.)
 - The column gap in TG is a missed poll or a restart.
 - A graph with no samples in the window shows `no data` centred in its box.
 
-### 7.3 Boot
+### 7.3 Settings
+
+Opened by tapping the **bottom-left corner** (`≡`, row 20, x < 120); the
+same corner or **done** goes back.
+
+```
+╭─┐Settings┌───────────────────────────────────╮
+│ Refresh   ‹  2 s  ›   tap ‹ or ›             │
+│ TG 101.3 · PP 3,354 · KV ██░░ · OK BUSY DOWN │
+╰──────────────────────────────────────────────╯
+╭─┐Themes┌───────────────────────────────┐2/2┌─╮
+│  kanagawa-wave         tokyo-storm           │
+│  kyli0x                tomorrow-night        │
+│  matcha-dark-sea       twilight              │
+│  monokai               whiteout              │
+│  night-owl                                   │
+│ ▶nord                                        │
+│  onedark                                     │
+│  orange                                      │
+│  paper                                       │
+│  phoenix-night                               │
+│  solarized_dark                              │
+│  solarized_light                             │
+│  tokyo-night                                 │
+│ ‹ prev             done               next › │
+╰─┘≡└─┘tap a theme to apply└───────────────────╯
+```
+
+| Row | Tap | Does |
+|---|---|---|
+| 2 | left / right half | refresh rate down / up: **1, 2, 3, 5, 10, 30 s** (default `POLL_MS`). Saved in NVS (`poll_ms`); the poller tasks pick it up on their next cycle |
+| 3 | — | live preview of the current theme's roles |
+| 6–18 | a name | apply that theme immediately (screen repaints in it), saved in NVS by **name** (`theme`) so adding themes never shifts the choice. Two columns × 13 rows = 26 per page; `▶` marks the current one |
+| 19 | left / centre / right third | previous page / done / next page |
+
+### 7.4 Boot
 
 Full-screen log lines in the label/value colours, in this order:
 
@@ -519,13 +560,14 @@ the new baseline (so it can trigger restart detection).
 | tap left third (x < 160) | previous server (with > 1 server) |
 | tap right third (x ≥ 320) | next server (with > 1 server) |
 | tap centre (anywhere with 1 server) | overview ↔ graphs |
-| hold ≥ 0.7 s | cycle theme (ansi → btop → ansi), saved |
+| tap bottom-left corner (`≡`, row 20, x < 120) | Settings (§7.3) |
+| hold ≥ 0.7 s | nothing (it used to cycle the theme; with 43 themes that moved to Settings) |
 | `ROTATE_S > 0` | auto-advance to the next server every N s; any touch pauses it for 60 s |
 
 A tap is a press and release within 500 ms, with movement < 24 px.
 GT911 is polled at ~30 Hz. Touch coordinates match the display at rotation
-0 with no transform (verified in M1). Theme, page and the current server are
-saved in NVS. The footer's right label shows `‹ 1/2 ›` (current/total)
+0 with no transform (verified in M1). Theme (by name), refresh rate, page
+and the current server are saved in NVS. The footer's right label shows `‹ 1/2 ›` (current/total)
 instead of `tap: graphs` when more than one server is configured.
 
 ---
@@ -663,6 +705,10 @@ third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
   engine-time `eng` rate is off the screen (user: "eng is kind of
   confusing"); it's still in the serial log.
 - **Clock is 12-hour** (`2:47:33 PM`).
+- **btop boxes + btop themes + Settings (2026-11-01):** separate rounded
+  boxes with notched titles instead of `├─┤` dividers; all 42 btop themes
+  plus EngineMetrics; a Settings screen (bottom-left `≡`) for theme and
+  refresh rate.
 - **Header (user, 2026-11-01):** Wi-Fi bars pinned top-right; server
   name + IP on their own line with the state right-justified; engine +
   model on their own line, so the full model name fits.

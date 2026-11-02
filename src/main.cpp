@@ -3,7 +3,7 @@
 //
 //   tap left third / right third   previous / next server (with > 1 server)
 //   tap centre                     overview ↔ graphs (anywhere with 1 server)
-//   hold 0.7 s                     cycle theme (ansi → btop)
+//   tap bottom-left corner (≡)     settings: refresh rate + theme
 //
 // One poller task per server (core 0) fetches the data; this loop (core 1)
 // handles touch and redraws after every poll and every clock second. Theme,
@@ -38,7 +38,9 @@ Preferences prefs;
 Grid grid;
 View view;
 pages::Page page = pages::Page::OVERVIEW;
+pages::Page back_to = pages::Page::OVERVIEW;  // where "done" in Settings returns
 int theme_index = 0;
+int list_page = 0;  // settings: page of the theme list
 int server = 0;  // index into kServers
 uint32_t last_rotate = 0, last_touch_ms = 0;
 bool touch_ok = false;
@@ -69,10 +71,61 @@ void refreshView() {
   if (!CONFIG_PRESENT) snprintf(view.status, sizeof view.status, "no include/config.h");
 }
 
+pages::Settings settingsState() { return {poller::pollMs(), theme_index, list_page}; }
+
 void redraw() {
-  refreshView();
-  pages::draw(page, grid, view);
+  if (page == pages::Page::SETTINGS) {
+    pages::settings(grid, settingsState());
+  } else {
+    refreshView();
+    pages::draw(page, grid, view);
+  }
   screen::present(grid, theme::get(theme_index));
+}
+
+void openSettings() {
+  back_to = page;
+  page = pages::Page::SETTINGS;
+  list_page = theme_index / pages::THEMES_PER_PAGE;
+  redraw();
+}
+
+void setTheme(int index) {
+  theme_index = index;
+  prefs.putString("theme", theme::get(theme_index).name);
+  Serial.printf("theme -> %s\n", theme::get(theme_index).name);
+  screen::invalidate();
+  redraw();
+}
+
+void stepPoll(int dir) {
+  int i = 0;
+  while (i < pages::POLL_OPTION_COUNT - 1 && pages::POLL_OPTIONS_MS[i] < poller::pollMs()) i++;
+  i += dir;
+  if (i < 0 || i >= pages::POLL_OPTION_COUNT) return;
+  poller::setPollMs(pages::POLL_OPTIONS_MS[i]);
+  prefs.putUInt("poll_ms", pages::POLL_OPTIONS_MS[i]);
+  Serial.printf("poll -> %u ms\n", (unsigned)pages::POLL_OPTIONS_MS[i]);
+  redraw();
+}
+
+void onSettingsTap(int x, int y) {
+  pages::SettingsHit h = pages::settingsHit(x, y, settingsState());
+  switch (h.kind) {
+    case pages::SettingsHit::POLL_PREV: return stepPoll(-1);
+    case pages::SettingsHit::POLL_NEXT: return stepPoll(+1);
+    case pages::SettingsHit::THEME: return setTheme(h.theme);
+    case pages::SettingsHit::PAGE_PREV:
+      if (list_page > 0) { list_page--; redraw(); }
+      return;
+    case pages::SettingsHit::PAGE_NEXT:
+      if (list_page + 1 < pages::themePages()) { list_page++; redraw(); }
+      return;
+    case pages::SettingsHit::DONE:
+      page = back_to;
+      return redraw();
+    case pages::SettingsHit::NONE: return;
+  }
 }
 
 void showServer(int index) {
@@ -82,19 +135,13 @@ void showServer(int index) {
   redraw();
 }
 
-void onTap(int x) {
+void onTap(int x, int y) {
+  if (page == pages::Page::SETTINGS) return onSettingsTap(x, y);
+  if (pages::isSettingsCorner(x, y)) return openSettings();
   if (kServerCount > 1 && x < SCREEN_W / 3) return showServer(server - 1);
   if (kServerCount > 1 && x >= SCREEN_W * 2 / 3) return showServer(server + 1);
   page = page == pages::Page::OVERVIEW ? pages::Page::GRAPHS : pages::Page::OVERVIEW;
   prefs.putUChar("page", (uint8_t)page);
-  redraw();
-}
-
-void onHold() {
-  theme_index = (theme_index + 1) % theme::COUNT;
-  prefs.putUChar("theme", (uint8_t)theme_index);
-  Serial.printf("theme -> %s\n", theme::get(theme_index).name);
-  screen::invalidate();
   redraw();
 }
 
@@ -114,12 +161,9 @@ void pollTouch(uint32_t now) {
   } else if (p.fresh && pressed) {  // released
     pressed = false;
     const int moved = abs(last_x - press_x) + abs(last_y - press_y);
-    if (!hold_fired && now - press_ms <= TAP_MAX_MS && moved < TAP_MAX_MOVE) onTap(press_x);
+    if (!hold_fired && now - press_ms <= TAP_MAX_MS && moved < TAP_MAX_MOVE) onTap(press_x, press_y);
   }
-  if (pressed && !hold_fired && now - press_ms >= HOLD_MS) {
-    hold_fired = true;
-    onHold();
-  }
+  if (pressed && !hold_fired && now - press_ms >= HOLD_MS) hold_fired = true;  // a hold isn't a tap
 }
 
 }  // namespace
@@ -140,7 +184,8 @@ void setup() {
   screen::begin(gfx);
 
   prefs.begin("sysd", false);
-  theme_index = prefs.getUChar("theme", 0) % theme::COUNT;
+  theme_index = theme::find(prefs.getString("theme", "EngineMetrics").c_str());
+  const uint32_t poll_ms = prefs.getUInt("poll_ms", POLL_MS);
   page = prefs.getUChar("page", 0) ? pages::Page::GRAPHS : pages::Page::OVERVIEW;
   server = prefs.getUChar("server", 0) % kServerCount;
 
@@ -149,7 +194,7 @@ void setup() {
   Serial.printf("touch %s\n", touch_ok ? "ok" : "not found");
 
   net::begin(WIFI_SSID, WIFI_PASS, TZ_POSIX);
-  poller::begin(kServers, kServerCount, POLL_MS, CONNECT_MS, READ_MS);
+  poller::begin(kServers, kServerCount, poll_ms, CONNECT_MS, READ_MS);
 
   redraw();
   backlight::begin();  // after panel::begin(), see backlight.h
@@ -171,7 +216,9 @@ void loop() {
     showServer(server + 1);
   }
   const uint32_t gen = poller::generation(server);
-  if (gen != seen_gen || now - last_tick >= 1000) {
+  if (page == pages::Page::SETTINGS) {
+    // static screen: only redraws on touch
+  } else if (gen != seen_gen || now - last_tick >= 1000) {
     seen_gen = gen;
     last_tick = now;
     redraw();

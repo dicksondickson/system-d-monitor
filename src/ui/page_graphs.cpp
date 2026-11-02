@@ -53,6 +53,7 @@ void statLine(Grid& g, int row, const char* label, float v, Formatter f, uint8_t
 
 struct GraphSpec {
   const char* title;
+  uint8_t box;
   const float* data;
   int rows;
   float floor;      // minimum y-scale, so idle noise doesn't fill the box
@@ -63,11 +64,20 @@ struct GraphSpec {
   bool events_only;  // per-request series: stats over finished requests, "last"
 };
 
-int graph(Grid& g, int row, const GraphSpec& s) {
-  section(g, row++, s.title, "120s");
+// "120s", or "5m" for longer windows (60 samples × the poll interval).
+void spanLabel(char* out, size_t n, unsigned s) {
+  if (s <= 120 || s % 60) snprintf(out, n, "%us", s);
+  else snprintf(out, n, "%um", s / 60);
+}
+
+// Box top, `rows` graph rows; the caller draws the bottom edge.
+int graph(Grid& g, int row, const GraphSpec& s, unsigned span_s) {
+  char span[12];
+  spanLabel(span, sizeof span, span_s);
+  boxTop(g, row++, s.box, s.title, span);
   Stats st = stats(s.data, s.events_only);
   float vmax = s.fixed_100 ? 100.0f : fmaxf(isnan(st.max) ? 0.0f : st.max, s.floor);
-  for (int r = 0; r < s.rows; r++) boxRow(g, row + r);
+  for (int r = 0; r < s.rows; r++) boxRow(g, row + r, s.box);
   bool empty = true;
   for (int i = 0; i < RING_LEN; i++) empty &= isnan(s.data[i]);
   if (empty) {  // empty window: one centred "no data", no stats
@@ -87,15 +97,19 @@ int graph(Grid& g, int row, const GraphSpec& s) {
 
 }  // namespace
 
+// Layout (spec.md §7.2): header box, then TG (6 rows), PP (2) and KV (2)
+// boxes; the KV box's bottom edge is the footer.
 void graphs(Grid& g, const View& v) {
   g.clear();
   int row = chrome(g, v);
-  row = graph(g, row, {"TG live tok/s", v.tg_hist, 7, 10, false, fmt::speed, theme::DECODE, true, false});
-  row = graph(g, row, {v.pp_per_request ? "PP per request tok/s" : "PP live tok/s", v.pp_hist, 3, 100,
-                       false, fmt::speed, theme::PREFILL, true, v.pp_per_request});
-  row = graph(g, row, {"KV %", v.kv_hist, 3, 0, true, fmt::pct, theme::GOOD, false, false});
-  footer(g, v, "tap: overview");
-  closeFrame(g);
+  const unsigned span = v.ring_span_s;
+  row = graph(g, row, {"TG live tok/s", theme::BOX2, v.tg_hist, 6, 10, false, fmt::speed, theme::DECODE, true, false}, span);
+  boxBottom(g, row++, theme::BOX2);
+  row = graph(g, row, {v.pp_per_request ? "PP per request tok/s" : "PP live tok/s", theme::BOX3, v.pp_hist,
+                       2, 100, false, fmt::speed, theme::PREFILL, true, v.pp_per_request}, span);
+  boxBottom(g, row++, theme::BOX3);
+  row = graph(g, row, {"KV %", theme::BOX4, v.kv_hist, 2, 0, true, fmt::pct, theme::GOOD, false, false}, span);
+  footer(g, v, "tap: overview", theme::BOX4);
 }
 
 }  // namespace pages

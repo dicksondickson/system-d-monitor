@@ -16,6 +16,11 @@ void begin(const ServerCfg* servers, int count, uint32_t poll_ms, uint32_t conne
 
 int count();
 
+// Change the poll interval at runtime (Settings); takes effect on each
+// task's next cycle.
+void setPollMs(uint32_t ms);
+uint32_t pollMs();
+
 // Fills v (except the header fields, which the caller sets) from server
 // `index`'s latest data. Safe to call from the UI task.
 void snapshot(int index, View& v, bool wifi_up);

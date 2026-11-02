@@ -15,9 +15,10 @@ boot screen) is in progress. History: [`docs/devlog.md`](docs/devlog.md).
 |---|---|
 | tap the left / right third | previous / next server (footer shows `‹ 1/2 ›`) |
 | tap the centre | overview ↔ graphs |
-| hold ~1 s | switch theme (ansi ↔ btop) |
+| tap the bottom-left corner (`≡`) | **Settings**: refresh rate (1–30 s) and theme (43: EngineMetrics + all of btop's) |
 
-Theme, page and server survive a reboot.
+Theme, refresh rate, page and server survive a reboot. The screens use
+btop's look: separate rounded boxes with titles in notches.
 
 ## Reading the screen
 
@@ -37,8 +38,8 @@ Theme, page and server survive a reboot.
 | **MTP** | speculative-decoding acceptance: accepted ÷ drafted tokens |
 | **cache-hit** | prompt tokens served from the prefix cache ÷ all prompt tokens (vLLM; TensorFold after Appendix A) |
 | **no data** | not exported, not received yet, or nothing happened in the window. Never a fake 0 |
-| header | row 1: `SYSTEM-D`, the time and the Wi-Fi bars (top right); row 2: server name · IP, with its state (`OK IDLE`, `OK BUSY`, `DOWN`, …) on the right; row 3: engine · model |
-| footer | `poll 2s · ok 0.4s ago`, or the problem: `stale`, `timeout · retry 8s`, `dns …`, `not TensorFold or vLLM`, `wifi lost` |
+| header box | top edge: `SYSTEM-D`, the time and the Wi-Fi bars (top right); then server name · IP, with its state (`OK IDLE`, `OK BUSY`, `DOWN`, …) on the right; then engine · model |
+| footer (bottom edge) | `≡` = settings; `poll 2s · ok 0.4s ago`, or the problem: `stale`, `timeout · retry 8s`, `dns …`, `not TensorFold or vLLM`, `wifi lost` |
 
 ## Configure
 
@@ -99,6 +100,7 @@ On a healthy boot the log shows `psram 8192 KB`, `panel ok` and
 | `include/config.example.h` | Config template (copy to `config.h`) |
 | `tools/display-diag/` | Archived display diagnostics + the M1 panel test; `run.sh <round\|panel> upload` |
 | `tools/font/mkfont.py` | Regenerates `src/gfx/font_ter10x20.h` from `third_party/terminus/` |
+| `tools/themes/import_btop.py` | Regenerates `src/gfx/themes_btop.h` from `third_party/btop/` (btop's themes, Apache-2.0) |
 | `test/fixtures/` | Captured responses from dgx042 (TensorFold) and dick6000 (vLLM), for parser tests |
 | `reference/` | Vendor download pack (datasheets, demos, tools). **Not in git** (295 MB, re-downloadable; link in the guide §1) |
 

@@ -68,6 +68,7 @@ struct View {
   float tg_hist[RING_LEN];
   float pp_hist[RING_LEN];
   float kv_hist[RING_LEN];
+  uint16_t ring_span_s = 120;  // RING_LEN × poll interval (shown as "120s" / "5m")
 
   // Footer rule (row 24): poll status or error reason, and which server of
   // how many is shown ("‹ 1/2 ›" when there's more than one).

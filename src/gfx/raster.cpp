@@ -30,9 +30,12 @@ FAST_CODE void cell(const Cell& c, const theme::Theme& t, uint16_t* dst, int str
   // The 20-row glyph sits centred in the taller cell. Padding rows repeat the
   // glyph's first/last row: blank for text, but a continuous stroke for box
   // drawing (│ ┤ ├ …) and blocks, so frame lines and bars still join.
+  // Braille is stretched over the full cell instead: its dots don't touch
+  // the glyph edges, so padding would leave a gap between graph rows.
   const uint16_t* g = font::rows(c.ch, c.attr & ATTR_BOLD);
+  const bool stretch = c.ch >= 0x2800 && c.ch <= 0x28FF;
   for (int y = 0; y < CELL_H; y++) {
-    int gy = y - PAD_TOP;
+    int gy = stretch ? y * 20 / CELL_H : y - PAD_TOP;
     gy = gy < 0 ? 0 : gy > 19 ? 19 : gy;
     const uint16_t bits = g[gy];
     uint16_t* p = dst + y * stride;

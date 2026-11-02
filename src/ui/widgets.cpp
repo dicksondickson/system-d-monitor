@@ -7,7 +7,6 @@ namespace widgets {
 namespace {
 constexpr uint32_t H_LINE = 0x2500;  // ─
 constexpr uint32_t V_LINE = 0x2502;  // │
-constexpr uint32_t T_LEFT = 0x2524;  // ┤
 constexpr uint32_t FULL = 0x2588;    // █
 constexpr uint32_t SHADE = 0x2591;   // ░
 constexpr uint32_t DOT = 0x00B7;     // ·
@@ -15,58 +14,52 @@ const uint32_t BLOCKS[9] = {' ', 0x2581, 0x2582, 0x2583, 0x2584, 0x2585, 0x2586,
 }  // namespace
 
 namespace {
-uint32_t leftEdge(Edge e) { return e == Edge::TOP ? 0x250C : e == Edge::BOTTOM ? 0x2514 : 0x251C; }   // ┌ └ ├
-uint32_t rightEdge(Edge e) { return e == Edge::TOP ? 0x2510 : e == Edge::BOTTOM ? 0x2518 : 0x2524; }  // ┐ ┘ ┤
-constexpr uint32_t T_RIGHT = 0x251C;  // ├
+constexpr uint32_t ROUND_TL = 0x256D, ROUND_TR = 0x256E, ROUND_BR = 0x256F, ROUND_BL = 0x2570;  // ╭╮╯╰
+constexpr uint32_t NOTCH_TOP_L = 0x2510, NOTCH_TOP_R = 0x250C;   // ┐ ┌  (btop title_left/right)
+constexpr uint32_t NOTCH_BOT_L = 0x2518, NOTCH_BOT_R = 0x2514;   // ┘ └  (btop title_left/right_down)
 }  // namespace
 
-int ruleStart(Grid& g, int row, Edge e) {
-  g.put(0, row, leftEdge(e), theme::BORDER);
-  g.put(1, row, H_LINE, theme::BORDER);
-  g.put(2, row, T_LEFT, theme::BORDER);
-  g.put(3, row, ' ', theme::BORDER);
-  return 4;
+int edgeStart(Grid& g, int row, Edge e, uint8_t box) {
+  g.put(0, row, e == Edge::TOP ? ROUND_TL : ROUND_BL, box);
+  g.put(1, row, H_LINE, box);
+  return 2;
 }
 
-int ruleTail(const char* right) {
-  // " ├" + edge, plus "─┤ right ├─" when there's a right label.
-  return 2 + (right ? 1 + utf8Columns(right) + 5 : 0) + 1;
+int notch(Grid& g, int row, int col, Edge e, uint8_t box, const char* text, uint8_t role,
+          uint8_t attr) {
+  g.put(col++, row, e == Edge::TOP ? NOTCH_TOP_L : NOTCH_BOT_L, box);
+  col = g.text(col, row, text, role, attr, GRID_COLS - 2);
+  g.put(col++, row, e == Edge::TOP ? NOTCH_TOP_R : NOTCH_BOT_R, box);
+  return col;
 }
 
-void ruleEnd(Grid& g, int row, int col, Edge e, const char* right, uint8_t right_role,
+int edgeTail(const char* right) { return 1 + (right ? utf8Columns(right) + 3 : 0) + 1; }
+
+int notchCol(const char* right) { return GRID_COLS - 1 - (utf8Columns(right) + 3) + 1; }
+
+void edgeEnd(Grid& g, int row, int col, Edge e, uint8_t box, const char* right, uint8_t right_role,
              uint8_t right_attr) {
   const int edge = GRID_COLS - 1;
-  if (col > edge - 2) col = edge - 2;  // always leave room to close the title
-  g.put(col++, row, ' ', theme::BORDER);
-  g.put(col++, row, T_RIGHT, theme::BORDER);
-  const int right_start = right ? edge - (utf8Columns(right) + 5) : edge;  // "┤ right ├─"
-  for (; col < right_start; col++) g.put(col, row, H_LINE, theme::BORDER);
+  const int right_start = right ? edge - (utf8Columns(right) + 3) : edge;  // "┐right┌─"
+  for (; col < right_start; col++) g.put(col, row, H_LINE, box);
   if (right && col == right_start) {
-    g.put(col++, row, T_LEFT, theme::BORDER);
-    g.put(col++, row, ' ', theme::BORDER);
-    col = g.text(col, row, right, right_role, right_attr);
-    g.put(col++, row, ' ', theme::BORDER);
-    g.put(col++, row, T_RIGHT, theme::BORDER);
-    g.put(col++, row, H_LINE, theme::BORDER);
+    col = notch(g, row, col, e, box, right, right_role, right_attr);
+    g.put(col++, row, H_LINE, box);
   }
-  for (; col < edge; col++) g.put(col, row, H_LINE, theme::BORDER);
-  g.put(edge, row, rightEdge(e), theme::BORDER);
+  for (; col < edge; col++) g.put(col, row, H_LINE, box);
+  g.put(edge, row, e == Edge::TOP ? ROUND_TR : ROUND_BR, box);
 }
 
-void section(Grid& g, int row, const char* title, const char* right, uint8_t right_role, Edge e) {
-  int col = ruleStart(g, row, e);
-  col = g.text(col, row, title, theme::TITLE, ATTR_BOLD, GRID_COLS - ruleTail(right));
-  ruleEnd(g, row, col, e, right, right_role);
+void boxTop(Grid& g, int row, uint8_t box, const char* title, const char* right, uint8_t right_role) {
+  int col = notch(g, row, edgeStart(g, row, Edge::TOP, box), Edge::TOP, box, title, theme::TITLE, ATTR_BOLD);
+  edgeEnd(g, row, col, Edge::TOP, box, right, right_role);
 }
 
-void boxRow(Grid& g, int row) {
-  g.put(0, row, V_LINE, theme::BORDER);
-  g.put(GRID_COLS - 1, row, V_LINE, theme::BORDER);
-}
+void boxBottom(Grid& g, int row, uint8_t box) { edgeEnd(g, row, edgeStart(g, row, Edge::BOTTOM, box), Edge::BOTTOM, box); }
 
-void closeFrame(Grid& g) {
-  for (int r = 0; r < GRID_ROWS; r++)
-    if (g.at(0, r).ch == ' ') boxRow(g, r);
+void boxRow(Grid& g, int row, uint8_t box) {
+  g.put(0, row, V_LINE, box);
+  g.put(GRID_COLS - 1, row, V_LINE, box);
 }
 
 void bar(Grid& g, int col, int row, int width, float pct, uint8_t role) {

@@ -43,8 +43,8 @@ bool noDataRow(Grid& g, int row, std::initializer_list<float> vs, const char* la
 
 // Rows 4–5: "TG <hero> tok/s <2-row sparkline>" / "live".
 void throughputHero(Grid& g, int row, const View& v) {
-  boxRow(g, row);
-  boxRow(g, row + 1);
+  boxRow(g, row, theme::BOX2);
+  boxRow(g, row + 1, theme::BOX2);
   g.text(CONTENT_COL, row, "TG", theme::DECODE, ATTR_BOLD);
   if (isnan(v.tg_live)) {
     g.text(5, row, fmt::NO_DATA, theme::DIM);
@@ -61,7 +61,7 @@ void throughputHero(Grid& g, int row, const View& v) {
 void streamRow(Grid& g, int row, const StreamView& s) {
   // Columns (absolute): id 3 · state 6 · ctx ends 22 · tokens ends 29 ·
   // TTFT ends 36 · TG ends 44.
-  boxRow(g, row);
+  boxRow(g, row, theme::BOX3);
   char id[4];
   snprintf(id, sizeof id, "%u", s.id);
   g.text(3, row, id, theme::VALUE);
@@ -91,20 +91,24 @@ void streamRow(Grid& g, int row, const StreamView& s) {
 
 }  // namespace
 
+// Layout (spec.md §7.1), four btop boxes in 20 rows:
+//   0–3   header box (chrome)
+//   4–10  Throughput: hero ×2, PP, run/wait + TG avg/max, KV
+//   11–16 Streams: column labels in the top edge, 4 stream rows
+//   17–19 Averages: one row; its bottom edge is the footer
 void overview(Grid& g, const View& v) {
   g.clear();
-  const int top = chrome(g, v);  // rows 1–3: clock, server + state, model
+  chrome(g, v);
 
-  // Throughput: section rule, 2-row hero, PP, PP sparkline, run/wait, TG avg/max
-  const int thr = top;
-  section(g, thr, "Throughput");
-  throughputHero(g, thr + 1, v);
+  // Throughput (box 2)
+  const uint8_t thr_box = theme::BOX2;
+  boxTop(g, 4, thr_box, "Throughput");
+  throughputHero(g, 5, v);
 
-  const int pp = thr + 3;
-  boxRow(g, pp);
+  boxRow(g, 7, thr_box);
   if (v.pp_per_request) {
-    // "PP last 3,354/s · prefilling 12s" (spec.md §7.1)
-    Writer w(g, pp, CONTENT_COL);
+    // "PP last 3,354/s · prefilling 12s"
+    Writer w(g, 7, CONTENT_COL);
     w.put("PP ", theme::PREFILL, ATTR_BOLD).put("last ", theme::LABEL);
     w.put(fmt::rate(v.pp_last), valueRole(v.pp_last, theme::PREFILL));
     if (!isnan(v.prefilling_s)) {
@@ -112,25 +116,21 @@ void overview(Grid& g, const View& v) {
       snprintf(s, sizeof s, "prefilling %.0fs", v.prefilling_s);
       w.put(SEP, theme::DIM).put(s, theme::WARN);
     }
-  } else if (!noDataRow(g, pp, {v.pp_live, v.pp_avg, v.pp_eng}, "PP ", theme::PREFILL, ATTR_BOLD))
-  Writer(g, pp, CONTENT_COL)
-      .put("PP ", theme::PREFILL, ATTR_BOLD)
-      .put(fmt::rate(v.pp_live), valueRole(v.pp_live, theme::PREFILL))
-      .put("  avg ", theme::LABEL)
-      .put(fmt::speed(v.pp_avg), valueRole(v.pp_avg, theme::PREFILL))
-      .put(SEP, theme::DIM)
-      .put("eng ", theme::LABEL)
-      .put(fmt::rate(v.pp_eng), valueRole(v.pp_eng, theme::PREFILL));
+  } else if (!noDataRow(g, 7, {v.pp_live, v.pp_avg, v.pp_eng}, "PP ", theme::PREFILL, ATTR_BOLD)) {
+    Writer(g, 7, CONTENT_COL)
+        .put("PP ", theme::PREFILL, ATTR_BOLD)
+        .put(fmt::rate(v.pp_live), valueRole(v.pp_live, theme::PREFILL))
+        .put("  avg ", theme::LABEL)
+        .put(fmt::speed(v.pp_avg), valueRole(v.pp_avg, theme::PREFILL));
+  }
 
   // "run 2/4 · wait 1 · TG avg 95.1 · max 104.2": queue, then live TG since
   // the monitor started / the server restarted (average over generating
-  // polls, and peak). Each pair is all-or-nothing, so it collapses to a single
-  // "no data". (The PP sparkline row was dropped for line spacing; the PP
-  // history is on the graphs page.)
-  const int tg_row = pp + 1;
-  boxRow(g, tg_row);
+  // polls, and peak). Each pair is all-or-nothing, so each collapses to one
+  // "no data".
+  boxRow(g, 8, thr_box);
   {
-    Writer w(g, tg_row, CONTENT_COL);
+    Writer w(g, 8, CONTENT_COL);
     if (isnan(v.running)) {
       w.put("run ", theme::LABEL).put(fmt::NO_DATA, theme::DIM);
     } else {
@@ -149,14 +149,12 @@ void overview(Grid& g, const View& v) {
     }
   }
 
-  // Cache
-  const int cache = tg_row + 1;
-  section(g, cache, "Cache");
-  boxRow(g, cache + 1);
+  // KV cache (was its own "Cache" box; folded in to fit btop boxes in 20 rows)
+  boxRow(g, 9, thr_box);
   {
-    Writer w(g, cache + 1, CONTENT_COL);
+    Writer w(g, 9, CONTENT_COL);
     w.put("KV ", theme::LABEL).put(fmt::pct(v.kv_pct), fillRole(v.kv_pct)).put(" ", theme::BG);
-    bar(g, w.col(), cache + 1, 16, v.kv_pct, fillRole(v.kv_pct));
+    bar(g, w.col(), 9, 16, v.kv_pct, fillRole(v.kv_pct));
     w.to(w.col() + 16).put(SEP, theme::DIM);
     if (isnan(v.kv_tokens) || isnan(v.kv_capacity)) {
       w.put(fmt::NO_DATA, theme::DIM);
@@ -166,58 +164,35 @@ void overview(Grid& g, const View& v) {
       w.put(tok, theme::VALUE).put(" tok", theme::DIM);
     }
   }
+  boxBottom(g, 10, thr_box);
 
-  // Streams: column header, then one row per slot
-  const int streams = cache + 2;
-  section(g, streams, "Streams");
-  const int hdr = streams + 1;
-  boxRow(g, hdr);
-  g.text(3, hdr, "#", theme::DIM);
-  g.text(6, hdr, "state", theme::DIM);
-  g.textRight(22, hdr, "ctx", theme::DIM);
-  g.textRight(29, hdr, "tokens", theme::DIM);
-  g.textRight(36, hdr, "TTFT", theme::DIM);
-  g.textRight(44, hdr, "TG", theme::DIM);
-  int row = hdr + 1;
-  // As many streams as fit above Averages (rule + 2 rows) and the footer.
-  const int max_rows = (GRID_ROWS - 1) - 3 - row;
-  if (v.n_streams == 0) {
-    boxRow(g, row);
-    g.text(3, row++, fmt::NO_DATA, theme::DIM);
-  }
-  for (int i = 0; i < v.n_streams && i < max_rows; i++) streamRow(g, row++, v.streams[i]);
+  // Streams (box 3): column labels sit in the top edge, over their columns.
+  const uint8_t str_box = theme::BOX3;
+  boxTop(g, 11, str_box, "Streams");
+  g.textRight(22, 11, "ctx", theme::DIM);
+  g.textRight(29, 11, "tokens", theme::DIM);
+  g.textRight(36, 11, "TTFT", theme::DIM);
+  g.textRight(44, 11, "TG", theme::DIM);
+  for (int r = 12; r <= 15; r++) boxRow(g, r, str_box);
+  if (v.n_streams == 0) g.text(3, 12, fmt::NO_DATA, theme::DIM);
+  for (int i = 0; i < v.n_streams && i < 4; i++) streamRow(g, 12 + i, v.streams[i]);
+  boxBottom(g, 16, str_box);
 
-  // Averages
-  section(g, row++, "Averages");
-  boxRow(g, row);
-  if (!noDataRow(g, row, {v.ttft_cum, v.mtp_pct, v.cache_hit_pct}))
-  Writer(g, row, CONTENT_COL)
-      .put("TTFT ", theme::LABEL)
-      .put(fmt::dur(v.ttft_cum), valueRole(v.ttft_cum, theme::VALUE))
-      .put(SEP, theme::DIM)
-      .put("MTP ", theme::LABEL)
-      .put(fmt::pct(v.mtp_pct), mtpRole(v.mtp_pct))
-      .put(SEP, theme::DIM)
-      .put("cache-hit ", theme::LABEL)
-      .put(fmt::pct(v.cache_hit_pct), valueRole(v.cache_hit_pct, theme::VALUE));
-  row++;
-  boxRow(g, row);
-  const bool section_empty =
-      allMissing({v.ttft_cum, v.mtp_pct, v.cache_hit_pct, v.ttft_live, v.lat_cum, v.n_requests});
-  if (!section_empty && !noDataRow(g, row, {v.ttft_live, v.lat_cum, v.n_requests}))
-  Writer(g, row, CONTENT_COL)
-      .put("live TTFT ", theme::LABEL)
-      .put(fmt::dur(v.ttft_live), valueRole(v.ttft_live, theme::VALUE))
-      .put(SEP, theme::DIM)
-      .put("lat ", theme::LABEL)
-      .put(fmt::dur(v.lat_cum), valueRole(v.lat_cum, theme::VALUE))
-      .put(SEP, theme::DIM)
-      .put("n=", theme::LABEL)
-      .put(fmt::count(v.n_requests), valueRole(v.n_requests, theme::VALUE));
-  row++;
-
-  footer(g, v, "tap: graphs");
-  closeFrame(g);
+  // Averages (box 4); its bottom edge is the footer.
+  const uint8_t avg_box = theme::BOX4;
+  boxTop(g, 17, avg_box, "Averages");
+  boxRow(g, 18, avg_box);
+  if (!noDataRow(g, 18, {v.ttft_cum, v.mtp_pct, v.cache_hit_pct}))
+    Writer(g, 18, CONTENT_COL)
+        .put("TTFT ", theme::LABEL)
+        .put(fmt::dur(v.ttft_cum), valueRole(v.ttft_cum, theme::VALUE))
+        .put(SEP, theme::DIM)
+        .put("MTP ", theme::LABEL)
+        .put(fmt::pct(v.mtp_pct), mtpRole(v.mtp_pct))
+        .put(SEP, theme::DIM)
+        .put("cache-hit ", theme::LABEL)
+        .put(fmt::pct(v.cache_hit_pct), valueRole(v.cache_hit_pct, theme::VALUE));
+  footer(g, v, "tap: graphs", avg_box);
 }
 
 }  // namespace pages
