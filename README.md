@@ -2,8 +2,13 @@
 
 A 4″ touchscreen desk dashboard for your LLM inference servers. It shows live
 decode and prefill speed, KV cache, queues, streams, TTFT and speculative-decoding
-acceptance for **vLLM** and **TensorFold**, in a [btop](https://github.com/aristocratos/btop)-style
-terminal look, on an inexpensive ESP32-S3 display board.
+acceptance for **vLLM** and **TensorFold**, in a terminal-style look, on an
+inexpensive ESP32-S3 display board.
+
+Inspired by [btop](https://github.com/aristocratos/btop),
+[EngineMetrics](https://github.com/0rand/EngineMetrics) and
+[nv-monitor](https://github.com/wentbackward/nv-monitor). The colour themes
+are btop's. See [Credits](#credits).
 
 ![Overview](docs/images/overview.png) ![Graphs](docs/images/graphs.png)
 
@@ -12,7 +17,8 @@ terminal look, on an inexpensive ESP32-S3 display board.
   to install on the GPU box, no Prometheus, no cloud.
 - **vLLM and TensorFold**, detected automatically, **up to 4 servers**; tap
   left or right to switch between them.
-- **43 colour themes:** all of btop's, plus the original
+- **43 colour themes:** all of [btop](https://github.com/aristocratos/btop)'s
+  themes, plus the original
   [EngineMetrics](https://github.com/0rand/EngineMetrics) palette.
 - **Honest numbers:** anything not exported, not received yet, or not
   measurable reads `no data`, never a made-up 0.
@@ -240,6 +246,33 @@ Board quirks to know before you change anything (details in
   drawing. Otherwise the screen flickers or glitches when Wi-Fi is busy.
 - **Start-up order:** start the panel **before** Wi-Fi, and never block
   waiting for the connection.
+
+## Credits
+
+System-D Monitor stands on the shoulders of three terminal monitors:
+
+- **[btop](https://github.com/aristocratos/btop)** by aristocratos
+  (Apache-2.0). It defines the look: separate rounded boxes, titles in
+  notches on the border, a colour per box, and braille graphs. **All 42 of
+  the btop colour themes here (its built-in Default + 41 bundled themes)
+  come from btop's repository**, converted for this display by
+  `tools/themes/import_btop.py`. They're vendored with btop's licence in
+  `third_party/btop/`. Where a theme file names its author (33 of 41
+  do), that credit is kept unchanged.
+- **[EngineMetrics](https://github.com/0rand/EngineMetrics)** by 0rand
+  (MIT), the real-time vLLM + TensorFold dashboard TUI. It supplied the
+  metric vocabulary and maths: live vs engine-time rates, delta sampling,
+  honest gaps, sparklines. The `EngineMetrics` theme is its curses palette.
+- **[nv-monitor](https://github.com/wentbackward/nv-monitor)** by
+  wentbackward (MIT), the lightweight NVIDIA telemetry and terminal system
+  monitor. The per-stream table is modelled on its table.
+
+No code was copied from any of them; this firmware is a from-scratch
+implementation for an ESP32 display. Also used: the
+[Terminus](https://terminus-font.sourceforge.net/) font (SIL OFL 1.1),
+[Arduino_GFX](https://github.com/moononournation/Arduino_GFX) and
+[ArduinoJson](https://arduinojson.org/). Details and licences are in
+[`THIRD_PARTY.md`](THIRD_PARTY.md).
 
 ## License
 
