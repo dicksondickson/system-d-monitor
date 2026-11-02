@@ -10,6 +10,8 @@ Inspired by [btop](https://github.com/aristocratos/btop),
 [nv-monitor](https://github.com/wentbackward/nv-monitor). The colour themes
 are btop's. See [Credits](#credits).
 
+![System-D Monitor running on the board: switching pages, opening Settings and changing theme](docs/images/demo.gif)
+
 ![Overview](docs/images/overview.png) ![Graphs](docs/images/graphs.png)
 
 - **No server-side setup.** The board polls each engine's own `/metrics`
@@ -38,6 +40,8 @@ are btop's. See [Credits](#credits).
 | **Computer** | macOS, Linux or Windows, with Python 3.9+ for PlatformIO |
 | **Wi-Fi** | a **2.4 GHz** network (the ESP32-S3 has no 5 GHz radio) on the same LAN as your servers |
 | **Servers** | vLLM (V1 metrics; tested with 0.33) or TensorFold (tested with 1.1.8), reachable over plain HTTP with no auth on `/metrics` |
+
+![The board running System-D Monitor, powered through a USB meter reading 5.1 V, 0.21 A, 1.07 W](docs/images/photo.jpg)
 
 The board connects through a CH340 USB-serial chip. macOS and Linux have the
 driver built in. On Windows, install the
