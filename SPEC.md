@@ -1,4 +1,4 @@
-# System-D Monitor
+# SYSTEM-D Monitor
 
 A 4.0″ desk dashboard (Guition **ESP32-S3-4848S040**, 480×480 touch) that
 shows live **vLLM** and **TensorFold** inference metrics (decode/prefill
@@ -357,11 +357,12 @@ Built in M2 (2026-11-01); code in `src/gfx/`, `src/ui/`, `src/hw/screen.cpp`.
 ### Themes (chosen in Settings, saved in NVS by name)
 
 42 themes, all from btop: its built-in **Default** palette, shown as
-**System-D** (first in the list, and the default on first boot or for an
+**SYSTEM-D** (first in the list, and the default on first boot or for an
 unknown saved name), and its **41 bundled themes** (nord, gruvbox, dracula,
 tokyo-night, solarized, …). The EngineMetrics palette was removed and
-`Default` was renamed `System-D`, both at the user's request (2026-11-01). A
-board with either old name saved falls back to System-D. The btop themes are vendored in
+`Default` was renamed `System-D`, both at the user's request (2026-11-01), then
+capitalized to `SYSTEM-D` like the brand (2026-11-02). A board with any old
+name saved (`EngineMetrics`, `Default`, `System-D`) falls back to SYSTEM-D. The btop themes are vendored in
 `third_party/btop/` (Apache-2.0, commit in `SOURCE.txt`) and converted into
 `src/gfx/themes_btop.h` by `tools/themes/import_btop.py`. As in btop, any key
 a theme doesn't set comes from Default; `"#gg"` is grey shorthand and an
@@ -599,7 +600,7 @@ Settings action) for checking touch targets.
 
 ```cpp
 #pragma once
-// System-D Monitor configuration (SPEC.md §10).
+// SYSTEM-D Monitor configuration (SPEC.md §10).
 //
 // Copy this file to include/config.h and fill it in. config.h is gitignored,
 // so your Wi-Fi password never ends up in the repo. Without a config.h the
@@ -732,7 +733,7 @@ third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
   unreliable, so config stays in `config.h` and Settings stay in NVS.
 - **btop boxes + btop themes + Settings (2026-11-01):** separate rounded
   boxes with notched titles instead of `├─┤` dividers; all 42 btop themes
-  (btop's Default renamed System-D and made the default; EngineMetrics
+  (btop's Default renamed SYSTEM-D and made the default; EngineMetrics
   palette removed); a Settings screen (bottom-left `≡`) for theme and
   refresh rate.
 - **Header (user, 2026-11-01):** Wi-Fi bars pinned top-right; server

@@ -22,7 +22,7 @@
 | Audio | NS4168 I²S DAC + ~2.5 W class-D amp, speaker connector |
 | Battery | LiPo connector via IP5306 power-management chip (see gotchas) |
 | USB | USB-C through **CH340** USB-serial chip (not native USB) |
-| Power | 5 V, ~260 mA typical (vendor); **210 mA (≈ 1 W) measured** running System-D Monitor on Wi-Fi |
+| Power | 5 V, ~260 mA typical (vendor); **210 mA (≈ 1 W) measured** running SYSTEM-D Monitor on Wi-Fi |
 | Active area | 71.8 × 70.2 mm; module ~86.5 × 86.5 × 37.8 mm (with back shell) |
 | Operating temp | −20 … 70 °C (storage −30 … 80 °C) |
 

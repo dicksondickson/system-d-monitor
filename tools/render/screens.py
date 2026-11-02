@@ -19,7 +19,7 @@ SHOTS = [  # (file, page, theme)
     ("graphs.png", "graphs", "elementarish"),
     ("settings.png", "settings", "elementarish"),
 ]
-GALLERY = ("themes.png", "overview", ["System-D", "nord", "gruvbox_dark", "tokyo-night", "dracula", "solarized_light"])
+GALLERY = ("themes.png", "overview", ["SYSTEM-D", "nord", "gruvbox_dark", "tokyo-night", "dracula", "solarized_light"])
 
 
 def read_ppm(path):

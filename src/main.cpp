@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
 // SPDX-License-Identifier: MIT
 
-// System-D Monitor (SPEC.md): live TensorFold/vLLM dashboard on the Guition
+// SYSTEM-D Monitor (SPEC.md): live TensorFold/vLLM dashboard on the Guition
 // ESP32-S3-4848S040.
 //
 //   tap left third / right third   previous / next server (with > 1 server)

@@ -10,7 +10,7 @@
 //   │ TG 101.3 · PP 3,354/s · KV ████░░ · OK IDLE │   live preview
 //   ╰─────────────────────────────────────────────╯
 //   ╭─┐Themes┌───────────────────────────┐1/2┌─╮
-//   │ ▶System-D             everforest-dark-medium │   12 rows × 2 columns
+//   │ ▶SYSTEM-D             everforest-dark-medium │   12 rows × 2 columns
 //   │ …                                            │
 //   │ ‹ prev           done            next ›      │
 //   ╰─┘≡└─┘tap a theme to apply└───────────────────╯

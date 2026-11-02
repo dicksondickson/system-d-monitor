@@ -18,7 +18,7 @@ Role mapping (SPEC.md §6):
   DECODE proc_misc · PREFILL temp_mid (falls back when too close to DECODE)
   BRAND fixed red #ff3b30 (not from btop)
 
-btop's built-in Default palette is listed first and named "System-D"; it is
+btop's built-in Default palette is listed first and named "SYSTEM-D"; it is
 the firmware's default theme.
 """
 import glob, os, re, sys
@@ -30,7 +30,7 @@ OUT = os.path.join(ROOT, "src", "gfx", "themes_btop.h")
 ROLES = ["BG", "BORDER", "TITLE", "LABEL", "VALUE", "DIM", "GOOD", "WARN", "BAD",
          "DECODE", "PREFILL", "BOX2", "BOX3", "BOX4", "BRAND"]  # order = enum theme::Role
 BRAND_RED = (0xFF, 0x3B, 0x30)
-DEFAULT_THEME_NAME = "System-D"  # btop's built-in Default palette, renamed
+DEFAULT_THEME_NAME = "SYSTEM-D"  # btop's built-in Default palette, renamed
 # btop's inactive_fg is for disabled items and is often barely visible, and
 # many themes' graph_text is nearly as faint; here they are secondary text
 # (DIM: units, "live", "idle", "poll 2s"; LABEL: "run", "wait", "TTFT"), so
@@ -113,7 +113,7 @@ def rgb565(c):
 def main():
     default = parse(open(os.path.join(SRC, "default_theme.txt")).read())
     default = {k: v for k, v in default.items() if k}
-    # btop's built-in Default palette, shown here as "System-D" (the default theme).
+    # btop's built-in Default palette, shown here as "SYSTEM-D" (the default theme).
     themes = [(DEFAULT_THEME_NAME, resolve({}, default))]
     for f in sorted(glob.glob(os.path.join(SRC, "themes", "*.theme")), key=lambda p: os.path.basename(p).lower()):
         t = dict(re.findall(r'theme\[(\w+)\]\s*=\s*"([^"]*)"', open(f).read()))

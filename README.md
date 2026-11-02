@@ -1,8 +1,8 @@
-# System-D Monitor
+# SYSTEM-D Monitor
 
 ![SYSTEM-D](docs/images/system-d-logo.jpeg)
 
-System-D is a 4″ touchscreen desk dashboard for your LLM inference servers. It shows live
+SYSTEM-D is a 4″ touchscreen desk dashboard for your LLM inference servers. It shows live
 decode and prefill speed, KV cache, queues, streams, TTFT and speculative-decoding
 acceptance for **vLLM** and **TensorFold**, in a terminal-style look, on an
 inexpensive ESP32-S3 display board.
@@ -12,7 +12,7 @@ Inspired by [btop](https://github.com/aristocratos/btop),
 [nv-monitor](https://github.com/wentbackward/nv-monitor). The colour themes
 are btop's. See [Credits](#credits).
 
-![System-D Monitor running on the board: switching pages, opening Settings and changing theme](docs/images/demo.gif)
+![SYSTEM-D Monitor running on the board: switching pages, opening Settings and changing theme](docs/images/demo.gif)
 
 ![Overview](docs/images/overview.png) ![Graphs](docs/images/graphs.png)
 
@@ -22,7 +22,7 @@ are btop's. See [Credits](#credits).
 - **vLLM and TensorFold**, detected automatically, **up to 4 servers**; tap
   left or right to switch between them.
 - **42 colour themes** from [btop](https://github.com/aristocratos/btop).
-  The default, **System-D**, is btop's own Default palette.
+  The default, **SYSTEM-D**, is btop's own Default palette.
 - **Honest numbers:** anything not exported, not received yet, or not
   measurable reads `no data`, never a made-up 0.
 
@@ -43,7 +43,7 @@ are btop's. See [Credits](#credits).
 | **Wi-Fi** | a **2.4 GHz** network (the ESP32-S3 has no 5 GHz radio) on the same LAN as your servers |
 | **Servers** | vLLM (V1 metrics; tested with 0.33) or TensorFold (tested with 1.1.8), reachable over plain HTTP with no auth on `/metrics` |
 
-![The board running System-D Monitor, powered through a USB meter reading 5.1 V, 0.21 A, 1.07 W](docs/images/photo.jpg)
+![The board running SYSTEM-D Monitor, powered through a USB meter reading 5.1 V, 0.21 A, 1.07 W](docs/images/photo.jpg)
 
 The board connects through a CH340 USB-serial chip. macOS and Linux have the
 driver built in. On Windows, install the

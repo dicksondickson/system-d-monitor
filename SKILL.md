@@ -1,11 +1,11 @@
 ---
 name: system-d-monitor
-description: Configure, build and flash the System-D Monitor firmware onto a Guition ESP32-S3-4848S040 display board, then check it works. Use when someone asks to set up, compile, flash, configure or troubleshoot System-D Monitor (the ESP32 dashboard for vLLM and TensorFold inference servers).
+description: Configure, build and flash the SYSTEM-D Monitor firmware onto a Guition ESP32-S3-4848S040 display board, then check it works. Use when someone asks to set up, compile, flash, configure or troubleshoot SYSTEM-D Monitor (the ESP32 dashboard for vLLM and TensorFold inference servers).
 ---
 
-# Set up System-D Monitor
+# Set up SYSTEM-D Monitor
 
-System-D Monitor is PlatformIO firmware for the **Guition ESP32-S3-4848S040**
+SYSTEM-D Monitor is PlatformIO firmware for the **Guition ESP32-S3-4848S040**
 (4″ 480×480 touchscreen, ESP32-S3 N16R8, CH340 USB-serial). It polls vLLM or
 TensorFold `/metrics` over Wi-Fi and shows the numbers on the screen. The
 whole job is: install PlatformIO, write `include/config.h`, build, flash,
