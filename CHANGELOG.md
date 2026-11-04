@@ -1,3 +1,4 @@
 # Changelog
 
+- v0.1.1 - 2026-11-03 - Support for the later TensorFold build; PP counts only computed prompt tokens
 - v0.1 - 2026-11-02 - Initial release

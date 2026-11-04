@@ -34,7 +34,7 @@ are btop's. See [Credits](#credits).
 
 ## Changelog
 
-v0.1 - 2026-11-02 - Initial release
+v0.1.1 - 2026-11-03 - Support for the later TensorFold build; PP counts only computed prompt tokens
 
 All releases: [`CHANGELOG.md`](CHANGELOG.md)
 
