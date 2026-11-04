@@ -37,6 +37,7 @@ const Entry TABLE[] = {
     {"prompt_tokens_cached_total", F_CACHED_TOKENS, Combine::SUM},
     {"request_prompt_tokens_sum", F_REQ_PROMPT, Combine::SUM},       // vLLM
     {"request_generation_tokens_sum", F_REQ_GEN, Combine::SUM},      // vLLM
+    {"request_prefill_kv_computed_tokens_sum", F_REQ_COMPUTED, Combine::SUM},  // vLLM
     {"cache_config_info", F_KV_POOL_TOKENS, Combine::KV_POOL_SIZE},  // vLLM, label
     {"preemptions_total", F_PREEMPTIONS, Combine::SUM},      // TensorFold
     {"num_preemptions_total", F_PREEMPTIONS, Combine::SUM},  // vLLM
@@ -49,8 +50,18 @@ const Entry TABLE[] = {
     {"stream_request_start_seconds", F_COUNT, Combine::STREAM_START},
 };
 
-const Entry* lookup(const char* suffix) {
-  for (const Entry& e : TABLE)
+// Suffixes after "tensorfold_health:", the /health counters some TensorFold
+// builds also export. Only the ones that stand in for metrics those builds
+// dropped are read.
+const Entry HEALTH_TABLE[] = {
+    {"completion_tokens_total", F_GEN_LIVE, Combine::SUM},
+    {"prefill_seconds_total", F_HEALTH_PREFILL_S, Combine::SUM},
+    {"cached_tokens_total", F_HEALTH_CACHED, Combine::SUM},
+};
+
+template <size_t N>
+const Entry* find(const Entry (&table)[N], const char* suffix) {
+  for (const Entry& e : table)
     if (strcmp(e.suffix, suffix) == 0) return &e;
   return nullptr;
 }
@@ -120,6 +131,9 @@ void PromParser::finish() {
   if (len_ && !overflow_) parseLine(line_, len_);
   len_ = 0;
   overflow_ = false;
+  // A build without the histogram or cached counter gets /health's.
+  if (isnan(s_.v[F_PREFILL_S])) s_.v[F_PREFILL_S] = s_.v[F_HEALTH_PREFILL_S];
+  if (isnan(s_.v[F_CACHED_TOKENS])) s_.v[F_CACHED_TOKENS] = s_.v[F_HEALTH_CACHED];
 }
 
 void PromParser::parseLine(char* line, size_t n) {
@@ -154,8 +168,9 @@ void PromParser::parseLine(char* line, size_t n) {
   if (end == p) return;
 
   const char* suffix;
-  bool tf;
+  bool tf, health = false;
   if (strncmp(name, "tensorfold:", 11) == 0) { suffix = name + 11; tf = true; }
+  else if (strncmp(name, "tensorfold_health:", 18) == 0) { suffix = name + 18; tf = health = true; }
   else if (strncmp(name, "vllm:", 5) == 0) { suffix = name + 5; tf = false; }
   else return;
   if (endsWith(suffix, "_bucket") || endsWith(suffix, "_created")) return;
@@ -163,7 +178,7 @@ void PromParser::parseLine(char* line, size_t n) {
   if (!tf && labels && !s_.model_name[0])
     promLabel(labels, "model_name", s_.model_name, sizeof s_.model_name);
 
-  const Entry* e = lookup(suffix);
+  const Entry* e = health ? find(HEALTH_TABLE, suffix) : find(TABLE, suffix);
   if (!e) return;
   matched_++;
   (tf ? s_.n_tensorfold : s_.n_vllm)++;

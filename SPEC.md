@@ -142,6 +142,36 @@ This TensorFold's `/health` is **not** the schema EngineMetrics reads (no
 `busy`, `streams{}`, pool or token counters). `/metrics` is the source of
 truth.
 
+#### Later TensorFold build (dgx042, captured 2026-11-03)
+
+dgx042 later ran a TensorFold build (model `glm5.3-flash`, 4 streams, 1 M
+context; `Server: BaseHTTP/0.6 Python/3.12.3`, no version reported) whose
+exports differ. Saved in `test/fixtures/tensorfold-2026-11-03-idle/`.
+
+- **`/health` is EngineMetrics' format:** `{"ok": true, "backend":
+  "tensorfold", "busy", "streams": {"max", …}, "context_length",
+  "prompt_tokens_total", "completion_tokens_total", "cached_tokens_total",
+  "prefill_seconds_total", "pool_tokens", …}` (929 B). No `status`,
+  `version`, `max_batch_size` or `warming`. The monitor reads `ok` as
+  health, `backend: "tensorfold"` as the confirming signal (§4.3),
+  `streams.max` as the batch size and `context_length`, which
+  `/v1/models` (97 B) no longer has.
+- **`/metrics` dropped** `generation_tokens_running` and
+  `request_prefill_time_seconds_*` (plus memory, disconnection and
+  time-per-token metrics the monitor doesn't use).
+- **`/metrics` added `tensorfold_health:*`**, a copy of the `/health`
+  counters. Three stand in for what was dropped:
+
+| `tensorfold_health:` suffix | Meaning (from `HELP`) | Used for |
+|---|---|---|
+| `completion_tokens_total` | reply tokens, the running replies' tokens so far included | **TG live** (replaces total + running) |
+| `prefill_seconds_total` | engine prefill seconds, finished requests | PP eng, when `request_prefill_time_seconds_sum` is absent |
+| `cached_tokens_total` | prompt tokens found cached, finished requests | cache-hit, when `prompt_tokens_cached_total` is absent |
+
+Without these, TG read 0 while a reply was being written (and every reply
+looked like a prefill, §5), PP last never updated, and `/health` failed to
+parse on every poll.
+
 ### 4.2 Metrics read
 
 Every name is prefixed `tensorfold:`. The prefix is kept as a parameter
@@ -213,8 +243,9 @@ version.
   `max_model_len` (262,144) come from `/v1/models`. `/metrics` is ~67 KB
   and ~511 lines; its longest line, `cache_config_info` at ~1.1 KB, is why
   the parser's line buffer is 2 KB. The extra vLLM names read are
-  `request_prompt_tokens_sum`, `request_generation_tokens_sum`
-  (per-request token sums) and the `kv_cache_size_tokens` label on
+  `request_prompt_tokens_sum`, `request_generation_tokens_sum`,
+  `request_prefill_kv_computed_tokens_sum` (per-request token sums; the last
+  excludes cache hits and feeds PP) and the `kv_cache_size_tokens` label on
   `cache_config_info` (KV pool size, 355,241 tokens on dick6000). Captured
   in `test/fixtures/vllm-0.33.0rc1-idle/`.
 
@@ -228,10 +259,10 @@ response end) plus the values above. `prev` is the previous good sample and
 
 | Shown as | Formula |
 |---|---|
-| **TG live** (hero) | Δ(`generation_tokens_total` + `generation_tokens_running`) / Δt, so in-flight tokens count. Verified under load (§12 Q1) |
+| **TG live** (hero) | Δ(`generation_tokens_total` + `generation_tokens_running`) / Δt, so in-flight tokens count. Verified under load (§12 Q1). Builds with `tensorfold_health:completion_tokens_total` (§4.1): Δ of that counter, which already includes running replies |
 | TG eng ("engine-time"; **serial log only**, removed from the screen 2026-11-01 because it was confusing) | Δ finished-request tokens / Δ`request_decode_time_seconds_sum`: tokens per second of the engine's own decode time for the requests that finished this poll, i.e. roughly single-request speed. Finished-request tokens = `request_generation_tokens_sum` (vLLM) or `generation_tokens_total` (TensorFold, which only counts finished requests). vLLM's `generation_tokens_total` moves live, so pairing it with the finish-time decode sum would mix timings |
 | PP live | Δ`prompt_tokens_total` / Δt. **Not shown on either engine:** TensorFold counts prompt tokens at request end (§12 Q2), vLLM when the prefill completes, so it reads 0 during a prefill and then spikes |
-| PP eng | Δ finished-request prompt tokens (`request_prompt_tokens_sum` on vLLM, else `prompt_tokens_total`) / Δ`request_prefill_time_seconds_sum`: prefill speed of the request(s) that finished in this poll |
+| PP eng | Δ finished-request prompt tokens (`request_prompt_tokens_sum` on vLLM, else `prompt_tokens_total`) / Δ`request_prefill_time_seconds_sum` (or `tensorfold_health:prefill_seconds_total`, §4.1): prefill speed of the request(s) that finished in this poll. Cache hits take no prefill time, so only computed tokens count: vLLM's `request_prefill_kv_computed_tokens_sum` (finish-timed, cache hits excluded) when exported; on TensorFold builds that report cached tokens, prompt − cached (seen 2026-11-03: 50,953 prompt tokens, 50,112 cached, 0.69 s → 1,217 tok/s, not 73,749) |
 | **PP last** | the most recent non-`no data` PP eng, kept until the next request finishes |
 | **prefilling Ns** | shown while `num_requests_running` > 0, live TG = 0 and KV > 0; N = seconds since the first poll that matched. On vLLM a prefill alongside other decoding requests isn't flagged (TG > 0) |
 | **TG avg** | mean of live TG over the polls where it was > 0, **since the monitor started or the server last restarted**. Idle polls are excluded, or the number would mostly measure idle time (user request, 2026-11-01; it was a 30 s window before) |
@@ -245,7 +276,7 @@ response end) plus the values above. `prev` is the previous good sample and
 | **Stream linger** | when a stream's request ends (it was prefilling or decoding, or, without `stream_state`, held cache; now it doesn't), the row keeps its **last active values** (ctx, tokens, TTFT, TG) for `Deriver::STREAM_LINGER_MS` = **10 s** after the poll that saw it end, with the state shown as `done` (LABEL colour). A new request in the slot replaces it at once; a restart or a slot that disappears clears it. Requests that start and end between two polls are never seen (user request, 2026-11-02) |
 | **TTFT / lat** | sum / count (cumulative) of TTFT / e2e latency, `n` = TTFT count |
 | live TTFT | Δsum / Δcount; `no data` when nothing finished in the window |
-| **cache-hit** | `prompt_tokens_cached_total` / `prompt_tokens_total` (cumulative), App. A |
+| **cache-hit** | `prompt_tokens_cached_total` (or `tensorfold_health:cached_tokens_total`, §4.1) / `prompt_tokens_total` (cumulative), App. A |
 | Stream state | the `state` label of `stream_state{stream=n}` = 1, App. A |
 | Stream TTFT | `stream_ttft_seconds{stream=n}`, App. A |
 | Stream TG | Δ`stream_generation_tokens{stream=n}` / Δt while `stream_request_start_seconds` is unchanged; `no data` on the first poll of a new request |
@@ -661,6 +692,7 @@ src/metrics/  (M3–M4) prom.cpp  tf_health.cpp  sample.h  derive.cpp  ring.h
 src/ui/       view.h  fmt.cpp  widgets.cpp  chrome.cpp  page_overview.cpp
               page_graphs.cpp  demo_view.cpp
 test/fixtures/tensorfold-1.1.8-idle/  metrics.txt health.json v1_models.json
+test/fixtures/tensorfold-2026-11-03-idle/  (same files, later build, §4.1)
 test/test_render/ (golden page dumps)  test/test_fmt/   (PlatformIO native, Unity)
 tools/font/mkfont.py  tools/update_golden.py  tools/display-diag/  tools/capture.sh (M3)
 third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT

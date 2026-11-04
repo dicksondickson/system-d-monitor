@@ -12,8 +12,12 @@
 
 struct ServerInfo {
   // /health (TensorFold)
-  bool health_ok = false;     // parsed and status == "ok"
+  // Two formats: 1.1.8 {"status": "ok", "version", "max_batch_size", …};
+  // later builds {"ok": true, "backend": "tensorfold", "streams": {"max"},
+  // "context_length", …} with no version.
+  bool health_ok = false;     // status == "ok", or ok == true
   bool warming = false;
+  bool tf_backend = false;    // "backend": "tensorfold"
   float max_batch = NAN;
   char version[48] = "";      // TensorFold: /health.version; vLLM: /version
   // /v1/models
@@ -33,7 +37,7 @@ struct Identity {
 
 // Step 1: the prefix with the most recognised /metrics names wins; a tie or
 // none → UNKNOWN. Step 2: TensorFold is confirmed by a "Server: TensorFold"
-// header or a /health with a version; vLLM by a GET /version that parsed.
+// header, a /health with a version, or one that says backend "tensorfold"; vLLM by a GET /version that parsed.
 Identity identify(const Sample& s, const char* server_header, const ServerInfo& info);
 
 const char* engineName(Engine e);  // "TensorFold", "vLLM", "???"

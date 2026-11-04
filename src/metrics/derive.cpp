@@ -9,10 +9,12 @@
 namespace {
 
 // Generated tokens including in-flight ones. TensorFold's
-// generation_tokens_total only counts finished requests, so add the live
-// streams' gauge (SPEC.md §5, open question 1).
+// generation_tokens_total only counts finished requests, so use the
+// running-included completion counter where the build has one, else add the
+// live streams' gauge (SPEC.md §5, open question 1).
 float genLive(const Sample& s, Engine e) {
   if (e == Engine::TENSORFOLD) {
+    if (s.has(F_GEN_LIVE)) return s.get(F_GEN_LIVE);
     float running = s.has(F_GEN_RUNNING) ? s.get(F_GEN_RUNNING) : 0.0f;
     return s.get(F_GEN_TOKENS) + running;
   }
@@ -35,6 +37,17 @@ float kvPct(const Sample& s) {
 // totals move as the engine works, so use its per-request histogram sums.
 float reqPrompt(const Sample& s) {
   return s.has(F_REQ_PROMPT) ? s.get(F_REQ_PROMPT) : s.get(F_PROMPT_TOKENS);
+}
+// Prompt tokens the engine actually prefilled, for PP. Cache hits take no
+// prefill time, so counting them inflates the rate (a 51K prompt with 50K
+// cached, 0.69 s of prefill: 1,217 tok/s, not 73,749). vLLM reports the
+// computed tokens per finished request. TensorFold's cached counter is
+// finish-timed like its prompt total, so subtract it; vLLM's is counted at
+// admission, so it can't be paired with the finish-timed sums.
+float prefillTokens(const Sample& s, Engine e) {
+  if (s.has(F_REQ_COMPUTED)) return s.get(F_REQ_COMPUTED);
+  if (e == Engine::TENSORFOLD && s.has(F_CACHED_TOKENS)) return s.get(F_PROMPT_TOKENS) - s.get(F_CACHED_TOKENS);
+  return reqPrompt(s);
 }
 float reqGen(const Sample& s) { return s.has(F_REQ_GEN) ? s.get(F_REQ_GEN) : s.get(F_GEN_TOKENS); }
 
@@ -138,7 +151,7 @@ bool Deriver::onSample(const Sample& s, const Identity& id, const ServerInfo& in
       tg = ratio(genLive(s, id.engine) - genLive(prev, id.engine), dt);
       pp = ratio(s.get(F_PROMPT_TOKENS) - prev.get(F_PROMPT_TOKENS), dt);
     }
-    const float pp_eng = ratio(reqPrompt(s) - reqPrompt(prev),
+    const float pp_eng = ratio(prefillTokens(s, id.engine) - prefillTokens(prev, id.engine),
                                s.get(F_PREFILL_S) - prev.get(F_PREFILL_S));
     if (!isnan(pp_eng)) last_pp_eng_ = pp_eng;
     if (per_request) pp = isnan(pp_eng) ? (isnan(pp) ? NAN : 0.0f) : pp_eng;
@@ -227,7 +240,7 @@ void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, WifiLink link,
         v.pp_live = ratio(cur.get(F_PROMPT_TOKENS) - prev.get(F_PROMPT_TOKENS), dt);
       }
       v.tg_eng = ratio(reqGen(cur) - reqGen(prev), cur.get(F_DECODE_S) - prev.get(F_DECODE_S));
-      v.pp_eng = ratio(reqPrompt(cur) - reqPrompt(prev),
+      v.pp_eng = ratio(prefillTokens(cur, e) - prefillTokens(prev, e),
                        cur.get(F_PREFILL_S) - prev.get(F_PREFILL_S));
       v.ttft_live = ratio(cur.get(F_TTFT_SUM) - prev.get(F_TTFT_SUM),
                           cur.get(F_TTFT_COUNT) - prev.get(F_TTFT_COUNT));

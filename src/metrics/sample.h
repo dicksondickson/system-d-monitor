@@ -27,12 +27,19 @@ enum Field : uint8_t {
   F_DRAFT_TOKENS,      // spec decode / MTP
   F_ACCEPTED_TOKENS,
   F_DRAFTS,            // vLLM only (τ)
-  F_CACHED_TOKENS,     // prompt_tokens_cached_total (vLLM; TF after App. A)
+  F_CACHED_TOKENS,     // prompt_tokens_cached_total (vLLM), else TF's F_HEALTH_CACHED
   F_PREEMPTIONS,
   F_KV_POOL,           // max over pools / unlabeled series, ratio 0–1
   F_KV_POOL_TOKENS,    // vLLM: cache_config_info{kv_cache_size_tokens}
   F_REQ_PROMPT,        // vLLM: request_prompt_tokens_sum (finished requests)
   F_REQ_GEN,           // vLLM: request_generation_tokens_sum (finished requests)
+  F_REQ_COMPUTED,      // vLLM: request_prefill_kv_computed_tokens_sum (finished, cache hits excluded)
+  // TensorFold builds that mirror /health into /metrics as tensorfold_health:*
+  // (seen 2026-11-03; they dropped generation_tokens_running and
+  // request_prefill_time_seconds).
+  F_GEN_LIVE,          // completion_tokens_total: running replies included
+  F_HEALTH_PREFILL_S,  // prefill_seconds_total, finished requests; fills F_PREFILL_S
+  F_HEALTH_CACHED,     // cached_tokens_total, finished requests; fills F_CACHED_TOKENS
   F_COUNT
 };
 

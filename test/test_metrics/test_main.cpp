@@ -382,6 +382,104 @@ static void test_prefilling_and_per_request_pp() {
   TEST_ASSERT_TRUE(g.dump().find("PP last 3,342/s") != std::string::npos);
 }
 
+// --- TensorFold with tensorfold_health:* (dgx042 capture, 2026-11-03) ------
+// This build dropped generation_tokens_running and
+// request_prefill_time_seconds, mirrors /health into /metrics, and serves the
+// {"ok": true, "backend": "tensorfold"} /health with no version.
+
+static std::string readTfNew(const char* name) { return readFixtureIn("tensorfold-2026-11-03-idle", name); }
+
+static ServerInfo tfNewInfo() {
+  ServerInfo info;
+  std::string h = readTfNew("health.json"), m = readTfNew("v1_models.json");
+  TEST_ASSERT_TRUE(parseHealth(h.data(), h.size(), info));
+  TEST_ASSERT_TRUE(parseModels(m.data(), m.size(), info));
+  return info;
+}
+
+static void test_tf_health_build_values() {
+  Sample s = parse(readTfNew("metrics.txt"));
+  TEST_ASSERT_FALSE(s.has(F_GEN_RUNNING));                      // dropped
+  TEST_ASSERT_EQUAL_FLOAT(2530, s.get(F_GEN_LIVE));             // tensorfold_health:completion_tokens_total
+  TEST_ASSERT_EQUAL_FLOAT(2530, s.get(F_GEN_TOKENS));
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 30.6395, s.get(F_PREFILL_S));  // from prefill_seconds_total
+  TEST_ASSERT_EQUAL_FLOAT(106816, s.get(F_CACHED_TOKENS));      // from cached_tokens_total
+  TEST_ASSERT_EQUAL_FLOAT(157669, s.get(F_PROMPT_TOKENS));
+  TEST_ASSERT_EQUAL_FLOAT(0, s.get(F_RUNNING));
+
+  ServerInfo info = tfNewInfo();
+  TEST_ASSERT_TRUE(info.health_ok);
+  TEST_ASSERT_TRUE(info.tf_backend);
+  TEST_ASSERT_EQUAL_STRING("", info.version);  // not reported
+  TEST_ASSERT_EQUAL_FLOAT(4, info.max_batch);  // streams.max
+  TEST_ASSERT_EQUAL_FLOAT(1048576, info.context_length);  // /health; /v1/models no longer has it
+  TEST_ASSERT_EQUAL_STRING("glm5.3-flash", info.model);
+
+  Identity id = identify(s, "BaseHTTP/0.6 Python/3.12.3", info);
+  TEST_ASSERT_EQUAL(Engine::TENSORFOLD, id.engine);
+  TEST_ASSERT_TRUE(id.confirmed);  // by backend "tensorfold"
+
+  // 1.1.8's /health format still parses the same way.
+  ServerInfo old = dgxInfo();
+  TEST_ASSERT_TRUE(old.health_ok);
+  TEST_ASSERT_FALSE(old.tf_backend);  // 1.1.8 says "cuda"
+  TEST_ASSERT_EQUAL_STRING("1.1.8", old.version);
+}
+
+static void test_tf_health_build_live_tg_and_pp() {
+  Sample base = parse(readTfNew("metrics.txt"));
+  ServerInfo info = tfNewInfo();
+  Identity id = identify(base, "BaseHTTP/0.6 Python/3.12.3", info);
+  Deriver d;
+  auto at = [&](uint32_t t, float live, float finished, float prompt, float prefill_s, float running, float kv,
+                float cached = 0) {
+    Sample s = base;
+    s.v[F_CACHED_TOKENS] += cached;
+    s.t_ms = t;
+    s.v[F_GEN_LIVE] += live;
+    s.v[F_GEN_TOKENS] += finished;
+    s.v[F_PROMPT_TOKENS] += prompt;
+    s.v[F_PREFILL_S] += prefill_s;
+    s.v[F_RUNNING] = running;
+    s.v[F_KV_POOL] = kv;
+    return s;
+  };
+  auto view = [&](uint32_t now) {
+    View v;
+    d.fill(v, now, 2000, WifiLink::UP, 0);
+    return v;
+  };
+  d.onSample(at(0, 0, 0, 0, 0, 0, 0), id, info);
+  d.onSample(at(2000, 0, 0, 0, 0, 1, 0.02f), id, info);  // prefill: nothing generated yet
+  View v = view(2000);
+  TEST_ASSERT_FALSE(std::isnan(v.prefilling_s));  // "prefilling" shown
+
+  // Decoding: the reply's tokens count while it runs, though no request finished.
+  d.onSample(at(4000, 100, 0, 0, 0, 1, 0.03f), id, info);
+  v = view(4000);
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 50, v.tg_live);
+  TEST_ASSERT_TRUE(std::isnan(v.prefilling_s));  // not mistaken for a prefill
+  TEST_ASSERT_EQUAL(ServerState::BUSY, v.state);
+
+  // Finished: the finished counter catches up (no jump in TG), and the prompt
+  // and prefill time land, so PP last updates.
+  d.onSample(at(6000, 200, 200, 8000, 2.0f, 0, 0), id, info);
+  v = view(6000);
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 50, v.tg_live);
+  TEST_ASSERT_FLOAT_WITHIN(1, 4000, v.pp_last);  // 8000 / 2 s
+  TEST_ASSERT_EQUAL_FLOAT(4, v.max_batch);
+  TEST_ASSERT_EQUAL_FLOAT(1048576, v.ctx_window);
+  TEST_ASSERT_FLOAT_WITHIN(0.01, 106816.0f / 165669 * 100, v.cache_hit_pct);
+  TEST_ASSERT_EQUAL_STRING("glm5.3-flash", v.model);
+
+  // Cached prompt tokens take no prefill time: the request seen live on
+  // dgx042 had 50,953 prompt tokens, 50,112 of them cached, and 0.691 s of
+  // prefill, so PP is 841 / 0.691 s, not 50,953 / 0.691 s (73,749).
+  d.onSample(at(8000, 300, 300, 8000 + 50953, 2.691f, 0, 0, 50112), id, info);
+  v = view(8000);
+  TEST_ASSERT_FLOAT_WITHIN(1, 1217, v.pp_last);
+}
+
 // --- vLLM (dick6000 capture, 2026-11-01) ---------------------------------
 
 static ServerInfo vllmInfo() {
@@ -403,6 +501,7 @@ static void test_vllm_fixture_values() {
   TEST_ASSERT_EQUAL_FLOAT(355241, s.get(F_KV_POOL_TOKENS));   // from the 1.1 KB cache_config_info line
   TEST_ASSERT_EQUAL_FLOAT(98189253, s.get(F_REQ_PROMPT));
   TEST_ASSERT_EQUAL_FLOAT(812177, s.get(F_REQ_GEN));
+  TEST_ASSERT_EQUAL_FLOAT(15866053, s.get(F_REQ_COMPUTED));  // prompt − cached
   TEST_ASSERT_EQUAL_FLOAT(953736, s.get(F_DRAFT_TOKENS));
   TEST_ASSERT_EQUAL_FLOAT(494477, s.get(F_ACCEPTED_TOKENS));
   TEST_ASSERT_EQUAL_FLOAT(317912, s.get(F_DRAFTS));
@@ -438,6 +537,7 @@ static void test_vllm_derived_view() {
   b.v[F_DECODE_S] += 5;               // … and its decode time
   b.v[F_REQ_PROMPT] += 20000;
   b.v[F_PROMPT_TOKENS] += 20000;
+  b.v[F_REQ_COMPUTED] += 5000;        // 15,000 of the prompt came from the cache
   b.v[F_PREFILL_S] += 2.5f;
   b.v[F_RUNNING] = 1;
   b.v[F_KV_POOL] = 0.25f;
@@ -448,7 +548,7 @@ static void test_vllm_derived_view() {
   d.fill(v, 2000, 2000, WifiLink::UP, 0);
   TEST_ASSERT_FLOAT_WITHIN(1e-3, 60, v.tg_live);    // 120 live tokens / 2 s
   TEST_ASSERT_FLOAT_WITHIN(1e-3, 80, v.tg_eng);     // 400 finished tokens / 5 s decode
-  TEST_ASSERT_FLOAT_WITHIN(1e-3, 8000, v.pp_last);  // 20000 / 2.5 s prefill
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 2000, v.pp_last);  // 5000 computed / 2.5 s prefill
   TEST_ASSERT_TRUE(v.pp_per_request);
   TEST_ASSERT_FLOAT_WITHIN(1, 88810, v.kv_tokens);  // 25 % of the 355,241-token pool
   TEST_ASSERT_EQUAL_FLOAT(355241, v.kv_capacity);
@@ -507,6 +607,8 @@ int main() {
   RUN_TEST(test_failures_stale_down_nowifi);
   RUN_TEST(test_not_an_engine);
   RUN_TEST(test_prefilling_and_per_request_pp);
+  RUN_TEST(test_tf_health_build_values);
+  RUN_TEST(test_tf_health_build_live_tg_and_pp);
   RUN_TEST(test_vllm_fixture_values);
   RUN_TEST(test_vllm_identified_and_confirmed);
   RUN_TEST(test_vllm_derived_view);
