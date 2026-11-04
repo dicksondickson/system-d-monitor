@@ -800,6 +800,14 @@ of up to a 127K-token prompt)
    concurrent requests.
 6. Implement Appendix A in TensorFold (M3a), including A.4. Item 4 can be
    settled from the TensorFold source.
+7. **PP on servers that don't report cache hits** (TensorFold 1.1.8, and vLLM
+   without `request_prefill_kv_computed_tokens`): PP last still counts
+   cached prompt tokens, so it reads high when the prompt cache is reused.
+   No fix from the counters alone. Options if needed: 1.1.8's
+   `/health.live.prefill_tokens_per_second` (engine-computed; only seen
+   idle, unverified under load, and needs `/health` every poll during a
+   prefill), or KV growth during a prefill (approximate at 1 s polls).
+   Neither server in use on 2026-11-03 is affected.
 
 ---
 
