@@ -4,7 +4,7 @@
 // Settings screen (SPEC.md §7.3): refresh rate, brightness and theme picker.
 // Opened by tapping the ≡ notch in the bottom-left corner of the dashboard.
 //
-//   ╭─┐Settings┌─────────────────────────────────╮
+//   ╭─┐Settings┌────────────────────────┐v0.1┌─╮
 //   │ Refresh     ‹         2 s          ›        │   tap left / right half
 //   │ Brightness  ‹        100%          ›        │   tap left / right half
 //   │ TG 101.3 · PP 3,354/s · KV ████░░ · OK IDLE │   live preview
@@ -77,7 +77,7 @@ void settings(Grid& g, const Settings& s) {
   g.clear();
   const uint8_t box = theme::BORDER, list_box = theme::BOX2;
 
-  boxTop(g, 0, box, "Settings");
+  boxTop(g, 0, box, "Settings", s.version);
   char value[16];
   boxRow(g, REFRESH_ROW, box);
   snprintf(value, sizeof value, "%u s", (unsigned)(s.poll_ms / 1000));

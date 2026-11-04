@@ -19,6 +19,7 @@ struct Settings {
   uint8_t brightness_pct;
   int theme;      // current theme index
   int list_page;  // which page of the theme list is shown
+  const char* version;  // firmware version, top-right of the screen (nullptr: none)
 };
 constexpr int THEMES_PER_PAGE = 24;  // 12 rows × 2 columns
 constexpr int POLL_OPTION_COUNT = 6;

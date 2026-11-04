@@ -32,6 +32,14 @@ are btop's. See [Credits](#credits).
 
 ---
 
+## Changelog
+
+v0.1 - 2026-11-02 - Initial release
+
+All releases: [`CHANGELOG.md`](CHANGELOG.md)
+
+---
+
 ## What you need
 
 | | |

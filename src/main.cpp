@@ -1,8 +1,7 @@
 // Copyright (c) 2026 Dickson Chow (https://github.com/dicksondickson)
 // SPDX-License-Identifier: MIT
 
-// SYSTEM-D Monitor (SPEC.md): live TensorFold/vLLM dashboard on the Guition
-// ESP32-S3-4848S040.
+// SYSTEM-D Monitor
 //
 //   tap left third / right third   previous / next server (with > 1 server)
 //   tap centre                     overview ↔ graphs (anywhere with 1 server)
@@ -31,6 +30,7 @@
 
 namespace {
 
+constexpr char FW_VERSION[] = "v0.1";  // shown top-right in Settings; keep in step with CHANGELOG.md
 constexpr uint32_t TOUCH_POLL_MS = 33;  // ~30 Hz
 constexpr uint32_t TAP_MAX_MS = 500;    // SPEC.md §9
 constexpr uint32_t HOLD_MS = 700;
@@ -83,7 +83,7 @@ void refreshView() {
   if (!CONFIG_PRESENT) snprintf(view.status, sizeof view.status, "no include/config.h");
 }
 
-pages::Settings settingsState() { return {poller::pollMs(), brightness_pct, theme_index, list_page}; }
+pages::Settings settingsState() { return {poller::pollMs(), brightness_pct, theme_index, list_page, FW_VERSION}; }
 
 void redraw() {
   if (page == pages::Page::SETTINGS) {

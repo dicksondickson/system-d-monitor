@@ -100,10 +100,11 @@ static void test_empty_view_says_no_data() {
 static void test_settings_screen() {
   Grid g;
   const int nord = theme::find("nord");
-  pages::Settings s{2000, 80, nord, nord / pages::THEMES_PER_PAGE};
+  pages::Settings s{2000, 80, nord, nord / pages::THEMES_PER_PAGE, "v9.9"};
   pages::settings(g, s);
   std::string d = g.dump();
   printf("\n--- settings ---\n%s", d.c_str());
+  TEST_ASSERT_TRUE(d.substr(0, d.find('\n')).find("v9.9") != std::string::npos);  // version, top row
   std::istringstream in(d);
   std::string line;
   int rows = 0;
