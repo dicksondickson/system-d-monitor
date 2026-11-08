@@ -1,5 +1,10 @@
 # Changelog
 
+**v0.1.6 - 2026-11-08**
+
+- Release firmware is silent on serial; `SERIAL_LOG 1` in `config.h` turns the log back on for troubleshooting
+- Fix three compiler warnings
+
 **v0.1.5 - 2026-11-08**
 
 - Serial `mem` line shows totals as well as free memory (internal RAM and PSRAM)

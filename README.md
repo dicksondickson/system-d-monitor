@@ -34,13 +34,10 @@ are btop's. See [Credits](#credits).
 
 ## Changelog
 
-**v0.1.5 - 2026-11-08**
+**v0.1.6 - 2026-11-08**
 
-- Serial `mem` line shows totals as well as free memory (internal RAM and PSRAM)
-- Memory reference for this firmware in the bring-up notes
-- How the two cores are used, documented in SPEC
-- Updated screenshots and social preview
-- SKILL.md: troubleshooting for DOWN, STALE and a stuck shifted image; optional hostname check
+- Release firmware is silent on serial; `SERIAL_LOG 1` in `config.h` turns the log back on for troubleshooting
+- Fix three compiler warnings
 
 All releases: [`CHANGELOG.md`](CHANGELOG.md)
 
