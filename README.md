@@ -34,7 +34,7 @@ are btop's. See [Credits](#credits).
 
 ## Changelog
 
-v0.1.4 - 2026-11-08 - Start Wi-Fi before the display, so boot-time flash access can't leave the image shifted; poll only the server on screen; down servers retry every 9 s at most; server state and Wi-Fi bars in fixed colours (green OK, orange in progress / fair signal, red down / weak signal); no glitch on server switches (page and server saved after 9 s, first poll 150 ms after the redraw)
+v0.1.4 - 2026-11-08 - Start Wi-Fi before the display, so boot-time flash access can't leave the image shifted; poll only the server on screen; down servers retry every 9 s at most; server state and Wi-Fi bars in fixed colours (green OK, orange in progress / fair signal, red down / weak signal), also in the Settings theme preview; no glitch on server switches (page and server saved after 9 s, first poll 150 ms after the redraw)
 
 All releases: [`CHANGELOG.md`](CHANGELOG.md)
 
@@ -274,10 +274,15 @@ Board quirks to know before you change anything (details in
 - **Uploads:** use **460800** baud; 921600 corrupts over the CH340.
 - **Build flags:** build with **`-O2`**. This PlatformIO platform passes no
   optimisation flag, which means `-O0`.
-- **Bounce buffers:** use 2 × 20 lines, and no cache writeback after
-  drawing. Otherwise the screen flickers or glitches when Wi-Fi is busy.
-- **Start-up order:** start the panel **before** Wi-Fi, and never block
+- **Bounce buffers:** use 2 × 40 lines, and no cache writeback after
+  drawing. Otherwise the screen flickers or glitches when Wi-Fi is busy, or
+  now and then stays shifted until a reset.
+- **Start-up order:** start **Wi-Fi before the panel** (its start-up flash
+  work must be over before the display stream runs), and never block
   waiting for the connection.
+- **Flash writes:** keep them away from screen updates. A flash write
+  holds off the display's interrupts; page and server are saved 9 s after
+  the last switch.
 
 ## Credits
 
