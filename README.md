@@ -251,6 +251,7 @@ GPU server(s) ── HTTP /metrics every N s ──▶ one poller task per serve
 pio test -e native                     # host tests: parser, derivation, layouts, touch hit-testing
 pio run                                # firmware build (no board needed)
 tools/render/screens.py                # re-render docs/images/*.png
+tools/render/social_preview.sh         # then refresh the screens in the social preview (ffmpeg)
 tools/update_golden.py                 # after an intentional layout change: refresh the test goldens
 tools/font/mkfont.py                   # regenerate the font from third_party/terminus/
 tools/themes/import_btop.py            # regenerate the themes from third_party/btop/
