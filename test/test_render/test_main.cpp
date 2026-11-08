@@ -197,6 +197,24 @@ static void test_state_colours_in_every_theme() {
   }
 }
 
+// Wi-Fi bars: lit bars green at 3–4, orange at 2, red at 1 (user request,
+// 2026-11-08); unlit bars dim.
+static void test_wifi_bar_colours() {
+  const uint8_t want[5] = {0, theme::STATE_BAD, theme::STATE_WAIT, theme::STATE_OK, theme::STATE_OK};
+  for (int bars = 0; bars <= 4; bars++) {
+    View v = demoView();
+    v.wifi_bars = (int8_t)bars;
+    Grid g;
+    pages::overview(g, v);
+    int first = -1;  // the ⣀ bar
+    for (int c = 0; c < GRID_COLS; c++)
+      if (g.at(c, 0).ch == 0x28C0) first = c;
+    TEST_ASSERT_TRUE(first >= 0);
+    for (int i = 0; i < 4; i++)
+      TEST_ASSERT_EQUAL_UINT8(i < bars ? want[bars] : theme::DIM, g.at(first + i, 0).fg);
+  }
+}
+
 // The Settings preview shows the same fixed state colours as the header
 // (it used the theme's GOOD / WARN / BAD before, user report 2026-11-08).
 static void test_settings_preview_state_colours() {
@@ -273,5 +291,6 @@ int main() {
   RUN_TEST(test_brand_is_red_in_every_theme);
   RUN_TEST(test_state_colours_in_every_theme);
   RUN_TEST(test_settings_preview_state_colours);
+  RUN_TEST(test_wifi_bar_colours);
   return UNITY_END();
 }

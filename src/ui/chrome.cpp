@@ -79,7 +79,10 @@ int chrome(Grid& g, const View& v) {
   }
   edgeEnd(g, 0, col, Edge::TOP, box, bars, theme::DIM);
   const int bars_col = notchCol(bars);
-  for (int i = 0; i < 4; i++) g.put(bars_col + i, 0, BARS[i], i < v.wifi_bars ? theme::GOOD : theme::DIM);
+  // Lit bars take the fixed state colours (user request, 2026-11-08):
+  // 3–4 bars green, 2 orange, 1 red. Unlit bars are dim.
+  const uint8_t lit = v.wifi_bars >= 3 ? theme::STATE_OK : v.wifi_bars == 2 ? theme::STATE_WAIT : theme::STATE_BAD;
+  for (int i = 0; i < 4; i++) g.put(bars_col + i, 0, BARS[i], i < v.wifi_bars ? lit : theme::DIM);
 
   // Server · IP, state right-aligned.
   StateLabel st = stateLabel(v.state);
