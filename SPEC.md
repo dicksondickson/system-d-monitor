@@ -717,8 +717,11 @@ src/ui/       view.h  fmt.cpp  widgets.cpp  chrome.cpp  page_overview.cpp
               page_graphs.cpp  demo_view.cpp
 test/fixtures/tensorfold-1.1.8-idle/  metrics.txt health.json v1_models.json
 test/fixtures/tensorfold-2026-11-03-idle/  (same files, later build, §4.1)
+test/fixtures/tensorfold-2026-11-08-idle/  health.json (2.7 KB /health, §4.1)
 test/test_render/ (golden page dumps)  test/test_fmt/   (PlatformIO native, Unity)
 tools/font/mkfont.py  tools/update_golden.py  tools/display-diag/  tools/capture.sh (M3)
+tools/themes/import_btop.py  (themes + fixed BRAND / STATE_* colours)
+tools/render/screens.py  (README screenshots)  tools/render/social_preview.sh  (social preview, ffmpeg)
 third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
 ```
 

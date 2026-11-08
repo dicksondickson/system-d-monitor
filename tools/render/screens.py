@@ -8,6 +8,9 @@
 Builds tools/render/render_screen.cpp against src/gfx + src/ui with the host
 C++ compiler, renders the demo data, and writes PNGs with only the Python
 standard library. Needs a C++17 compiler (clang or gcc).
+
+Then run tools/render/social_preview.sh to refresh the three screens in
+docs/images/social-preview.png (re-upload it on GitHub afterwards).
 """
 import os, struct, subprocess, sys, tempfile, zlib
 
