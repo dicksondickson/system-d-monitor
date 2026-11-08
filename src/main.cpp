@@ -31,7 +31,7 @@
 
 namespace {
 
-constexpr char FW_VERSION[] = "v0.1.4";  // shown top-right in Settings; keep in step with CHANGELOG.md
+constexpr char FW_VERSION[] = "v0.1.5";  // shown top-right in Settings; keep in step with CHANGELOG.md
 constexpr uint32_t TOUCH_POLL_MS = 33;  // ~30 Hz
 constexpr uint32_t TAP_MAX_MS = 500;    // SPEC.md §9
 constexpr uint32_t HOLD_MS = 700;

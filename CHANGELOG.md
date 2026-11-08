@@ -1,5 +1,13 @@
 # Changelog
 
+**v0.1.5 - 2026-11-08**
+
+- Serial `mem` line shows totals as well as free memory (internal RAM and PSRAM)
+- Memory reference for this firmware in the bring-up notes
+- How the two cores are used, documented in SPEC
+- Updated screenshots and social preview
+- SKILL.md: troubleshooting for DOWN, STALE and a stuck shifted image; optional hostname check
+
 **v0.1.4 - 2026-11-08**
 
 - Start Wi-Fi before the display, so boot-time flash access can't leave the image shifted
