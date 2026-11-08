@@ -630,7 +630,13 @@ the new baseline (so it can trigger restart detection).
 A tap is a press and release within 500 ms, with movement < 24 px.
 GT911 is polled at ~30 Hz. Touch coordinates match the display at rotation
 0 with no transform (verified in M1). Theme (by name), refresh rate,
-brightness, page and the current server are saved in NVS; screen sleep is not. The footer's right label shows `‹ 1/2 ›` (current/total)
+brightness, page and the current server are saved in NVS; screen sleep is not.
+Theme, refresh rate and brightness are saved at once. **Page and server are
+saved only once they've stayed put for 9 s, and only if they changed**
+(`SAVE_DELAY_MS`, `main.cpp`; user request, 2026-11-08): a flash write holds
+off the LCD interrupts (bring-up §2.10), so this keeps it away from the
+redraw and poll a switch causes, and rapid switching writes nothing. A
+power cut within 9 s of a switch boots on the previous server or page. The footer's right label shows `‹ 1/2 ›` (current/total)
 (`┘1/2└`) instead of `tap: graphs` when more than one server is configured. It
 has no `‹ ›`: it isn't a button, and a `‹` drawn in the right third would point
 the wrong way. Every tap is logged on serial (`tap x=… y=… (col, row)` plus the
@@ -683,7 +689,7 @@ compiler prints a `#warning`.
 
 | Task | Core | Job |
 |---|---|---|
-| `poller` (one per server) | 0 (with Wi-Fi) | **Only the server on screen is polled** (user, 2026-11-08): the other tasks sleep. Every `POLL_MS`: GET `/metrics` (stream-parse), plus `/health` / `/v1/models` when due. Build a `Sample`, run `derive`, push rings, publish a `View` snapshot under a mutex. Switching servers (`poller::setActive()`) calls `Deriver::onResume()` on the new one, which keeps its graphs, TG max and avg (so those cover the time it was on screen), leaves a one-poll gap in the graphs, clears the 30 s window so no rate spans the pause, and keeps the last sample to catch a restart meanwhile; then wakes its task to poll at once. A server that went down while off screen shows DOWN only once you switch to it. |
+| `poller` (one per server) | 0 (with Wi-Fi) | **Only the server on screen is polled** (user, 2026-11-08): the other tasks sleep. Every `POLL_MS`: GET `/metrics` (stream-parse), plus `/health` / `/v1/models` when due. Build a `Sample`, run `derive`, push rings, publish a `View` snapshot under a mutex. Switching servers (`poller::setActive()`) calls `Deriver::onResume()` on the new one, which keeps its graphs, TG max and avg (so those cover the time it was on screen), leaves a one-poll gap in the graphs, clears the 30 s window so no rate spans the pause, and keeps the last sample to catch a restart meanwhile; then wakes its task, whose first poll waits `SWITCH_POLL_DELAY_MS` (150 ms) so it doesn't overlap the full-screen redraw the switch causes (both burst into PSRAM; user request, 2026-11-08). A server that went down while off screen shows DOWN only once you switch to it. |
 | `ui` (Arduino `loop`) | 1 | Poll touch, copy the `View` under the mutex, render the page into the back grid, diff-blit, drive the backlight. |
 
 The UI only reads published snapshots. The poller never draws.

@@ -34,7 +34,7 @@ are btop's. See [Credits](#credits).
 
 ## Changelog
 
-v0.1.4 - 2026-11-08 - Start Wi-Fi before the display, so boot-time flash access can't leave the image shifted; poll only the server on screen; down servers retry every 9 s at most; server state and Wi-Fi bars in fixed colours (green OK, orange in progress / fair signal, red down / weak signal)
+v0.1.4 - 2026-11-08 - Start Wi-Fi before the display, so boot-time flash access can't leave the image shifted; poll only the server on screen; down servers retry every 9 s at most; server state and Wi-Fi bars in fixed colours (green OK, orange in progress / fair signal, red down / weak signal); no glitch on server switches (page and server saved after 9 s, first poll 150 ms after the redraw)
 
 All releases: [`CHANGELOG.md`](CHANGELOG.md)
 
@@ -147,7 +147,8 @@ with Wi-Fi off) and shows `NO WIFI` with `no include/config.h`.
 | **hold 3 s** anywhere | screen off (the board keeps polling in the background) |
 | tap while off | screen back on |
 
-Theme, refresh rate, brightness, page and server survive a reboot. `ROTATE_S` in
+Theme, refresh rate, brightness, page and server survive a reboot (page and
+server are saved 9 s after you stop switching). `ROTATE_S` in
 `config.h` auto-advances between servers.
 
 Only the server on screen is polled; the others wait, so more servers don't

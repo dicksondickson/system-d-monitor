@@ -51,6 +51,35 @@ int theme_index = 0;
 int list_page = 0;  // settings: page of the theme list
 uint8_t brightness_pct = BRIGHTNESS_PCT;
 int server = 0;  // index into kServers
+
+// Server and page are saved to NVS only once they've stayed put for
+// SAVE_DELAY_MS, and only if they changed. A flash write holds off the LCD
+// interrupts and can glitch the image (bring-up §2.10); this keeps it away
+// from the redraw and poll a switch causes, and rapid switching writes
+// nothing (user request, 2026-11-08: 9 s).
+constexpr uint32_t SAVE_DELAY_MS = 9000;
+uint8_t saved_server = 0, saved_page = 0;  // what NVS holds (no read-back)
+bool save_pending = false;
+uint32_t changed_ms = 0;
+void markChanged() {
+  save_pending = true;
+  changed_ms = millis();
+}
+void saveIfSettled(uint32_t now) {
+  if (!save_pending || now - changed_ms < SAVE_DELAY_MS) return;
+  save_pending = false;
+  const uint8_t p = page == pages::Page::GRAPHS ? 1 : 0;
+  if (server != saved_server) {
+    prefs.putUChar("server", (uint8_t)server);
+    saved_server = (uint8_t)server;
+    Serial.printf("saved server %d\n", server);
+  }
+  if (p != saved_page) {
+    prefs.putUChar("page", p);
+    saved_page = p;
+    Serial.printf("saved page %u\n", p);
+  }
+}
 uint32_t last_rotate = 0, last_touch_ms = 0;
 bool touch_ok = false;
 // Screen sleep: only the backlight goes off. The poller tasks keep running so
@@ -161,7 +190,7 @@ void onSettingsTap(int x, int y) {
 void showServer(int index) {
   server = (index + kServerCount) % kServerCount;
   poller::setActive(server);
-  prefs.putUChar("server", (uint8_t)server);
+  markChanged();
   Serial.printf("server -> %d (%s)\n", server, kServers[server].host);
   redraw();
 }
@@ -174,7 +203,7 @@ void onTap(int x, int y) {
   if (kServerCount > 1 && x < SCREEN_W / 3) return showServer(server - 1);
   if (kServerCount > 1 && x >= SCREEN_W * 2 / 3) return showServer(server + 1);
   page = page == pages::Page::OVERVIEW ? pages::Page::GRAPHS : pages::Page::OVERVIEW;
-  prefs.putUChar("page", (uint8_t)page);
+  markChanged();
   redraw();
 }
 
@@ -251,8 +280,10 @@ void setup() {
   theme_index = theme::find(prefs.getString("theme", theme::DEFAULT_NAME).c_str());
   const uint32_t poll_ms = prefs.getUInt("poll_ms", POLL_MS);
   brightness_pct = prefs.getUChar("bright_pct", BRIGHTNESS_PCT);
-  page = prefs.getUChar("page", 0) ? pages::Page::GRAPHS : pages::Page::OVERVIEW;
-  server = prefs.getUChar("server", 0) % kServerCount;
+  saved_page = prefs.getUChar("page", 0) ? 1 : 0;
+  page = saved_page ? pages::Page::GRAPHS : pages::Page::OVERVIEW;
+  saved_server = prefs.getUChar("server", 0);
+  server = saved_server % kServerCount;
 
   touch::Info tinfo;
   touch_ok = touch::begin(&tinfo);
@@ -291,6 +322,7 @@ void loop() {
     last_mem = now;
     logMemory("now");
   }
+  saveIfSettled(now);
 
   if (touch_ok && now - last_touch >= TOUCH_POLL_MS) {
     last_touch = now;

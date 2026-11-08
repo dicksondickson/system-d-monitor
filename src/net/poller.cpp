@@ -61,12 +61,17 @@ struct Slot {
   Buffer json;             // task only
   View log_view;           // task only (serial value line)
   TaskHandle_t handle = nullptr;
+  std::atomic<uint32_t> poll_after{0};  // millis(): first poll after a switch waits for this
 };
 
 Slot* g_slots[4];
 int g_count = 0;
 std::atomic<uint32_t> g_generation[4];
 std::atomic<int> g_active{0};  // only this server is polled (the one on screen)
+// On a switch the UI redraws the whole screen at once; the new server's
+// first poll waits this long so the two PSRAM bursts don't overlap
+// (bring-up §2.9; user request, 2026-11-08).
+constexpr uint32_t SWITCH_POLL_DELAY_MS = 150;
 
 // Sleeps up to ms; setActive() wakes it early.
 void nap(uint32_t ms) { ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ms)); }
@@ -106,6 +111,11 @@ void task(void* arg) {
   for (;;) {
     if (g_active.load() != s.index) {  // off screen: don't poll (setActive() wakes us)
       nap(1000);
+      continue;
+    }
+    const int32_t hold = (int32_t)(s.poll_after.load() - millis());
+    if (hold > 0) {  // just switched to: let the redraw finish first
+      nap(hold);
       continue;
     }
     const uint32_t start = millis();
@@ -216,8 +226,9 @@ void setActive(int index) {
   xSemaphoreTake(s.lock, portMAX_DELAY);
   s.deriver.onResume();
   xSemaphoreGive(s.lock);
+  s.poll_after = millis() + SWITCH_POLL_DELAY_MS;
   g_active = index;
-  if (s.handle) xTaskNotifyGive(s.handle);  // poll now
+  if (s.handle) xTaskNotifyGive(s.handle);  // polls after SWITCH_POLL_DELAY_MS
   Serial.printf("[%s] polling (others paused)\n", s.label);
 }
 

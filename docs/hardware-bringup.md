@@ -267,6 +267,24 @@ ready — touch the screen
     unlikely now.
   - Still possible in principle: a long flash write while the stream runs
     (a tap that saves a setting). Those are short.
+- **Glitch on server switches (2026-11-08, fixed):** after only the
+  on-screen server was polled, switching servers sometimes glitched the
+  image. A switch did three things at once: saved the server to NVS (a
+  flash write, with the non-IRAM-safe LCD ISR held off: the §2.10
+  mechanism), a full-screen redraw (~28 ms of PSRAM writes), and, new
+  then, an immediate poll of the new server (lwIP buffers are in PSRAM,
+  `SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y`: the §2.9 contention). Fixes (user
+  chose both):
+  1. Page and server are saved to NVS only after 9 s without a change,
+     and only if they changed (`SAVE_DELAY_MS`, `main.cpp`). Three quick
+     switches gave one write, 9 s after the last; switching back to the
+     saved value gave none.
+  2. The new server's first poll waits 150 ms (`SWITCH_POLL_DELAY_MS`,
+     `poller.cpp`), so it lands after the redraw (seen: 150 ms + the
+     request, e.g. switch at 16.13 s, poll done at 16.35 s).
+  A 60 s test with quick and slow server switches, page switches and
+  Settings taps had no glitches (user). Settings changes (theme,
+  refresh, brightness) still save at once; they don't start a poll.
 - **Recovery meanwhile:** a reset clears it (unplug, or a serial reset).
 
 ---

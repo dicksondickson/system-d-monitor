@@ -18,7 +18,8 @@ void begin(const ServerCfg* servers, int count, int active, uint32_t poll_ms, ui
 
 int count();
 
-// Poll only server `index` from now on (the one on screen); it polls at once.
+// Poll only server `index` from now on (the one on screen); its first poll
+// comes 150 ms later, after the redraw.
 void setActive(int index);
 
 // Change the poll interval at runtime (Settings); takes effect on each
