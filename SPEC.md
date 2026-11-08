@@ -76,10 +76,13 @@ Never: auth/HTTPS (the server is plain HTTP on the LAN), battery operation.
 | Backlight PWM (LEDC) | 38 |
 | GT911 SDA / SCL (I²C @ 0x5D) | 19 / 45 |
 
-**Bounce buffers** (2 × 20 lines, 38 KB of internal SRAM, `BOUNCE_PX` in
+**Bounce buffers** (2 × 40 lines, 77 KB of internal SRAM, `BOUNCE_PX` in
 `src/hw/panel.cpp`): without them the LCD DMA reads PSRAM directly and the
 screen flickers every poll once Wi-Fi is active (bring-up log §2.7). With
-two servers, 10-line buffers weren't enough (§2.9).
+two servers, 10-line buffers weren't enough (§2.9). With 20, the image now
+and then stayed shifted after boot until a reset (§2.10); 40 is on trial
+(2026-11-08). The serial log prints free memory every 10 s (`mem …`):
+101 KB internal free with 40-line buffers.
 With bounce buffers the framebuffer is read through the CPU cache, so
 `screen::present()` does **no** cache writeback.
 

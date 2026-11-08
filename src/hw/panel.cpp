@@ -14,11 +14,13 @@ namespace {
 constexpr uint16_t HSYNC_POL = 1, HSYNC_FP = 10, HSYNC_PW = 8, HSYNC_BP = 50;
 constexpr uint16_t VSYNC_POL = 1, VSYNC_FP = 10, VSYNC_PW = 8, VSYNC_BP = 20;
 constexpr int32_t PCLK_HZ = 12000000;
-// Bounce buffers: the LCD DMA streams from two 10-line buffers in internal
+// Bounce buffers: the LCD DMA streams from two small buffers in internal
 // SRAM, refilled by the CPU from the PSRAM framebuffer. Without them the DMA
 // reads PSRAM directly and underruns when Wi-Fi traffic and framebuffer
 // writes compete for PSRAM bandwidth, which shows as flicker every poll.
-constexpr size_t BOUNCE_PX = SCREEN_W * 20;  // 20 lines (×2 buffers, 38 KB SRAM); 10 glitched with two servers
+// 40 lines (×2 buffers, 77 KB SRAM). 10 glitched with two servers; 20 still
+// shifted the image now and then at boot (bring-up §2.10). Must divide 480.
+constexpr size_t BOUNCE_PX = SCREEN_W * 40;
 
 // This board's glass shows inverted colours unless it gets an explicit
 // INVOFF (0x20), which Arduino_GFX's type9 sequence doesn't send (display

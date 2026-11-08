@@ -24,7 +24,7 @@ dot lands under the finger.
 | RGB pins | R0–R4 = 11,12,13,14,0 · G0–G5 = 8,20,3,46,9,10 · B0–B4 = 4,5,6,7,15 | `include/board_pins.h` |
 | Control pins | DE 18, VSYNC 17, HSYNC 16, PCLK 21; init SPI CS 39 / SCK 48 / MOSI 47 (`Arduino_SWSPI`) | `include/board_pins.h` |
 | Timing | PCLK 12 MHz; HSYNC pol 1 / fp 10 / pw 8 / bp 50; VSYNC pol 1 / fp 10 / pw 8 / bp 20 | `src/hw/panel.cpp` |
-| **Bounce buffers** | 2 × 20 lines (`BOUNCE_PX = 480 × 20`, 38 KB internal SRAM); needed once Wi-Fi is on (§2.7), 20 lines with two servers (§2.9). **No cache writeback** after blits | `src/hw/panel.cpp`, `src/hw/screen.cpp` |
+| **Bounce buffers** | 2 × 40 lines (`BOUNCE_PX = 480 × 40`, 77 KB internal SRAM); needed once Wi-Fi is on (§2.7), 20 lines with two servers (§2.9), 40 for the stuck shift at boot (§2.10, on trial). **No cache writeback** after blits | `src/hw/panel.cpp`, `src/hw/screen.cpp` |
 | **Init sequence** | Arduino_GFX `st7701_type9_init_operations` **+ `0x20` INVOFF**, spliced in before the colour-mode command and re-sent 50 ms after `begin()` | `src/hw/panel.cpp` |
 | Rotation | 0 (native) | `src/hw/panel.cpp` |
 | **Backlight** | GPIO38, LEDC **1 kHz**, 8-bit, attached after `panel::begin()` | `src/hw/backlight.cpp` |
@@ -186,6 +186,58 @@ ready — touch the screen
   build (`CONFIG_LCD_RGB_ISR_IRAM_SAFE` off), so a glitch exactly on a tap
   would point there.
 
+### 2.10 Image shifted until reset, now and then at boot (on trial)
+
+- **Symptom (2026-11-08):** now and then, right after boot, the image is
+  shifted and wrapped vertically, with stray pixels. Unlike §2.9 it never
+  clears: not on a redraw, a page change or a theme change. Seen when
+  plugging in (Mac or USB charger) and once after a serial reset (EN, no
+  power cut). **A serial reset alone cleared it** (power stayed on), so
+  the stuck state is in the ESP32, not the panel.
+- **Likely cause** (from the ESP-IDF v5.5.5 source,
+  `components/esp_lcd/rgb/esp_lcd_panel_rgb.c`; not proven on the board):
+  1. With bounce buffers the DMA EOF handler picks the buffer to refill
+     from `bb_eof_count % 2`.
+  2. Flash operations disable the cache, and neither the LCD nor the GDMA
+     interrupt is IRAM-safe in this core (`CONFIG_LCD_RGB_ISR_IRAM_SAFE`
+     and `CONFIG_GDMA_ISR_IRAM_SAFE` off). If one lasts longer than a
+     bounce buffer takes to send (20 lines: 20 × 548 clocks at 12 MHz ≈
+     0.9 ms), EOF events merge into one interrupt and the count skips. If
+     it skips by an odd number, every refill from then on goes into the
+     buffer being sent: the image shifts by one buffer and tears.
+  3. `CONFIG_LCD_RGB_RESTART_IN_VSYNC=y` restarts the DMA every frame and
+     resets `bounce_pos_px`, but never `bb_eof_count`; only the
+     non-`RESTART_IN_VSYNC` branch zeroes it. So nothing resyncs it until
+     a reboot.
+  4. Boot has the most flash activity (Wi-Fi reads and sometimes writes
+     its PHY calibration data in NVS, Preferences reads) right after the
+     RGB stream starts.
+- **Change (on trial):** bounce buffers 20 → 40 lines. A flash operation
+  now has to outlast ~1.8 ms before a refill can be skipped. That makes the
+  glitch rarer; it doesn't make it impossible. The user is running it for
+  a longer period to confirm.
+- **Memory** (serial `mem` line, every 10 s; dgx042 idle, then serving two
+  requests at ~67–76 tok/s for ~70 s; dick6000 was down):
+
+  | Bounce buffers | Internal free after setup | Lowest since boot | Largest free block | DMA-capable free | PSRAM free |
+  |---|---|---|---|---|---|
+  | 2 × 20 lines | 139 KB | 133 KB | 99 KB | 131 KB | 7693 KB |
+  | 2 × 40 lines | 101 KB | 95 KB | 59 KB | 93 KB | 7693 KB |
+
+  Idle and busy read the same: everything is allocated at start-up and
+  `/metrics` is parsed as it streams in, so load doesn't change memory.
+  The 6 KB dip to the lowest value happens during the first polls. Not
+  measured yet: dick6000's 67 KB `/metrics` with both servers up.
+- **If it comes back with 40 lines:** lower PCLK (12 → 10 MHz, ~35 Hz),
+  start the RGB stream after Wi-Fi has initialised (keeping the
+  allocation order of §2.8), or rebuild the core with
+  `RESTART_IN_VSYNC` off (the driver then zeroes the count and restarts
+  each frame) or with IRAM-safe ISRs and `CONFIG_SPIRAM_XIP_FROM_PSRAM`.
+  The last two need Arduino as an ESP-IDF component
+  (`framework = arduino, espidf`), since this platform can't override the
+  prebuilt sdkconfig.
+- **Recovery meanwhile:** a reset clears it (unplug, or a serial reset).
+
 ---
 
 ## 3. How it was found (diagnostic rounds)
@@ -233,7 +285,7 @@ alternative to type9 if ever needed.
 4. **Flicker that comes and goes with network activity:** check that
    bounce buffers are still enabled (§2.7).
    **Random wrap-around / stray pixels:** see §2.9 (bounce-buffer size, no
-   writeback).
+   writeback). **If it stays until a reset:** §2.10.
    **Black only once Wi-Fi is on:** go through §2.8.
 5. **Shifted or cropped image / missing edge of the border:** tune the
    porch values in `src/hw/panel.cpp` (guide §3).

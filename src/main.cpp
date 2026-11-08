@@ -15,6 +15,7 @@
 
 #include <Arduino.h>
 #include <Preferences.h>
+#include <esp_heap_caps.h>
 
 #include "app_config.h"
 #include "board_pins.h"
@@ -189,6 +190,19 @@ void wakeScreen() {
   Serial.println("screen -> on");
 }
 
+// Free memory on the serial log. Internal RAM is shared by Wi-Fi, the LCD
+// bounce buffers and the task stacks; "min" is the lowest it has been since
+// boot (bring-up §2.10).
+constexpr uint32_t MEM_LOG_MS = 10000;
+void logMemory(const char* when) {
+  const auto kb = [](size_t b) { return (unsigned)(b / 1024); };
+  Serial.printf("mem %s: internal %u KB free (min %u, largest block %u), dma %u KB, psram %u KB free\n",
+                when, kb(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),
+                kb(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL)),
+                kb(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)),
+                kb(heap_caps_get_free_size(MALLOC_CAP_DMA)), kb(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)));
+}
+
 void pollTouch(uint32_t now) {
   touch::Point p = touch::read();
   if (p.fresh && p.down) {
@@ -236,6 +250,7 @@ void setup() {
     return;
   }
   screen::begin(gfx);
+  logMemory("after panel");
 
   prefs.begin("sysd", false);
   theme_index = theme::find(prefs.getString("theme", theme::DEFAULT_NAME).c_str());
@@ -254,12 +269,17 @@ void setup() {
   redraw();
   backlight::begin();  // after panel::begin(), see backlight.h
   backlight::set(pages::brightnessDuty(brightness_pct));
+  logMemory("after setup");
 }
 
 void loop() {
   if (!gfx) return;
-  static uint32_t last_touch = 0, last_tick = 0, seen_gen = 0;
+  static uint32_t last_touch = 0, last_tick = 0, seen_gen = 0, last_mem = 0;
   const uint32_t now = millis();
+  if (now - last_mem >= MEM_LOG_MS) {
+    last_mem = now;
+    logMemory("now");
+  }
 
   if (touch_ok && now - last_touch >= TOUCH_POLL_MS) {
     last_touch = now;
