@@ -27,6 +27,10 @@ enum Role : uint8_t {
   BOX3,     // btop net_box
   BOX4,     // btop proc_box
   BRAND,    // "SYSTEM-D": the same red in every theme (user request)
+  // Server state, the same in every theme (user request, 2026-11-08):
+  STATE_OK,    // OK IDLE / BUSY / WARM: green
+  STATE_WAIT,  // OK RESTART, CONNECTING, STALE: orange
+  STATE_BAD,   // DOWN, NO WIFI, UNKNOWN: red
   ROLE_COUNT
 };
 
@@ -49,5 +53,8 @@ constexpr uint16_t rgb565(uint32_t rgb) {
 }
 
 constexpr uint16_t BRAND_RED = rgb565(0xFF3B30);  // fixed, not themed
+constexpr uint16_t STATE_GREEN = rgb565(0x34C759);
+constexpr uint16_t STATE_ORANGE = rgb565(0xFF9500);
+constexpr uint16_t STATE_RED = BRAND_RED;
 
 }  // namespace theme

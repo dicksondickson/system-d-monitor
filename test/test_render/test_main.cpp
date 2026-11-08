@@ -171,6 +171,32 @@ static void test_brand_is_red_in_every_theme() {
     TEST_ASSERT_EQUAL_HEX16_MESSAGE(theme::BRAND_RED, theme::get(i).rgb565[theme::BRAND], theme::get(i).name);
 }
 
+// Server state colours are fixed across themes (user request, 2026-11-08):
+// OK IDLE / BUSY / WARM green, OK RESTART / CONNECTING / STALE orange,
+// DOWN / NO WIFI / UNKNOWN red.
+static void test_state_colours_in_every_theme() {
+  const struct { ServerState state; uint8_t role; uint16_t rgb; } want[] = {
+      {ServerState::IDLE, theme::STATE_OK, theme::STATE_GREEN},
+      {ServerState::BUSY, theme::STATE_OK, theme::STATE_GREEN},
+      {ServerState::WARMING, theme::STATE_OK, theme::STATE_GREEN},
+      {ServerState::RESTART, theme::STATE_WAIT, theme::STATE_ORANGE},
+      {ServerState::CONNECTING, theme::STATE_WAIT, theme::STATE_ORANGE},
+      {ServerState::STALE, theme::STATE_WAIT, theme::STATE_ORANGE},
+      {ServerState::DOWN, theme::STATE_BAD, theme::STATE_RED},
+      {ServerState::NO_WIFI, theme::STATE_BAD, theme::STATE_RED},
+      {ServerState::UNKNOWN, theme::STATE_BAD, theme::STATE_RED},
+  };
+  for (const auto& w : want) {
+    View v = demoView();
+    v.state = w.state;
+    Grid g;
+    pages::overview(g, v);
+    TEST_ASSERT_EQUAL_UINT8(w.role, g.at(GRID_COLS - 3, 1).fg);  // last letter of the state, row 2
+    for (int i = 0; i < theme::count(); i++)
+      TEST_ASSERT_EQUAL_HEX16_MESSAGE(w.rgb, theme::get(i).rgb565[w.role], theme::get(i).name);
+  }
+}
+
 static void test_themes_and_hits() {
   TEST_ASSERT_EQUAL_INT(42, theme::count());  // btop Default + 41 bundled
   TEST_ASSERT_EQUAL_STRING("SYSTEM-D", theme::get(0).name);  // btop's Default, renamed
@@ -226,5 +252,6 @@ int main() {
   RUN_TEST(test_pixel_sparkline);
   RUN_TEST(test_themes_and_hits);
   RUN_TEST(test_brand_is_red_in_every_theme);
+  RUN_TEST(test_state_colours_in_every_theme);
   return UNITY_END();
 }

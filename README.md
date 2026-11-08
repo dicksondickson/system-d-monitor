@@ -34,7 +34,7 @@ are btop's. See [Credits](#credits).
 
 ## Changelog
 
-v0.1.4 - 2026-11-08 - Start Wi-Fi before the display, so boot-time flash access can't leave the image shifted; poll only the server on screen; down servers retry every 9 s at most
+v0.1.4 - 2026-11-08 - Start Wi-Fi before the display, so boot-time flash access can't leave the image shifted; poll only the server on screen; down servers retry every 9 s at most; server state in fixed colours (green OK, orange in progress, red down)
 
 All releases: [`CHANGELOG.md`](CHANGELOG.md)
 
@@ -172,7 +172,7 @@ the time it was on screen. A server that's down is retried every 9 s at most.
 | **KV peak** | the highest KV reading in the recent history (the last 60 polls: 60 s at a 1 s refresh, 2 min at 2 s), so you can still see how full the cache got after a request finishes |
 | **Streams** | per-request slots (TensorFold). Columns read `no data` unless the server exports per-stream metrics (`SPEC.md`, Appendix A). When a request finishes, its row stays for **10 s** marked `done`, showing its final values, so you can still read it |
 | **TTFT · MTP · cache-hit** | mean time to first token · speculative-decoding acceptance (accepted ÷ drafted tokens) · prompt tokens served from the prefix cache |
-| **header** | `SYSTEM-D`, the date (MM-DD-YY) and time, and the board's Wi-Fi signal as braille bars `⣀⣤⣶⣿` (top right); then server name · IP with its state (`CONNECTING` just after boot or a server switch, `OK IDLE`, `OK BUSY`, `STALE`, `DOWN`, `NO WIFI`, `UNKNOWN`); then engine · model |
+| **header** | `SYSTEM-D`, the date (MM-DD-YY) and time, and the board's Wi-Fi signal as braille bars `⣀⣤⣶⣿` (top right); then server name · IP with its state, in the same colours in every theme: green `OK IDLE` / `OK BUSY` / `OK WARM`; orange `CONNECTING` (just after boot or a server switch), `OK RESTART`, `STALE`; red `DOWN`, `NO WIFI`, `UNKNOWN`; then engine · model |
 | **footer** | `≡` (settings), then `poll 2s · ok 0.4s ago`, or the problem (`timeout · retry 8s`, `dns gpu-box.lan`, `not TensorFold or vLLM`, …) |
 | **no data** | not exported, not received yet, or nothing happened in the window |
 

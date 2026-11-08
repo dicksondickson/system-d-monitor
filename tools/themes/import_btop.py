@@ -17,6 +17,10 @@ Role mapping (SPEC.md §6):
   GOOD/WARN/BAD cpu_start/cpu_mid/cpu_end (btop's low → high gradient)
   DECODE proc_misc · PREFILL temp_mid (falls back when too close to DECODE)
   BRAND fixed red #ff3b30 (not from btop)
+  STATE_OK / STATE_WAIT / STATE_BAD fixed green #34c759, orange #ff9500,
+  red #ff3b30 for the server state (OK IDLE / BUSY / WARM; OK RESTART,
+  CONNECTING, STALE;
+  DOWN, NO WIFI, UNKNOWN), the same in every theme (user request, 2026-11-08)
 
 btop's built-in Default palette is listed first and named "SYSTEM-D"; it is
 the firmware's default theme.
@@ -28,8 +32,12 @@ SRC = os.path.join(ROOT, "third_party", "btop")
 OUT = os.path.join(ROOT, "src", "gfx", "themes_btop.h")
 
 ROLES = ["BG", "BORDER", "TITLE", "LABEL", "VALUE", "DIM", "GOOD", "WARN", "BAD",
-         "DECODE", "PREFILL", "BOX2", "BOX3", "BOX4", "BRAND"]  # order = enum theme::Role
+         "DECODE", "PREFILL", "BOX2", "BOX3", "BOX4", "BRAND",
+         "STATE_OK", "STATE_WAIT", "STATE_BAD"]  # order = enum theme::Role
 BRAND_RED = (0xFF, 0x3B, 0x30)
+FIXED = {"BRAND": BRAND_RED,  # not themed: the same in every theme
+         "STATE_OK": (0x34, 0xC7, 0x59), "STATE_WAIT": (0xFF, 0x95, 0x00),
+         "STATE_BAD": BRAND_RED}
 DEFAULT_THEME_NAME = "SYSTEM-D"  # btop's built-in Default palette, renamed
 # btop's inactive_fg is for disabled items and is often barely visible, and
 # many themes' graph_text is nearly as faint; here they are secondary text
@@ -93,7 +101,7 @@ def resolve(theme, default):
         c = rgb(theme.get(key, "")) or rgb(default[key])
         return c
     out = {r: get(KEYS[r]) for r in ROLES if r in KEYS}
-    out["BRAND"] = BRAND_RED
+    out.update(FIXED)
     if rgb(theme.get("main_bg", "")) is None:
         out["BG"] = (0, 0, 0)  # btop: empty main_bg = terminal background
     for role, target in MIN_CONTRAST.items():

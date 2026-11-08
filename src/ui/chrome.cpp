@@ -23,15 +23,17 @@ struct StateLabel {
 
 StateLabel stateLabel(ServerState s) {
   switch (s) {
-    case ServerState::IDLE: return {"OK IDLE", theme::GOOD};
-    case ServerState::BUSY: return {"OK BUSY", theme::WARN};
-    case ServerState::WARMING: return {"OK WARM", theme::WARN};
-    case ServerState::RESTART: return {"OK RESTART", theme::WARN};
-    case ServerState::STALE: return {"STALE", theme::WARN};
-    case ServerState::DOWN: return {"DOWN", theme::BAD};
-    case ServerState::NO_WIFI: return {"NO WIFI", theme::BAD};
-    case ServerState::CONNECTING: return {"CONNECTING", theme::WARN};
-    default: return {"UNKNOWN", theme::BAD};
+    // Fixed colours in every theme (user request, 2026-11-08): OK green,
+    // in progress / waiting orange, no data getting through red.
+    case ServerState::IDLE: return {"OK IDLE", theme::STATE_OK};
+    case ServerState::BUSY: return {"OK BUSY", theme::STATE_OK};
+    case ServerState::WARMING: return {"OK WARM", theme::STATE_OK};
+    case ServerState::RESTART: return {"OK RESTART", theme::STATE_WAIT};  // in progress
+    case ServerState::STALE: return {"STALE", theme::STATE_WAIT};
+    case ServerState::DOWN: return {"DOWN", theme::STATE_BAD};
+    case ServerState::NO_WIFI: return {"NO WIFI", theme::STATE_BAD};
+    case ServerState::CONNECTING: return {"CONNECTING", theme::STATE_WAIT};
+    default: return {"UNKNOWN", theme::STATE_BAD};
   }
 }
 

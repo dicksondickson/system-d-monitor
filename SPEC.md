@@ -413,6 +413,9 @@ empty `main_bg` means black.
 | GOOD / WARN / BAD | `cpu_start` / `cpu_mid` / `cpu_end` | thresholds and states (btop's low → high gradient) |
 | DECODE | `proc_misc` | TG numbers and graphs |
 | BRAND | — (fixed `#ff3b30`) | `SYSTEM-D` in the header: the same red in every theme (user request) |
+| STATE_OK | — (fixed `#34c759` green) | server state `OK IDLE`, `OK BUSY`, `OK WARM`: the same in every theme (user request, 2026-11-08) |
+| STATE_WAIT | — (fixed `#ff9500` orange) | `OK RESTART`, `CONNECTING`, `STALE`: in progress / waiting |
+| STATE_BAD | — (fixed `#ff3b30` red) | `DOWN`, `NO WIFI`, `UNKNOWN`: no data getting through |
 | PREFILL | `temp_mid`, or the fallback (`temp_end`, `upload_end`, `hi_fg`, …) most distinct from DECODE and the background | PP numbers and graphs |
 
 Tune the colours on the real panel, because RGB565 shifts them.
@@ -583,22 +586,25 @@ opens anyway after 10 s, in the matching state (§8).
 
 ## 8. States and errors
 
-The state sits on the right of the server rule (row 2). The detail goes on
+The state sits on the right of the server rule (row 2). Its colour is fixed
+in every theme (user request, 2026-11-08; roles `STATE_OK` / `STATE_WAIT` /
+`STATE_BAD`, §6): green for OK, orange for in progress or waiting, red when
+no data is getting through. The detail goes on
 the footer rule (row 24).
 
 | State | Condition | Row 2 | Row 24 | Body |
 |---|---|---|---|---|
-| IDLE | ok, running = waiting = 0 | `OK IDLE` good | `poll 2s · ok 0.4s ago` | normal |
-| BUSY | ok, running or waiting > 0 | `OK BUSY` warn | same | normal |
-| WARMING | `/health.warming == true` | `OK WARM` warn | same | normal |
-| RESTART | counter went down (§5), for 30 s | `OK RESTART` warn | `restarted 12s ago` | windows reset |
-| STALE | last good sample > 3 × poll ago | `STALE` warn | `stale 9s · <reason>` | values dim |
-| DOWN | 3 consecutive failures | `DOWN` bad | `<reason> · retry 8s` | last values dim. Retries back off 2, 4, then every **9 s** (capped, user 2026-11-08; was 2, 4, 8, 16, 30 s) |
-| CONNECTING | after boot, Wi-Fi not joined yet, within `net::JOIN_GRACE_MS` (20 s) | `CONNECTING` warn | `wifi connecting…` | `no data`; header shows no bars. Was `NO WIFI`, which read like an error on every boot (user request, 2026-11-02) |
-| CONNECTING | Wi-Fi up, the server's first poll not in yet: after boot, or on switching to it (only the server on screen is polled, §10) | `CONNECTING` warn | `connecting…` | `no data` for rates; graphs keep their history with a gap. Was `UNKNOWN` (user request, 2026-11-08) |
-| NO WIFI | never joined within 20 s, or no SSID configured | `NO WIFI` bad | `check SSID / password` | values dim; header shows no bars |
-| NO WIFI | was connected, then `WiFi.status() != WL_CONNECTED` | `NO WIFI` bad | `wifi lost · retry` | values dim; header shows no bars |
-| UNKNOWN | responds, but isn't TensorFold or vLLM (§4.3) | `??? · host:port` … `UNKNOWN` bad | `not TensorFold or vLLM` | all `no data` |
+| IDLE | ok, running = waiting = 0 | `OK IDLE` **green** | `poll 2s · ok 0.4s ago` | normal |
+| BUSY | ok, running or waiting > 0 | `OK BUSY` **green** | same | normal |
+| WARMING | `/health.warming == true` | `OK WARM` **green** | same | normal |
+| RESTART | counter went down (§5), for 30 s | `OK RESTART` **orange** | `restarted 12s ago` | windows reset |
+| STALE | last good sample > 3 × poll ago | `STALE` **orange** | `stale 9s · <reason>` | values dim |
+| DOWN | 3 consecutive failures | `DOWN` **red** | `<reason> · retry 8s` | last values dim. Retries back off 2, 4, then every **9 s** (capped, user 2026-11-08; was 2, 4, 8, 16, 30 s) |
+| CONNECTING | after boot, Wi-Fi not joined yet, within `net::JOIN_GRACE_MS` (20 s) | `CONNECTING` **orange** | `wifi connecting…` | `no data`; header shows no bars. Was `NO WIFI`, which read like an error on every boot (user request, 2026-11-02) |
+| CONNECTING | Wi-Fi up, the server's first poll not in yet: after boot, or on switching to it (only the server on screen is polled, §10) | `CONNECTING` **orange** | `connecting…` | `no data` for rates; graphs keep their history with a gap. Was `UNKNOWN` (user request, 2026-11-08) |
+| NO WIFI | never joined within 20 s, or no SSID configured | `NO WIFI` **red** | `check SSID / password` | values dim; header shows no bars |
+| NO WIFI | was connected, then `WiFi.status() != WL_CONNECTED` | `NO WIFI` **red** | `wifi lost · retry` | values dim; header shows no bars |
+| UNKNOWN | responds, but isn't TensorFold or vLLM (§4.3) | `??? · host:port` … `UNKNOWN` **red** | `not TensorFold or vLLM` | all `no data` |
 
 Reasons are short: `dns dgx042.lan`, `refused`, `timeout`, `http 503`,
 `no metrics`.
