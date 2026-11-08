@@ -197,6 +197,25 @@ static void test_state_colours_in_every_theme() {
   }
 }
 
+// The Settings preview shows the same fixed state colours as the header
+// (it used the theme's GOOD / WARN / BAD before, user report 2026-11-08).
+static void test_settings_preview_state_colours() {
+  pages::Settings s{2000, 100, 0, 0};
+  Grid g;
+  pages::settings(g, s);
+  const int row = 3;  // the preview row, below Refresh and Brightness
+  int ok = -1, stale = -1, down = -1;
+  for (int c = 0; c + 4 < GRID_COLS; c++) {
+    if (g.at(c, row).ch == 'O' && g.at(c + 1, row).ch == 'K' && ok < 0) ok = c;
+    if (g.at(c, row).ch == 'S' && g.at(c + 1, row).ch == 'T') stale = c;
+    if (g.at(c, row).ch == 'D' && g.at(c + 1, row).ch == 'O') down = c;
+  }
+  TEST_ASSERT_TRUE(ok >= 0 && stale == ok + 3 && down == stale + 6);  // "OK STALE DOWN"
+  TEST_ASSERT_EQUAL_UINT8(theme::STATE_OK, g.at(ok, row).fg);
+  TEST_ASSERT_EQUAL_UINT8(theme::STATE_WAIT, g.at(stale, row).fg);
+  TEST_ASSERT_EQUAL_UINT8(theme::STATE_BAD, g.at(down, row).fg);
+}
+
 static void test_themes_and_hits() {
   TEST_ASSERT_EQUAL_INT(42, theme::count());  // btop Default + 41 bundled
   TEST_ASSERT_EQUAL_STRING("SYSTEM-D", theme::get(0).name);  // btop's Default, renamed
@@ -253,5 +272,6 @@ int main() {
   RUN_TEST(test_themes_and_hits);
   RUN_TEST(test_brand_is_red_in_every_theme);
   RUN_TEST(test_state_colours_in_every_theme);
+  RUN_TEST(test_settings_preview_state_colours);
   return UNITY_END();
 }

@@ -7,7 +7,7 @@
 //   ╭─┐Settings┌────────────────────────┐v0.1┌─╮
 //   │ Refresh     ‹         2 s          ›        │   tap left / right half
 //   │ Brightness  ‹        100%          ›        │   tap left / right half
-//   │ TG 101.3 · PP 3,354/s · KV ████░░ · OK IDLE │   live preview
+//   │ TG 101.3 · PP 3,354 · KV ██░ · OK STALE DOWN │   live preview
 //   ╰─────────────────────────────────────────────╯
 //   ╭─┐Themes┌───────────────────────────┐1/2┌─╮
 //   │ ▶SYSTEM-D             everforest-dark-medium │   12 rows × 2 columns
@@ -85,17 +85,18 @@ void settings(Grid& g, const Settings& s) {
   boxRow(g, BRIGHT_ROW, box);
   snprintf(value, sizeof value, "%u%%", (unsigned)s.brightness_pct);
   stepper(g, BRIGHT_ROW, "Brightness", value);
-  // Live preview of the current theme's roles.
+  // Live preview of the current theme's roles. The three state words use
+  // the fixed state colours (green, orange, red), as in the header.
   boxRow(g, PREVIEW_ROW, box);
   {
-    // "TG 101.3 · PP 3,354 · KV ██░░ · OK BUSY DOWN" (exactly 44 columns)
+    // "TG 101.3 · PP 3,354 · KV ██░ · OK STALE DOWN" (exactly 44 columns)
     Writer w(g, PREVIEW_ROW, CONTENT_COL);
     w.put("TG ", theme::DECODE, ATTR_BOLD).put("101.3", theme::DECODE).put(SEP, theme::DIM);
     w.put("PP ", theme::PREFILL, ATTR_BOLD).put("3,354", theme::PREFILL).put(SEP, theme::DIM);
     w.put("KV ", theme::LABEL);
-    bar(g, w.col(), PREVIEW_ROW, 4, 50, theme::GOOD);
-    w.to(w.col() + 4).put(SEP, theme::DIM).put("OK", theme::GOOD, ATTR_BOLD).put(" ", theme::BG);
-    w.put("BUSY", theme::WARN, ATTR_BOLD).put(" ", theme::BG).put("DOWN", theme::BAD, ATTR_BOLD);
+    bar(g, w.col(), PREVIEW_ROW, 3, 50, theme::GOOD);
+    w.to(w.col() + 3).put(SEP, theme::DIM).put("OK", theme::STATE_OK, ATTR_BOLD).put(" ", theme::BG);
+    w.put("STALE", theme::STATE_WAIT, ATTR_BOLD).put(" ", theme::BG).put("DOWN", theme::STATE_BAD, ATTR_BOLD);
   }
   boxBottom(g, PREVIEW_ROW + 1, box);
 

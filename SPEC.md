@@ -413,7 +413,7 @@ empty `main_bg` means black.
 | GOOD / WARN / BAD | `cpu_start` / `cpu_mid` / `cpu_end` | thresholds and states (btop's low → high gradient) |
 | DECODE | `proc_misc` | TG numbers and graphs |
 | BRAND | — (fixed `#ff3b30`) | `SYSTEM-D` in the header: the same red in every theme (user request) |
-| STATE_OK | — (fixed `#34c759` green) | server state `OK IDLE`, `OK BUSY`, `OK WARM`: the same in every theme (user request, 2026-11-08) |
+| STATE_OK | — (fixed `#34c759` green) | server state `OK IDLE`, `OK BUSY`, `OK WARM`: the same in every theme, light or dark (user request, 2026-11-08) |
 | STATE_WAIT | — (fixed `#ff9500` orange) | `OK RESTART`, `CONNECTING`, `STALE`: in progress / waiting |
 | STATE_BAD | — (fixed `#ff3b30` red) | `DOWN`, `NO WIFI`, `UNKNOWN`: no data getting through |
 | PREFILL | `temp_mid`, or the fallback (`temp_end`, `upload_end`, `hi_fg`, …) most distinct from DECODE and the background | PP numbers and graphs |
@@ -541,7 +541,7 @@ same corner or **done** goes back.
 ╭─┐Settings┌───────────────────────────────────╮
 │ Refresh     ‹        2 s       ›             │
 │ Brightness  ‹        80%       ›             │
-│ TG 101.3 · PP 3,354 · KV ██░░ · OK BUSY DOWN │
+│ TG 101.3 · PP 3,354 · KV ██░ · OK STALE DOWN │
 ╰──────────────────────────────────────────────╯
 ╭─┐Themes┌───────────────────────────────┐2/2┌─╮
 │  kanagawa-lotus        solarized_light       │
@@ -564,7 +564,7 @@ same corner or **done** goes back.
 |---|---|---|
 | 1–2 (top edge + Refresh, 48 px) | left / right half | refresh rate down / up: **1, 2, 3, 5, 10, 30 s** (default `POLL_MS`). `‹` is drawn in the left half (col 15) and `›` in the right half (col 34), matching the zones. Saved in NVS (`poll_ms`); the poller tasks pick it up on their next cycle |
 | 3–5 (Brightness + preview + bottom edge, 72 px) | left / right half | backlight down / up: **60 … 100 % in 5 % steps** (default `BRIGHTNESS_PCT`, 100), applied at once and saved in NVS (`bright_pct`). The percentage is perceived brightness (CIE L\*), so the PWM duty runs 72, 87, 104, 123, 145, 168, 195, 223, 255 of 255. The floor is 60 % because at 50 % (duty 47) the screen was barely visible on the panel (user, 2026-11-01). The 1 kHz PWM is fixed (§2.1 of the bring-up notes) |
-| 4 | — | live preview of the current theme's roles |
+| 4 | — | live preview of the current theme's roles: `TG 101.3 · PP 3,354 · KV ██░ · OK STALE DOWN`. The state words use the fixed state colours (green, orange, red), as in the header; they used the theme's good/warn/bad before (user report, 2026-11-08) |
 | 7–18 | a name | apply that theme immediately (screen repaints in it), saved in NVS by **name** (`theme`) so adding themes never shifts the choice. Two columns × 12 rows = 24 per page; `▶` marks the current one |
 | 19–20 (nav row + bottom edge, 48 px) | left / centre / right third | previous page / done / next page; the `≡` corner (row 20, x < 120) also closes Settings |
 
