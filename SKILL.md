@@ -17,8 +17,11 @@ and check the screen.
   Wi-Fi password and is gitignored. Don't echo the password back to the user.
 - **Don't change the board settings** in `platformio.ini`, `include/board_pins.h`
   or `src/hw/`. Every value there (pins, panel timings, 1 kHz backlight PWM,
-  460800 upload speed, bounce buffers, `-O2`) fixes a real problem on this
-  board; `docs/hardware-bringup.md` explains each one.
+  460800 upload speed, 40-line bounce buffers, `-O2`) fixes a real problem
+  on this board; `docs/hardware-bringup.md` explains each one. The same goes
+  for two things in `src/main.cpp`: Wi-Fi starts **before** the panel in
+  `setup()`, and page/server are saved to flash only 9 s after the last
+  switch. Both keep flash writes away from the display (bring-up §2.10).
 - Ask the user before anything outside this repo beyond installing
   PlatformIO (drivers, group changes, system packages).
 
@@ -139,11 +142,15 @@ Ask the user what the screen shows. A working board:
    the table below. Only the server on screen is polled, so switching
    servers shows `CONNECTING` again for a moment.
 3. The second line shows the engine (`vLLM` or `TensorFold`) and the model.
+4. Optional: the board joins the network as `HOSTNAME` (default
+   `system-d-monitor`). Routers that register DHCP names make it reachable
+   as e.g. `ping system-d-monitor.lan`.
 
 Touch: left / right third = previous / next server, centre = overview ↔
 graphs, bottom-left corner `≡` = Settings, hold about 3 s = screen off.
 
-If you need the serial log (115200 baud): `pio device monitor` only runs in
+If you need the serial log (115200 baud; it shows each poll, taps, and a
+`mem …` free-memory line every 10 s): `pio device monitor` only runs in
 an interactive terminal, so ask the user to run it themselves (in Claude
 Code: `! pio device monitor`), and to quit it (Ctrl-C) before you flash
 again, because it holds the port.
@@ -156,8 +163,11 @@ again, because it holds the port.
 | `NO WIFI` · `wifi lost · retry` | it was connected and dropped: signal or router; it reconnects by itself |
 | `dns …` in the footer | the host name doesn't resolve on the ESP32: use `name.lan` or the IP |
 | `refused` / `timeout` | wrong port, firewall, or the server listens on localhost only |
+| `DOWN` (red) · `<reason> · retry Ns` | 3 polls in a row failed; it retries after 2 s, 4 s, then every 9 s and recovers by itself. Fix the reason shown |
+| `STALE` (orange) · `stale Ns` | polls started failing a moment ago; it turns `DOWN` or recovers. Usually Wi-Fi or a busy server |
 | `UNKNOWN · not TensorFold or vLLM` | that port answers, but not with vLLM or TensorFold metrics |
 | `no include/config.h` | the build didn't find `include/config.h`: check its path and name |
+| image shifted / wrapped with stray pixels, and it **stays** | rare; a reset clears it (unplug, or reset over serial). Ask whether it appeared right at boot or right after a tap, and keep the serial log if possible. Causes and next steps: `docs/hardware-bringup.md` §2.10. Don't change board settings to fix it |
 | black screen, image wrong, flicker | a board difference: read `docs/hardware-bringup.md` before changing anything |
 | `no data` in some fields | normal: that server doesn't export that metric, or nothing has happened yet |
 
