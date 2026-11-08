@@ -145,19 +145,24 @@ ready — touch the screen
 | # | Cause | Serial log shows | How this firmware avoids it |
 |---|---|---|---|
 | 1 | **Blocking wait for the connection**: `WiFi.begin()` then `while (WiFi.status() != WL_CONNECTED) delay(…)` before the first frame or the backlight. If Wi-Fi never connects (wrong password, 5 GHz SSID, typo), the screen stays black forever. | stops after "connecting", no further output | `WiFi.begin()` is non-blocking, and all polling runs in the poller task (`src/net/poller.cpp`). The UI loop never waits on the network, and a missing link shows as `NO WIFI` |
-| 2 | **Internal RAM exhausted.** Wi-Fi takes a large share of internal (DMA-capable) RAM. If it starts first, the display's bounce buffers, DMA descriptors or LVGL draw buffers can fail to allocate, `begin()` returns false, and nothing is drawn | a panel/LCD init failure, or `esp_lcd` allocation errors | `panel::begin()`, which allocates the bounce buffers, runs **before** `net::begin()` in `setup()`; failure prints `FATAL panel begin failed` |
+| 2 | **Internal RAM exhausted.** Wi-Fi takes a large share of internal (DMA-capable) RAM. If it starts first, the display's bounce buffers, DMA descriptors or LVGL draw buffers can fail to allocate, `begin()` returns false, and nothing is drawn | a panel/LCD init failure, or `esp_lcd` allocation errors | `panel::begin()` used to run **before** `net::begin()`. Since v0.1.4 Wi-Fi starts first (§2.10); measured, 183 KB of internal RAM is still free in one block when the display starts (it needs 77 KB for the bounce buffers), and the display buffers allocate fine. Failure prints `FATAL panel begin failed` |
 | 3 | **Brownout reboot.** Wi-Fi transmit bursts add a few hundred mA on top of the board's steady draw (210 mA measured with this firmware; vendor figure ~260 mA). A weak USB port or thin cable sags, the brownout detector resets the board, and it loops before drawing | `Brownout detector was triggered`, repeated boot banners | not handled in code: use a good data cable and a port or supply that can deliver ≥ 500 mA |
 | 4 | **PSRAM bandwidth.** Without bounce buffers the LCD DMA reads PSRAM directly, and Wi-Fi traffic starves it. Here that showed as flicker (§2.7); worse cases can make the panel lose sync and go dark | normal boot, polls running | bounce buffers (§2.7) |
 
 - **Also rule out the backlight:** if that build drove GPIO38 with LEDC
   PWM at 20 kHz, the screen is black regardless of Wi-Fi (§2.1).
-- **Init order this firmware uses** (`src/main.cpp`, `setup()`):
-  1. `panel::begin()`: ST7701 init, RGB bus, framebuffer and bounce
+- **Init order this firmware uses** (`src/main.cpp`, `setup()`, since
+  v0.1.4; see §2.10 for why Wi-Fi now comes first):
+  1. Preferences read from NVS, then touch;
+  2. `net::begin()`: Wi-Fi starts (PHY calibration and config save happen
+     inside this call), non-blocking join, plus SNTP;
+  3. wait for `net::started()` (capped at 2 s; measured 0 ms, since the
+     driver has started when `net::begin()` returns);
+  4. `panel::begin()`: ST7701 init, RGB bus, framebuffer and bounce
      buffers;
-  2. `net::begin()`: Wi-Fi starts, non-blocking, plus SNTP;
-  3. `poller::begin()`: the polling task on core 0;
-  4. first `redraw()`;
-  5. `backlight::begin()` + `set()` (1 kHz).
+  5. `poller::begin()`: the polling task on core 0;
+  6. first `redraw()`;
+  7. `backlight::begin()` + `set()` (1 kHz).
 
 ### 2.9 Random glitches with two servers: image wraps, stray pixels
 
@@ -186,7 +191,7 @@ ready — touch the screen
   build (`CONFIG_LCD_RGB_ISR_IRAM_SAFE` off), so a glitch exactly on a tap
   would point there.
 
-### 2.10 Image shifted until reset, now and then at boot (fixed; may come back)
+### 2.10 Image shifted until reset, now and then at boot (fixed in v0.1.3–v0.1.4; may come back)
 
 - **Symptom (2026-11-08):** now and then, right after boot, the image is
   shifted and wrapped vertically, with stray pixels. Unlike §2.9 it never
@@ -233,11 +238,8 @@ ready — touch the screen
   1. **Lower PCLK 12 → 10 MHz** (`PCLK_HZ`, `panel.cpp`; ~35 Hz refresh):
      each bounce buffer then takes ~2.2 ms to send, so there's more margin
      again. One line.
-  2. **Start the RGB stream after Wi-Fi has initialised**, so the boot-time
-     flash activity is over before the stream runs. Allocate the bounce
-     buffers before Wi-Fi as now (§2.8, internal RAM) and only start the
-     stream later. Needs a look at whether Arduino_GFX allows that split.
-     Taps that save to NVS could still trigger it, rarely.
+  2. ~~Start the RGB stream after Wi-Fi has initialised~~: **done in
+     v0.1.4**, see below.
   3. **Rebuild the core with different sdkconfig** (the real fix):
      `CONFIG_LCD_RGB_RESTART_IN_VSYNC` off, so the driver zeroes the count
      and restarts the DMA whenever a frame had missed refills (one bad
@@ -248,6 +250,23 @@ ready — touch the screen
      longer, and every display setting must be re-verified.
   - Before choosing, note when it happened (at boot or right after a tap)
     and keep the serial log if you can (`mem` line, taps).
+- **Second fix (v0.1.4, 2026-11-08): Wi-Fi starts before the display.**
+  `setup()` now reads Preferences, starts touch, calls `net::begin()` and
+  waits for `net::started()` before `panel::begin()` (order in §2.8). The
+  boot-time flash work (PHY calibration, saved Wi-Fi config, Preferences)
+  is over before the RGB stream runs, so it can't skip a refill. Wi-Fi
+  reports started as soon as `net::begin()` returns (0 ms on every boot),
+  so the screen comes on no later than before.
+  - Memory with the new order: 246 KB internal free at boot (largest
+    block 183 KB), 121 KB after the panel, 99 KB after setup, lowest
+    95 KB, largest block 57 KB. Same as the old order within 2 KB.
+  - Test: 10 serial resets, 15 s apart. Every boot logged Wi-Fi started
+    before the display, 99 KB free after setup, no errors, and the user
+    saw a clean image on all 10. Ten boots is weak evidence for a glitch
+    this rare; together with the 40-line buffers it should be very
+    unlikely now.
+  - Still possible in principle: a long flash write while the stream runs
+    (a tap that saves a setting). Those are short.
 - **Recovery meanwhile:** a reset clears it (unplug, or a serial reset).
 
 ---

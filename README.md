@@ -34,7 +34,7 @@ are btop's. See [Credits](#credits).
 
 ## Changelog
 
-v0.1.3 - 2026-11-08 - Fix the image sometimes staying shifted after boot (40-line bounce buffers); free memory in the serial log
+v0.1.4 - 2026-11-08 - Start Wi-Fi before the display, so boot-time flash access can't leave the image shifted
 
 All releases: [`CHANGELOG.md`](CHANGELOG.md)
 

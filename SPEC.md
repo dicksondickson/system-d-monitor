@@ -80,8 +80,10 @@ Never: auth/HTTPS (the server is plain HTTP on the LAN), battery operation.
 `src/hw/panel.cpp`): without them the LCD DMA reads PSRAM directly and the
 screen flickers every poll once Wi-Fi is active (bring-up log §2.7). With
 two servers, 10-line buffers weren't enough (§2.9). With 20, the image now
-and then stayed shifted after boot until a reset (§2.10); 40 fixed it
-(v0.1.3, 2026-11-08), though it may come back (next steps in §2.10). The serial log prints free memory every 10 s (`mem …`):
+and then stayed shifted after boot until a reset (§2.10); 40 lines
+(v0.1.3) and starting Wi-Fi before the display (v0.1.4, so its boot-time
+flash work is done before the RGB stream runs) fixed it, though it may
+come back (next steps in §2.10). The serial log prints free memory every 10 s (`mem …`):
 101 KB internal free with 40-line buffers.
 With bounce buffers the framebuffer is read through the CPU cache, so
 `screen::present()` does **no** cache writeback.

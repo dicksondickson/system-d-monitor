@@ -15,6 +15,10 @@ void begin(const char* ssid, const char* pass, const char* tz, const char* hostn
 
 bool up();
 
+// True once the Wi-Fi driver has started (radio calibrated, config saved),
+// or when Wi-Fi is off. Joining the network comes later.
+bool started();
+
 // Link state for the header: tells "still connecting after boot" apart from
 // "can't join" and "lost". JOIN_GRACE_MS: how long the first connection may
 // take before it counts as failed.

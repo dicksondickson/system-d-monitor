@@ -33,6 +33,8 @@ void begin(const char* ssid, const char* pass, const char* tz, const char* hostn
 
 bool up() { return g_enabled && WiFi.status() == WL_CONNECTED; }
 
+bool started() { return !g_enabled || WiFi.STA.started(); }
+
 WifiLink link() {
   if (!g_enabled) return WifiLink::CANT_JOIN;
   if (up()) {

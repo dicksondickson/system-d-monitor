@@ -31,7 +31,7 @@
 
 namespace {
 
-constexpr char FW_VERSION[] = "v0.1.3";  // shown top-right in Settings; keep in step with CHANGELOG.md
+constexpr char FW_VERSION[] = "v0.1.4";  // shown top-right in Settings; keep in step with CHANGELOG.md
 constexpr uint32_t TOUCH_POLL_MS = 33;  // ~30 Hz
 constexpr uint32_t TAP_MAX_MS = 500;    // SPEC.md §9
 constexpr uint32_t HOLD_MS = 700;
@@ -194,6 +194,7 @@ void wakeScreen() {
 // bounce buffers and the task stacks; "min" is the lowest it has been since
 // boot (bring-up §2.10).
 constexpr uint32_t MEM_LOG_MS = 10000;
+constexpr uint32_t WIFI_START_WAIT_MS = 2000;  // cap on the wait before the display starts
 void logMemory(const char* when) {
   const auto kb = [](size_t b) { return (unsigned)(b / 1024); };
   Serial.printf("mem %s: internal %u KB free (min %u, largest block %u), dma %u KB, psram %u KB free\n",
@@ -244,14 +245,7 @@ void setup() {
   for (int i = 0; i < kServerCount; i++)
     Serial.printf("  [%d] %s:%u\n", i, kServers[i].host, (unsigned)kServers[i].port);
 
-  gfx = panel::begin();
-  if (!gfx) {
-    Serial.println("FATAL panel begin failed (psram / RGB bus)");
-    return;
-  }
-  screen::begin(gfx);
-  logMemory("after panel");
-
+  logMemory("at boot");
   prefs.begin("sysd", false);
   theme_index = theme::find(prefs.getString("theme", theme::DEFAULT_NAME).c_str());
   const uint32_t poll_ms = prefs.getUInt("poll_ms", POLL_MS);
@@ -263,7 +257,23 @@ void setup() {
   touch_ok = touch::begin(&tinfo);
   Serial.printf("touch %s\n", touch_ok ? "ok" : "not found");
 
+  // Wi-Fi before the display: its start-up reads and writes flash (PHY
+  // calibration, saved config), and a long flash operation while the RGB
+  // stream runs can leave the image shifted until a reset (bring-up §2.10).
+  // The internal RAM the bounce buffers need is still free (§2.8).
   net::begin(WIFI_SSID, WIFI_PASS, TZ_POSIX, HOSTNAME);
+  const uint32_t wait_from = millis();
+  while (!net::started() && millis() - wait_from < WIFI_START_WAIT_MS) delay(10);
+  Serial.printf("wifi: started after %u ms\n", (unsigned)(millis() - wait_from));
+
+  gfx = panel::begin();
+  if (!gfx) {
+    Serial.println("FATAL panel begin failed (psram / RGB bus)");
+    return;
+  }
+  screen::begin(gfx);
+  logMemory("after panel");
+
   poller::begin(kServers, kServerCount, poll_ms, CONNECT_MS, READ_MS);
 
   redraw();
