@@ -217,8 +217,8 @@ responses as a test fixture.
 ## How it works
 
 ```
-GPU server(s) ── HTTP /metrics every N s ──▶ one poller task per server (core 0;
-                                               only the one on screen polls)
+GPU server(s) ── HTTP /metrics every N s ──▶ one poller task per server (core 0, with
+                                               Wi-Fi; only the one on screen polls)
                                                streaming Prometheus parser,
                                                engine detection, rate derivation
                                                      │
@@ -230,6 +230,10 @@ GPU server(s) ── HTTP /metrics every N s ──▶ one poller task per serve
                                                               the PSRAM framebuffer
 ```
 
+- **Two cores:** networking (Wi-Fi and the pollers) runs on core 0, the
+  screen and touch on core 1, and they only meet at a small lock-protected
+  snapshot. A slow server can't freeze the screen. Details, shared
+  resources and a load estimate: SPEC.md §10 "Cores".
 - **Rates** come from the change in counters between polls. A counter that
   goes down means the server restarted, and rates start again from a new
   baseline.

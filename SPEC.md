@@ -692,15 +692,61 @@ compiler prints a `#warning`.
 | Task | Core | Job |
 |---|---|---|
 | `poller` (one per server) | 0 (with Wi-Fi) | **Only the server on screen is polled** (user, 2026-11-08): the other tasks sleep. Every `POLL_MS`: GET `/metrics` (stream-parse), plus `/health` / `/v1/models` when due. Build a `Sample`, run `derive`, push rings, publish a `View` snapshot under a mutex. Switching servers (`poller::setActive()`) calls `Deriver::onResume()` on the new one, which keeps its graphs, TG max and avg (so those cover the time it was on screen), leaves a one-poll gap in the graphs, clears the 30 s window so no rate spans the pause, and keeps the last sample to catch a restart meanwhile; then wakes its task, whose first poll waits `SWITCH_POLL_DELAY_MS` (150 ms) so it doesn't overlap the full-screen redraw the switch causes (both burst into PSRAM; user request, 2026-11-08). A server that went down while off screen shows DOWN only once you switch to it. |
-| `ui` (Arduino `loop`) | 1 | Poll touch, copy the `View` under the mutex, render the page into the back grid, diff-blit, drive the backlight. |
+| `ui` (Arduino `loop`) | 1 | Poll touch (~30 Hz), copy the `View` under the mutex, render the page into the back grid, diff-blit, drive the backlight, save page/server 9 s after a switch, print the `mem` line every 10 s. |
 
 The UI only reads published snapshots. The poller never draws.
 
-All state belongs to a single `Server` struct (config, `win[15]`, three
-60-float rings, last error, backoff). That's about 4 KB, statically
-allocated. Multi-server later means an array of these, with no other
-structural change. The grids are 2 × 48 × 20 × 5 B ≈ 10 KB. There's no heap
-allocation in steady state, so a 24 h soak should show flat free heap.
+### Cores (documented 2026-11-08)
+
+Network work stays on core 0, screen and touch on core 1, so a slow or dead
+server can't freeze the screen and a full redraw can't delay a poll.
+
+| | Core 0: network | Core 1: screen |
+|---|---|---|
+| Tasks | ESP-IDF's Wi-Fi driver and lwIP TCP/IP task (pinned to core 0 by the core's sdkconfig: `ESP_WIFI_TASK_PINNED_TO_CORE_0`, `LWIP_TCPIP_TASK_AFFINITY_CPU0`), esp_timer; the poller tasks (`xTaskCreatePinnedToCore(…, 0)`, priority 1, 10 KB stack each) | Arduino's `loopTask` running `setup()` / `loop()` (`ARDUINO_RUNNING_CORE=1`, 8 KB stack) |
+| Interrupts | Wi-Fi | LCD + GDMA: the bounce-buffer refills run here, because `panel::begin()` (which allocates them) is called from `setup()` on core 1 |
+
+**Handoff between the cores** (all in `poller.cpp`):
+- each server's `Slot` has a mutex; the poller holds it to store results,
+  the UI holds it only to copy a `View` (`poller::snapshot()`), then draws
+  from the copy;
+- a per-server generation counter (atomic) goes up after every poll; the UI
+  redraws when the shown server's counter changes, and once a second for
+  the clock;
+- the only call the other way is `poller::setActive()` on a server switch:
+  it runs `Deriver::onResume()` under the lock and wakes that task with a
+  task notification.
+
+**Shared by both cores, so where they can still affect each other:**
+- **flash:** any flash write (NVS) suspends the cache on both cores and holds
+  off the non-IRAM-safe LCD/GDMA interrupts (bring-up §2.10). Hence
+  Wi-Fi before the panel at boot and the 9 s delayed page/server save;
+- **PSRAM:** lwIP buffers (`SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y`, core 0), the
+  framebuffer writes (core 1) and the bounce refills (core 1 ISR) share its
+  bandwidth (bring-up §2.7, §2.9). Hence 40-line bounce buffers and the
+  150 ms delay before the first poll after a switch.
+
+**Load: estimated, not measured.** Core 0 is mostly waiting on the network
+(a dgx042 poll is ~60 ms per 1 s refresh, mostly I/O; parsing 22 KB is a few
+ms of CPU), and only the server on screen is polled, so more servers don't
+add load. Core 1 draws a few cells per second (a full repaint is 28 ms); its
+steady load is likely the bounce refills, ~500 × 38 KB PSRAM copies a second
+in the LCD ISR, guessed at 10–20 %. So the cores probably aren't evenly
+loaded, but neither should be near full; the split is for isolation, not
+balance. **To measure** (deferred by the user, 2026-11-08): the core has
+FreeRTOS run-time stats on (`CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS=y`,
+esp_timer clock), so a `cpu` line next to `mem` can report each core's busy
+share from its idle task's run-time counter over 10 s
+(`xTaskGetIdleTaskHandleForCore()` + `ulTaskGetRunTimeCounter()`). Capture
+idle, while switching servers, and with dick6000's 67 KB `/metrics`.
+
+**Memory:** each server's `Slot` (config, `Deriver` with the 15-sample
+window and three rings, an 8 KB JSON buffer, `Sample`, `View` for the log)
+is allocated once in `poller::begin()`; it's over the 4 KB
+`SPIRAM_MALLOC_ALWAYSINTERNAL` threshold, so the heap puts it in PSRAM. The
+poller stacks are internal RAM. The grids are 2 × 48 × 20 × 5 B ≈ 10 KB.
+There's no heap allocation in steady state, so a 24 h soak should show flat
+free heap (reference numbers: bring-up §1).
 
 ### Layout
 
