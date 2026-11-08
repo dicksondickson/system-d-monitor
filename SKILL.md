@@ -132,9 +132,12 @@ packet" → USB noise: retry, or try another cable or USB port. Don't raise
 
 Ask the user what the screen shows. A working board:
 
-1. Header shows `CONNECTING` for a few seconds after boot.
+1. Header shows `CONNECTING` (orange) for a few seconds after boot.
 2. Then the date and time (`MM-DD-YY h:mm:ss AM`), Wi-Fi bars at the top
-   right, the server name · IP, and `OK IDLE` or `OK BUSY`.
+   right, the server name · IP, and `OK IDLE` or `OK BUSY` (green). Red
+   (`DOWN`, `NO WIFI`, `UNKNOWN`) means no data is getting through; see
+   the table below. Only the server on screen is polled, so switching
+   servers shows `CONNECTING` again for a moment.
 3. The second line shows the engine (`vLLM` or `TensorFold`) and the model.
 
 Touch: left / right third = previous / next server, centre = overview ↔
