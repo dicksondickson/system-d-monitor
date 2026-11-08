@@ -34,7 +34,7 @@ are btop's. See [Credits](#credits).
 
 ## Changelog
 
-v0.1.4 - 2026-11-08 - Start Wi-Fi before the display, so boot-time flash access can't leave the image shifted
+v0.1.4 - 2026-11-08 - Start Wi-Fi before the display, so boot-time flash access can't leave the image shifted; poll only the server on screen; down servers retry every 9 s at most
 
 All releases: [`CHANGELOG.md`](CHANGELOG.md)
 
@@ -150,6 +150,12 @@ with Wi-Fi off) and shows `NO WIFI` with `no include/config.h`.
 Theme, refresh rate, brightness, page and server survive a reboot. `ROTATE_S` in
 `config.h` auto-advances between servers.
 
+Only the server on screen is polled; the others wait, so more servers don't
+add network load. Switching to one polls it at once: it shows `CONNECTING`
+for a moment, its graphs keep their history (with a gap for the time it was
+off screen), and live rates return within a poll or two. TG avg / max cover
+the time it was on screen. A server that's down is retried every 9 s at most.
+
 ![Settings](docs/images/settings.png)
 
 ## Reading the screen
@@ -158,7 +164,7 @@ Theme, refresh rate, brightness, page and server survive a reboot. `ROTATE_S` in
 |---|---|
 | **TG** / **PP** | decode (token generation) / prefill (prompt processing), in tokens per second. Always shown in two different colours |
 | **live** | tokens the server produced per real second, summed over every request running at once: throughput as seen from outside. Updates every poll |
-| **TG avg / max** | average and peak live TG since the monitor started (or the server restarted), counting only polls where it was generating |
+| **TG avg / max** | average and peak live TG since the monitor started (or the server restarted), counting only polls where it was generating and on screen |
 | **PP last** | prefill speed of the most recently finished request (prompt tokens ÷ its prefill seconds). Neither engine reports prefill progress live, so there's no live PP |
 | **prefilling Ns** | a request is running, no tokens have been generated yet and its KV cache is filling, so it's in prefill, N seconds so far |
 | **run x/max · wait n** | requests running (out of the batch limit; TensorFold only) and queued |
@@ -166,7 +172,7 @@ Theme, refresh rate, brightness, page and server survive a reboot. `ROTATE_S` in
 | **KV peak** | the highest KV reading in the recent history (the last 60 polls: 60 s at a 1 s refresh, 2 min at 2 s), so you can still see how full the cache got after a request finishes |
 | **Streams** | per-request slots (TensorFold). Columns read `no data` unless the server exports per-stream metrics (`SPEC.md`, Appendix A). When a request finishes, its row stays for **10 s** marked `done`, showing its final values, so you can still read it |
 | **TTFT · MTP · cache-hit** | mean time to first token · speculative-decoding acceptance (accepted ÷ drafted tokens) · prompt tokens served from the prefix cache |
-| **header** | `SYSTEM-D`, the date (MM-DD-YY) and time, and the board's Wi-Fi signal as braille bars `⣀⣤⣶⣿` (top right); then server name · IP with its state (`CONNECTING` just after boot, `OK IDLE`, `OK BUSY`, `STALE`, `DOWN`, `NO WIFI`, `UNKNOWN`); then engine · model |
+| **header** | `SYSTEM-D`, the date (MM-DD-YY) and time, and the board's Wi-Fi signal as braille bars `⣀⣤⣶⣿` (top right); then server name · IP with its state (`CONNECTING` just after boot or a server switch, `OK IDLE`, `OK BUSY`, `STALE`, `DOWN`, `NO WIFI`, `UNKNOWN`); then engine · model |
 | **footer** | `≡` (settings), then `poll 2s · ok 0.4s ago`, or the problem (`timeout · retry 8s`, `dns gpu-box.lan`, `not TensorFold or vLLM`, …) |
 | **no data** | not exported, not received yet, or nothing happened in the window |
 
@@ -204,7 +210,8 @@ responses as a test fixture.
 ## How it works
 
 ```
-GPU server(s) ── HTTP /metrics every N s ──▶ one poller task per server (core 0)
+GPU server(s) ── HTTP /metrics every N s ──▶ one poller task per server (core 0;
+                                               only the one on screen polls)
                                                streaming Prometheus parser,
                                                engine detection, rate derivation
                                                      │

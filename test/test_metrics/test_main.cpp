@@ -278,6 +278,53 @@ static void test_restart_detected() {
   TEST_ASSERT_NOT_EQUAL(ServerState::RESTART, v.state);
 }
 
+// Only the server on screen is polled (2026-11-08). Coming back to one
+// keeps its history and TG max/avg, leaves a gap, and computes no rate
+// across the pause.
+static void test_resume_after_pause() {
+  Rig r;
+  r.d.onSample(r.at(0, 0, 0, 0, 0, 0, 1), r.id, r.info);
+  r.d.onSample(r.at(2000, 200, 0, 0, 2, 0, 1), r.id, r.info);  // 100 tok/s
+  View v = r.view(2000);
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 100, v.tg_max);
+
+  r.d.onResume();  // off screen for ~5 min, then back
+  v = r.view(300000);
+  TEST_ASSERT_EQUAL(ServerState::CONNECTING, v.state);  // not "stale 298s"
+  TEST_ASSERT_EQUAL_STRING("connecting\xE2\x80\xA6", v.status);
+  TEST_ASSERT_TRUE(std::isnan(v.tg_live));
+  TEST_ASSERT_TRUE(std::isnan(v.tg_hist[RING_LEN - 1]));            // the gap
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 100, v.tg_hist[RING_LEN - 2]);     // history kept
+
+  // 30,000 tokens were generated meanwhile: over the 298 s gap that would
+  // read as ~100 tok/s, which isn't a rate anyone saw. The first sample
+  // after the pause gives no rate; the second does.
+  r.d.onSample(r.at(300000, 30200, 0, 0, 300, 0, 1), r.id, r.info);
+  v = r.view(300000);
+  TEST_ASSERT_TRUE(std::isnan(v.tg_live));
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 100, v.tg_max);  // peak kept (shown again once a sample is in)
+  TEST_ASSERT_EQUAL(ServerState::BUSY, v.state);
+  r.d.onSample(r.at(302000, 30300, 0, 0, 301, 0, 1), r.id, r.info);  // 50 tok/s
+  v = r.view(302000);
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 50, v.tg_live);
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 100, v.tg_max);
+  TEST_ASSERT_FLOAT_WITHIN(1e-3, 75, v.tg_avg);  // (100 + 50) / 2
+}
+
+static void test_restart_while_paused() {
+  Rig r;
+  r.d.onSample(r.at(0, 500, 0, 5000, 5, 1), r.id, r.info);
+  r.d.onSample(r.at(2000, 700, 0, 6000, 6, 1.2f), r.id, r.info);  // TG 100
+  r.d.onResume();
+  Sample fresh = r.at(200000, 0, 0, 0, 0, 0);
+  fresh.v[F_GEN_TOKENS] = 10;  // the server restarted while off screen
+  fresh.v[F_PROMPT_TOKENS] = 100;
+  TEST_ASSERT_TRUE(r.d.onSample(fresh, r.id, r.info));
+  View v = r.view(201000);
+  TEST_ASSERT_EQUAL(ServerState::RESTART, v.state);
+  TEST_ASSERT_TRUE(std::isnan(v.tg_max));  // reset with the server, as before
+}
+
 static void test_failures_stale_down_nowifi() {
   Rig r;
   r.d.onSample(r.at(0, 0, 0, 0, 0, 0), r.id, r.info);
@@ -310,6 +357,10 @@ static void test_wifi_connecting_at_boot() {
   d.fill(v, 30000, 2000, WifiLink::CANT_JOIN, 0);
   TEST_ASSERT_EQUAL(ServerState::NO_WIFI, v.state);
   TEST_ASSERT_EQUAL_STRING("check SSID / password", v.status);
+  // Wi-Fi up, server not answered yet: CONNECTING too, not UNKNOWN.
+  d.fill(v, 30000, 2000, WifiLink::UP, 0);
+  TEST_ASSERT_EQUAL(ServerState::CONNECTING, v.state);
+  TEST_ASSERT_EQUAL_STRING("connecting\xE2\x80\xA6", v.status);
 }
 
 static void test_not_an_engine() {
@@ -621,6 +672,8 @@ int main() {
   RUN_TEST(test_rates);
   RUN_TEST(test_idle_wall_rate_is_zero_engine_rate_no_data);
   RUN_TEST(test_restart_detected);
+  RUN_TEST(test_resume_after_pause);
+  RUN_TEST(test_restart_while_paused);
   RUN_TEST(test_failures_stale_down_nowifi);
   RUN_TEST(test_not_an_engine);
   RUN_TEST(test_prefilling_and_per_request_pp);

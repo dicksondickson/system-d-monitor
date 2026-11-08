@@ -121,12 +121,14 @@ bool Deriver::onSample(const Sample& s, const Identity& id, const ServerInfo& in
   last_ok_ms_ = s.t_ms;
   failures_ = 0;
   reason_[0] = '\0';
+  resuming_ = false;
 
   bool restart = false;
-  if (n_ > 0) {
-    const Sample& prev = at(n_ - 1);
-    restart = wentDown(s, prev, F_PROMPT_TOKENS) || wentDown(s, prev, F_GEN_TOKENS) ||
-              wentDown(s, prev, F_TTFT_COUNT) || wentDown(s, prev, F_E2E_COUNT);
+  const Sample* prev = n_ > 0 ? &at(n_ - 1) : has_resume_ref_ ? &resume_ref_ : nullptr;
+  has_resume_ref_ = false;
+  if (prev) {
+    restart = wentDown(s, *prev, F_PROMPT_TOKENS) || wentDown(s, *prev, F_GEN_TOKENS) ||
+              wentDown(s, *prev, F_TTFT_COUNT) || wentDown(s, *prev, F_E2E_COUNT);
   }
   if (restart) {  // new baseline: rates restart from scratch, gap in the rings
     n_ = 0;
@@ -191,8 +193,21 @@ bool Deriver::onSample(const Sample& s, const Identity& id, const ServerInfo& in
   return restart;
 }
 
+void Deriver::onResume() {
+  if (n_ > 0) {
+    resume_ref_ = at(n_ - 1);
+    has_resume_ref_ = true;
+  }
+  n_ = 0;
+  if (rings_init_) pushRings(NAN, NAN, NAN);
+  prefilling_ = false;
+  for (int i = 0; i < SAMPLE_STREAMS; i++) was_active_[i] = lingering_[i] = false;
+  resuming_ = true;
+}
+
 void Deriver::onFailure(uint32_t t_ms, const char* reason) {
   (void)t_ms;
+  resuming_ = false;
   failures_++;
   strncpy(reason_, reason ? reason : "error", sizeof reason_ - 1);
   reason_[sizeof reason_ - 1] = '\0';
@@ -304,8 +319,8 @@ void Deriver::fill(View& out, uint32_t now_ms, uint32_t poll_ms, WifiLink link,
   } else if (link == WifiLink::LOST) {
     v.state = ServerState::NO_WIFI;
     snprintf(v.status, sizeof v.status, "wifi lost%sretry", dot);
-  } else if (!ever_ok_ && failures_ < 3) {
-    v.state = ServerState::UNKNOWN;
+  } else if ((!ever_ok_ || resuming_) && failures_ < 3) {  // first poll pending (user request)
+    v.state = ServerState::CONNECTING;
     snprintf(v.status, sizeof v.status, "connecting\xE2\x80\xA6");
   } else if (failures_ >= 3) {
     v.prefilling_s = NAN;

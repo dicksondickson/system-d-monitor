@@ -160,6 +160,7 @@ void onSettingsTap(int x, int y) {
 
 void showServer(int index) {
   server = (index + kServerCount) % kServerCount;
+  poller::setActive(server);
   prefs.putUChar("server", (uint8_t)server);
   Serial.printf("server -> %d (%s)\n", server, kServers[server].host);
   redraw();
@@ -274,7 +275,7 @@ void setup() {
   screen::begin(gfx);
   logMemory("after panel");
 
-  poller::begin(kServers, kServerCount, poll_ms, CONNECT_MS, READ_MS);
+  poller::begin(kServers, kServerCount, server, poll_ms, CONNECT_MS, READ_MS);
 
   redraw();
   backlight::begin();  // after panel::begin(), see backlight.h

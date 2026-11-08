@@ -271,7 +271,7 @@ response end) plus the values above. `prev` is the previous good sample and
 | PP eng | Δ finished-request prompt tokens (`request_prompt_tokens_sum` on vLLM, else `prompt_tokens_total`) / Δ`request_prefill_time_seconds_sum` (or `tensorfold_health:prefill_seconds_total`, §4.1): prefill speed of the request(s) that finished in this poll. Cache hits take no prefill time, so only computed tokens count: vLLM's `request_prefill_kv_computed_tokens_sum` (finish-timed, cache hits excluded) when exported; on TensorFold builds that report cached tokens, prompt − cached (seen 2026-11-03: 50,953 prompt tokens, 50,112 cached, 0.69 s → 1,217 tok/s, not 73,749) |
 | **PP last** | the most recent non-`no data` PP eng, kept until the next request finishes |
 | **prefilling Ns** | shown while `num_requests_running` > 0, live TG = 0 and KV > 0; N = seconds since the first poll that matched. On vLLM a prefill alongside other decoding requests isn't flagged (TG > 0) |
-| **TG avg** | mean of live TG over the polls where it was > 0, **since the monitor started or the server last restarted**. Idle polls are excluded, or the number would mostly measure idle time (user request, 2026-11-01; it was a 30 s window before) |
+| **TG avg** | mean of live TG over the polls where it was > 0, **since the monitor started or the server last restarted**. Idle polls are excluded, or the number would mostly measure idle time (user request, 2026-11-01; it was a 30 s window before). Since 2026-11-08 only the server on screen is polled (§10), so this covers the time the server was on screen; switching away and back keeps it |
 | **TG max** | highest live TG over the same span |
 | PP `avg` | first-vs-last over `win` (not shown in per-request PP mode) |
 | run / wait | `num_requests_running` / `max_batch_size` (`/health`) · `num_requests_waiting` |
@@ -593,8 +593,9 @@ the footer rule (row 24).
 | WARMING | `/health.warming == true` | `OK WARM` warn | same | normal |
 | RESTART | counter went down (§5), for 30 s | `OK RESTART` warn | `restarted 12s ago` | windows reset |
 | STALE | last good sample > 3 × poll ago | `STALE` warn | `stale 9s · <reason>` | values dim |
-| DOWN | 3 consecutive failures | `DOWN` bad | `<reason> · retry 8s` | last values dim |
+| DOWN | 3 consecutive failures | `DOWN` bad | `<reason> · retry 8s` | last values dim. Retries back off 2, 4, 8, then every **9 s** (capped, user 2026-11-08; was up to 30 s) |
 | CONNECTING | after boot, Wi-Fi not joined yet, within `net::JOIN_GRACE_MS` (20 s) | `CONNECTING` warn | `wifi connecting…` | `no data`; header shows no bars. Was `NO WIFI`, which read like an error on every boot (user request, 2026-11-02) |
+| CONNECTING | Wi-Fi up, the server's first poll not in yet: after boot, or on switching to it (only the server on screen is polled, §10) | `CONNECTING` warn | `connecting…` | `no data` for rates; graphs keep their history with a gap. Was `UNKNOWN` (user request, 2026-11-08) |
 | NO WIFI | never joined within 20 s, or no SSID configured | `NO WIFI` bad | `check SSID / password` | values dim; header shows no bars |
 | NO WIFI | was connected, then `WiFi.status() != WL_CONNECTED` | `NO WIFI` bad | `wifi lost · retry` | values dim; header shows no bars |
 | UNKNOWN | responds, but isn't TensorFold or vLLM (§4.3) | `??? · host:port` … `UNKNOWN` bad | `not TensorFold or vLLM` | all `no data` |
@@ -676,7 +677,7 @@ compiler prints a `#warning`.
 
 | Task | Core | Job |
 |---|---|---|
-| `poller` | 0 (with Wi-Fi) | Every `POLL_MS`: GET `/metrics` (stream-parse), plus `/health` / `/v1/models` when due. Build a `Sample`, run `derive`, push rings, publish a `View` snapshot under a mutex. |
+| `poller` (one per server) | 0 (with Wi-Fi) | **Only the server on screen is polled** (user, 2026-11-08): the other tasks sleep. Every `POLL_MS`: GET `/metrics` (stream-parse), plus `/health` / `/v1/models` when due. Build a `Sample`, run `derive`, push rings, publish a `View` snapshot under a mutex. Switching servers (`poller::setActive()`) calls `Deriver::onResume()` on the new one, which keeps its graphs, TG max and avg (so those cover the time it was on screen), leaves a one-poll gap in the graphs, clears the 30 s window so no rate spans the pause, and keeps the last sample to catch a restart meanwhile; then wakes its task to poll at once. A server that went down while off screen shows DOWN only once you switch to it. |
 | `ui` (Arduino `loop`) | 1 | Poll touch, copy the `View` under the mutex, render the page into the back grid, diff-blit, drive the backlight. |
 
 The UI only reads published snapshots. The poller never draws.
@@ -807,6 +808,16 @@ third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
   model on their own line, so the full model name fits.
 - **Multiple servers (2026-11-01):** up to 4 in `SERVERS`, one poller task
   each, left/right thirds to switch, `‹ n/N ›` in the footer.
+- **Poll only the server on screen (user, 2026-11-08):** so adding servers
+  (dick6000 back, up to 4) adds no background traffic, PSRAM load or
+  glitch risk (§2.9 of the bring-up notes). The user chose to keep each
+  server's history across a switch (graphs with a gap, TG max/avg kept)
+  over starting fresh or slow-polling the others. Trade-offs accepted:
+  `CONNECTING` and no live rates for a poll or two after a switch, and a
+  server that goes down off screen shows DOWN only when you switch to it.
+  Down servers retry at 2, 4, 8 s, then every 9 s (was up to 30 s).
+  Approved as a change to the frozen metrics' meaning (TG max/avg now
+  "while on screen").
 
 **Answered by the 2026-11-01 load test** (live serial log, single requests
 of up to a 127K-token prompt)

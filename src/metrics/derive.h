@@ -25,6 +25,13 @@ class Deriver {
   // A failed poll: pushes a gap into the rings and counts towards DOWN.
   void onFailure(uint32_t t_ms, const char* reason);
 
+  // Polling resumes after a pause (only the server on screen is polled).
+  // Keeps the rings and the TG peak/average, pushes a gap into the rings,
+  // and empties the window so no rate spans the pause. The last sample is
+  // kept to catch a restart that happened meanwhile. Until the next poll
+  // the state reads CONNECTING ("connecting…").
+  void onResume();
+
   // Fills everything except the header (clock, IP, Wi-Fi bars), which the
   // caller owns. retry_ms: time until the next attempt while failing.
   void fill(View& v, uint32_t now_ms, uint32_t poll_ms, WifiLink link, uint32_t retry_ms) const;
@@ -52,6 +59,9 @@ class Deriver {
   char reason_[24] = "";
   bool restarted_ = false;
   uint32_t restart_ms_ = 0;
+  bool resuming_ = false;  // paused, no poll since
+  bool has_resume_ref_ = false;
+  Sample resume_ref_;  // last sample before the pause, for restart detection
 
   // Live TG since boot / the last restart: peak, and the sum + count of the
   // polls where it was generating (TG > 0), for the "since start" average.

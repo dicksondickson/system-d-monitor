@@ -9,14 +9,17 @@
 // One background task per server (core 0, SPEC.md §10 "Tasks"): /metrics
 // every poll_ms; /health + /v1/models on connect, every 30 s and after a
 // restart (vLLM: /version instead of /health); exponential backoff while a
-// server is down. Servers poll independently, so a dead one never delays
-// another.
+// server is down. Only the active server (the one on screen) is polled; the
+// others' tasks sleep and keep their history (Deriver::onResume()).
 namespace poller {
 
-void begin(const ServerCfg* servers, int count, uint32_t poll_ms, uint32_t connect_ms,
+void begin(const ServerCfg* servers, int count, int active, uint32_t poll_ms, uint32_t connect_ms,
            uint32_t read_ms);
 
 int count();
+
+// Poll only server `index` from now on (the one on screen); it polls at once.
+void setActive(int index);
 
 // Change the poll interval at runtime (Settings); takes effect on each
 // task's next cycle.

@@ -20,7 +20,8 @@ namespace poller {
 namespace {
 
 constexpr uint32_t INFO_EVERY_MS = 30000;
-constexpr uint32_t BACKOFF_MS[] = {2000, 4000, 8000, 16000, 30000};  // SPEC.md §8
+constexpr uint32_t BACKOFF_MS[] = {2000, 4000, 8000, 9000};  // SPEC.md §8; capped at 9 s (user, 2026-11-08)
+constexpr int BACKOFF_N = sizeof BACKOFF_MS / sizeof BACKOFF_MS[0];
 
 struct Timing {
   std::atomic<uint32_t> poll_ms;
@@ -59,11 +60,16 @@ struct Slot {
   Sample sample;           // task only
   Buffer json;             // task only
   View log_view;           // task only (serial value line)
+  TaskHandle_t handle = nullptr;
 };
 
 Slot* g_slots[4];
 int g_count = 0;
 std::atomic<uint32_t> g_generation[4];
+std::atomic<int> g_active{0};  // only this server is polled (the one on screen)
+
+// Sleeps up to ms; setActive() wakes it early.
+void nap(uint32_t ms) { ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(ms)); }
 
 bool fetchJson(Slot& s, const char* path, bool (*parse)(const char*, size_t, ServerInfo&)) {
   s.json.len = 0;
@@ -98,9 +104,13 @@ void task(void* arg) {
   Engine engine = Engine::UNKNOWN;
 
   for (;;) {
+    if (g_active.load() != s.index) {  // off screen: don't poll (setActive() wakes us)
+      nap(1000);
+      continue;
+    }
     const uint32_t start = millis();
     if (!net::up()) {
-      vTaskDelay(pdMS_TO_TICKS(500));
+      nap(500);
       gen++;
       continue;
     }
@@ -153,7 +163,7 @@ void task(void* arg) {
       xSemaphoreGive(s.lock);
       if (fails >= 3) {
         int i = fails - 3;
-        wait = BACKOFF_MS[i < 5 ? i : 4];
+        wait = BACKOFF_MS[i < BACKOFF_N ? i : BACKOFF_N - 1];
         need_models = need_info = true;  // re-read everything when it comes back
       }
       Serial.printf("[%s] /metrics    FAILED: %s (%u ms), retry in %u ms\n", s.label, why,
@@ -165,14 +175,15 @@ void task(void* arg) {
     gen++;
 
     const uint32_t elapsed = millis() - start;
-    if (elapsed < wait) vTaskDelay(pdMS_TO_TICKS(wait - elapsed));
+    if (elapsed < wait) nap(wait - elapsed);
   }
 }
 
 }  // namespace
 
-void begin(const ServerCfg* servers, int count, uint32_t poll_ms, uint32_t connect_ms,
+void begin(const ServerCfg* servers, int count, int active, uint32_t poll_ms, uint32_t connect_ms,
            uint32_t read_ms) {
+  g_active = active;
   g_timing.poll_ms = poll_ms;
   g_timing.connect_ms = connect_ms;
   g_timing.read_ms = read_ms;
@@ -191,11 +202,24 @@ void begin(const ServerCfg* servers, int count, uint32_t poll_ms, uint32_t conne
     g_slots[i] = s;
     char name[16];
     snprintf(name, sizeof name, "poll%d", i);
-    xTaskCreatePinnedToCore(task, name, 10240, s, 1, nullptr, 0);  // parser holds a 2 KB line
+    xTaskCreatePinnedToCore(task, name, 10240, s, 1, &s->handle, 0);  // parser holds a 2 KB line
   }
 }
 
 int count() { return g_count; }
+
+void setActive(int index) {
+  if (index < 0 || index >= g_count || index == g_active.load()) return;
+  Slot& s = *g_slots[index];
+  // Before the caller redraws: keep the history, but show no rates that
+  // span the pause, and "connecting…" until the first poll is in.
+  xSemaphoreTake(s.lock, portMAX_DELAY);
+  s.deriver.onResume();
+  xSemaphoreGive(s.lock);
+  g_active = index;
+  if (s.handle) xTaskNotifyGive(s.handle);  // poll now
+  Serial.printf("[%s] polling (others paused)\n", s.label);
+}
 
 void setPollMs(uint32_t ms) { g_timing.poll_ms = ms; }
 uint32_t pollMs() { return g_timing.poll_ms; }
