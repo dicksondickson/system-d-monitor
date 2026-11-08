@@ -593,7 +593,7 @@ the footer rule (row 24).
 | WARMING | `/health.warming == true` | `OK WARM` warn | same | normal |
 | RESTART | counter went down (§5), for 30 s | `OK RESTART` warn | `restarted 12s ago` | windows reset |
 | STALE | last good sample > 3 × poll ago | `STALE` warn | `stale 9s · <reason>` | values dim |
-| DOWN | 3 consecutive failures | `DOWN` bad | `<reason> · retry 8s` | last values dim. Retries back off 2, 4, 8, then every **9 s** (capped, user 2026-11-08; was up to 30 s) |
+| DOWN | 3 consecutive failures | `DOWN` bad | `<reason> · retry 8s` | last values dim. Retries back off 2, 4, then every **9 s** (capped, user 2026-11-08; was 2, 4, 8, 16, 30 s) |
 | CONNECTING | after boot, Wi-Fi not joined yet, within `net::JOIN_GRACE_MS` (20 s) | `CONNECTING` warn | `wifi connecting…` | `no data`; header shows no bars. Was `NO WIFI`, which read like an error on every boot (user request, 2026-11-02) |
 | CONNECTING | Wi-Fi up, the server's first poll not in yet: after boot, or on switching to it (only the server on screen is polled, §10) | `CONNECTING` warn | `connecting…` | `no data` for rates; graphs keep their history with a gap. Was `UNKNOWN` (user request, 2026-11-08) |
 | NO WIFI | never joined within 20 s, or no SSID configured | `NO WIFI` bad | `check SSID / password` | values dim; header shows no bars |
@@ -815,7 +815,7 @@ third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
   over starting fresh or slow-polling the others. Trade-offs accepted:
   `CONNECTING` and no live rates for a poll or two after a switch, and a
   server that goes down off screen shows DOWN only when you switch to it.
-  Down servers retry at 2, 4, 8 s, then every 9 s (was up to 30 s).
+  Down servers retry at 2, 4 s, then every 9 s (was up to 30 s).
   Approved as a change to the frozen metrics' meaning (TG max/avg now
   "while on screen").
 
