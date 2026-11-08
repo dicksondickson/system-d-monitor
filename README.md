@@ -34,7 +34,7 @@ are btop's. See [Credits](#credits).
 
 ## Changelog
 
-v0.1.2 - 2026-11-08 - Set the board's network hostname with `HOSTNAME`; read TensorFold's larger `/health`
+v0.1.3 - 2026-11-08 - Fix the image sometimes staying shifted after boot (40-line bounce buffers); free memory in the serial log
 
 All releases: [`CHANGELOG.md`](CHANGELOG.md)
 

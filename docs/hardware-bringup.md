@@ -24,7 +24,7 @@ dot lands under the finger.
 | RGB pins | R0–R4 = 11,12,13,14,0 · G0–G5 = 8,20,3,46,9,10 · B0–B4 = 4,5,6,7,15 | `include/board_pins.h` |
 | Control pins | DE 18, VSYNC 17, HSYNC 16, PCLK 21; init SPI CS 39 / SCK 48 / MOSI 47 (`Arduino_SWSPI`) | `include/board_pins.h` |
 | Timing | PCLK 12 MHz; HSYNC pol 1 / fp 10 / pw 8 / bp 50; VSYNC pol 1 / fp 10 / pw 8 / bp 20 | `src/hw/panel.cpp` |
-| **Bounce buffers** | 2 × 40 lines (`BOUNCE_PX = 480 × 40`, 77 KB internal SRAM); needed once Wi-Fi is on (§2.7), 20 lines with two servers (§2.9), 40 for the stuck shift at boot (§2.10, on trial). **No cache writeback** after blits | `src/hw/panel.cpp`, `src/hw/screen.cpp` |
+| **Bounce buffers** | 2 × 40 lines (`BOUNCE_PX = 480 × 40`, 77 KB internal SRAM); needed once Wi-Fi is on (§2.7), 20 lines with two servers (§2.9), 40 for the stuck shift at boot (§2.10; fixed, may come back). **No cache writeback** after blits | `src/hw/panel.cpp`, `src/hw/screen.cpp` |
 | **Init sequence** | Arduino_GFX `st7701_type9_init_operations` **+ `0x20` INVOFF**, spliced in before the colour-mode command and re-sent 50 ms after `begin()` | `src/hw/panel.cpp` |
 | Rotation | 0 (native) | `src/hw/panel.cpp` |
 | **Backlight** | GPIO38, LEDC **1 kHz**, 8-bit, attached after `panel::begin()` | `src/hw/backlight.cpp` |
@@ -186,7 +186,7 @@ ready — touch the screen
   build (`CONFIG_LCD_RGB_ISR_IRAM_SAFE` off), so a glitch exactly on a tap
   would point there.
 
-### 2.10 Image shifted until reset, now and then at boot (on trial)
+### 2.10 Image shifted until reset, now and then at boot (fixed; may come back)
 
 - **Symptom (2026-11-08):** now and then, right after boot, the image is
   shifted and wrapped vertically, with stray pixels. Unlike §2.9 it never
@@ -212,10 +212,11 @@ ready — touch the screen
   4. Boot has the most flash activity (Wi-Fi reads and sometimes writes
      its PHY calibration data in NVS, Preferences reads) right after the
      RGB stream starts.
-- **Change (on trial):** bounce buffers 20 → 40 lines. A flash operation
-  now has to outlast ~1.8 ms before a refill can be skipped. That makes the
-  glitch rarer; it doesn't make it impossible. The user is running it for
-  a longer period to confirm.
+- **Fix (v0.1.3, 2026-11-08): bounce buffers 20 → 40 lines.** A flash
+  operation now has to outlast ~1.8 ms before a refill can be skipped.
+  Image clean after flashing; the user accepted it as the fix for now.
+  **It may come back:** this makes the glitch rarer, not impossible, and
+  the glitch was rare to begin with, so a short run can't prove it gone.
 - **Memory** (serial `mem` line, every 10 s; dgx042 idle, then serving two
   requests at ~67–76 tok/s for ~70 s; dick6000 was down):
 
@@ -228,14 +229,25 @@ ready — touch the screen
   `/metrics` is parsed as it streams in, so load doesn't change memory.
   The 6 KB dip to the lowest value happens during the first polls. Not
   measured yet: dick6000's 67 KB `/metrics` with both servers up.
-- **If it comes back with 40 lines:** lower PCLK (12 → 10 MHz, ~35 Hz),
-  start the RGB stream after Wi-Fi has initialised (keeping the
-  allocation order of §2.8), or rebuild the core with
-  `RESTART_IN_VSYNC` off (the driver then zeroes the count and restarts
-  each frame) or with IRAM-safe ISRs and `CONFIG_SPIRAM_XIP_FROM_PSRAM`.
-  The last two need Arduino as an ESP-IDF component
-  (`framework = arduino, espidf`), since this platform can't override the
-  prebuilt sdkconfig.
+- **If it comes back, next steps** (smallest first):
+  1. **Lower PCLK 12 → 10 MHz** (`PCLK_HZ`, `panel.cpp`; ~35 Hz refresh):
+     each bounce buffer then takes ~2.2 ms to send, so there's more margin
+     again. One line.
+  2. **Start the RGB stream after Wi-Fi has initialised**, so the boot-time
+     flash activity is over before the stream runs. Allocate the bounce
+     buffers before Wi-Fi as now (§2.8, internal RAM) and only start the
+     stream later. Needs a look at whether Arduino_GFX allows that split.
+     Taps that save to NVS could still trigger it, rarely.
+  3. **Rebuild the core with different sdkconfig** (the real fix):
+     `CONFIG_LCD_RGB_RESTART_IN_VSYNC` off, so the driver zeroes the count
+     and restarts the DMA whenever a frame had missed refills (one bad
+     frame instead of a stuck one); or IRAM-safe LCD/GDMA ISRs plus
+     `CONFIG_SPIRAM_XIP_FROM_PSRAM`, Espressif's fix. Either needs Arduino
+     as an ESP-IDF component (`framework = arduino, espidf`): this
+     platform can't override the prebuilt sdkconfig, builds get much
+     longer, and every display setting must be re-verified.
+  - Before choosing, note when it happened (at boot or right after a tap)
+    and keep the serial log if you can (`mem` line, taps).
 - **Recovery meanwhile:** a reset clears it (unplug, or a serial reset).
 
 ---
