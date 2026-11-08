@@ -91,6 +91,7 @@ Then edit `include/config.h`:
 #define WIFI_SSID   "your-2.4GHz-network"
 #define WIFI_PASS   "your-password"
 #define TZ_POSIX    "PST8PDT,M3.2.0,M11.1.0"   // your timezone as a POSIX TZ string
+#define HOSTNAME    "system-d-monitor"         // optional: the board's name on your network
 
 #define SERVERS {                                                          \
     {nullptr, "gpu-box.lan", 8000},    /* vLLM */                          \
