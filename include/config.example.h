@@ -25,3 +25,4 @@
 #define CONNECT_MS  800
 #define READ_MS     1500
 #define BRIGHTNESS_PCT 100        // first-boot backlight, % (then set in Settings)
+#define SERIAL_LOG  0             // 1 = log to USB serial (115200) for troubleshooting; 0 = silent

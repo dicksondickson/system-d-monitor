@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "poller.h"
+#include "serial_log.h"
 
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
@@ -82,23 +83,24 @@ bool fetchJson(Slot& s, const char* path, bool (*parse)(const char*, size_t, Ser
   http::Result r = http::get(s.cfg.host, s.cfg.port, path, toBuffer, &s.json, g_timing.connect_ms,
                              g_timing.read_ms);
   bool ok = r.err == http::Err::OK && parse(s.json.data, s.json.len, s.info);
-  Serial.printf("[%s] %-11s %s, %u B, %u ms%s\n", s.label, path, ok ? "ok" : "failed",
-                (unsigned)r.bytes, (unsigned)r.ms,
-                s.json.truncated ? " (truncated: over the JSON buffer)" : "");
+  LOGF("[%s] %-11s %s, %u B, %u ms%s\n", s.label, path, ok ? "ok" : "failed",
+       (unsigned)r.bytes, (unsigned)r.ms,
+       s.json.truncated ? " (truncated: over the JSON buffer)" : "");
   return ok;
 }
 
 // One line of derived values per poll, for checking the screen against the
 // server (and the Wi-Fi bars against the real signal).
 void logValues(Slot& s) {
+  if (!SERIAL_LOG) return;  // the fill() below is only for the log line
   View& v = s.log_view;
   xSemaphoreTake(s.lock, portMAX_DELAY);
   s.deriver.fill(v, millis(), g_timing.poll_ms, WifiLink::UP, 0);
   xSemaphoreGive(s.lock);
-  Serial.printf("[%s]   tg %.1f (eng %.1f) pp last %.1f%s run %.0f wait %.0f kv %.1f%% "
-                "ttft %.2fs mtp %.1f%% rssi %d dBm\n",
-                s.label, v.tg_live, v.tg_eng, v.pp_last, isnan(v.prefilling_s) ? "" : " PREFILLING",
-                v.running, v.waiting, v.kv_pct, v.ttft_cum, v.mtp_pct, net::rssi());
+  LOGF("[%s]   tg %.1f (eng %.1f) pp last %.1f%s run %.0f wait %.0f kv %.1f%% "
+       "ttft %.2fs mtp %.1f%% rssi %d dBm\n",
+       s.label, v.tg_live, v.tg_eng, v.pp_last, isnan(v.prefilling_s) ? "" : " PREFILLING",
+       v.running, v.waiting, v.kv_pct, v.ttft_cum, v.mtp_pct, net::rssi());
 }
 
 void task(void* arg) {
@@ -159,10 +161,10 @@ void task(void* arg) {
       bool restart = s.deriver.onSample(s.sample, id, s.info);
       xSemaphoreGive(s.lock);
       if (restart) need_models = need_info = true;
-      Serial.printf("[%s] /metrics    ok, %u B, %u ms, %s%s, %u lines (%u used)%s\n", s.label,
-                    (unsigned)r.bytes, (unsigned)r.ms, engineName(id.engine),
-                    id.confirmed ? "" : " (unconfirmed)", (unsigned)parser.lines(),
-                    (unsigned)parser.recognised(), restart ? ", RESTART" : "");
+      LOGF("[%s] /metrics    ok, %u B, %u ms, %s%s, %u lines (%u used)%s\n", s.label,
+           (unsigned)r.bytes, (unsigned)r.ms, engineName(id.engine),
+           id.confirmed ? "" : " (unconfirmed)", (unsigned)parser.lines(),
+           (unsigned)parser.recognised(), restart ? ", RESTART" : "");
       logValues(s);
     } else {
       char why[32];
@@ -176,8 +178,8 @@ void task(void* arg) {
         wait = BACKOFF_MS[i < BACKOFF_N ? i : BACKOFF_N - 1];
         need_models = need_info = true;  // re-read everything when it comes back
       }
-      Serial.printf("[%s] /metrics    FAILED: %s (%u ms), retry in %u ms\n", s.label, why,
-                    (unsigned)r.ms, (unsigned)wait);
+      LOGF("[%s] /metrics    FAILED: %s (%u ms), retry in %u ms\n", s.label, why,
+           (unsigned)r.ms, (unsigned)wait);
     }
     xSemaphoreTake(s.lock, portMAX_DELAY);
     s.retry_at = start + wait;
@@ -229,7 +231,7 @@ void setActive(int index) {
   s.poll_after = millis() + SWITCH_POLL_DELAY_MS;
   g_active = index;
   if (s.handle) xTaskNotifyGive(s.handle);  // polls after SWITCH_POLL_DELAY_MS
-  Serial.printf("[%s] polling (others paused)\n", s.label);
+  LOGF("[%s] polling (others paused)\n", s.label);
 }
 
 void setPollMs(uint32_t ms) { g_timing.poll_ms = ms; }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "panel.h"
+#include "serial_log.h"
 
 #include <vector>
 
@@ -84,7 +85,7 @@ Arduino_RGB_Display* begin() {
       spi, GFX_NOT_DEFINED /* RST */, g_init.data(), g_init.size());
   if (!gfx->begin()) return nullptr;
   if (!spliced) {
-    Serial.println("panel: type9 anchor not found, re-sending fixups after init");
+    LOGLN("panel: type9 anchor not found, re-sending fixups after init");
   }
   // Re-send after the RGB bus is up: the form proven on the panel
   // (docs/hardware-bringup.md §2.2); the copy in the init sequence is

@@ -30,7 +30,8 @@ dot lands under the finger.
 | **Backlight** | GPIO38, LEDC **1 kHz**, 8-bit, attached after `panel::begin()` | `src/hw/backlight.cpp` |
 | Touch | GT911 at I²C **0x5D**, SDA 19 / SCL 45, 400 kHz, polled ~30 Hz, product id "911", 480×480; raw coordinates match the display at rotation 0 with no transform | `src/hw/touch_gt911.cpp` |
 
-**Memory reference (v0.1.4, 2026-11-08).** From the serial `mem` line,
+**Memory reference (v0.1.4, 2026-11-08).** From the serial `mem` line
+(needs `SERIAL_LOG 1`),
 idle, dgx042 on screen (dick6000 configured but down and not polled, since
 only the server on screen is polled). Use it to spot a leak or a change that
 eats RAM. The 10 test boots and the 1–2 minute captures on 2026-11-08
@@ -345,7 +346,8 @@ alternative to type9 if ever needed.
 
 ## 4. If the screen breaks again
 
-1. **Check the serial log first** (`pio device monitor`). The boot log
+1. **Check the serial log first** (`pio device monitor`; set `SERIAL_LOG 1`
+   in `config.h` first, since release firmware is silent). The boot log
    (§1) should show `psram 8192 KB` and `panel ok`. `FATAL psram not found`
    means the `qio_opi` setting was lost. `panel begin failed` means the
    framebuffer allocation or RGB bus failed.

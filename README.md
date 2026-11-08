@@ -105,6 +105,9 @@ Then edit `include/config.h`:
 }
 ```
 
+- Optional settings further down `config.h`: `ROTATE_S`, `POLL_MS`,
+  `BRIGHTNESS_PCT` and `SERIAL_LOG` (0 = silent, the default; 1 = serial log
+  for troubleshooting).
 - Each entry in `SERVERS` is `{label, host, port}`, and there can be 1–4.
   A `nullptr` label shows the host up to its first dot.
 - Use a host name your router's DNS resolves (`gpu-box.lan`) or an IP
@@ -122,7 +125,7 @@ Then edit `include/config.h`:
 
 ```sh
 pio run -t upload           # builds, finds the serial port, flashes (~30 s)
-pio device monitor          # optional: serial log at 115200
+pio device monitor          # optional: serial log at 115200 (needs SERIAL_LOG 1)
 ```
 
 If it picks the wrong port, add `--upload-port <port>` (and `-p <port>` for
@@ -132,8 +135,10 @@ the monitor). Typical port names:
 - Linux: `/dev/ttyUSB0` (add yourself to the `dialout` group)
 - Windows: `COM3`
 
-**5. Done.** The board joins your Wi-Fi and starts polling. The serial log
-shows every poll:
+**5. Done.** The board joins your Wi-Fi and starts polling. The firmware is
+silent on serial by default. For troubleshooting, set `#define SERIAL_LOG 1`
+in `config.h` and flash again; the serial log then shows every poll, taps,
+server switches and a `mem` line every 10 s:
 
 ```
 [gpu-box] /metrics    ok, 67420 B, 198 ms, vLLM, 511 lines (19 used)
@@ -295,8 +300,8 @@ Board quirks to know before you change anything (details in
   holds off the display's interrupts; page and server are saved 9 s after
   the last switch.
 - **Memory:** about 101 KB of the 285 KB internal RAM stays free (lowest
-  95 KB), and 7.5 MB of the 8 MB PSRAM. The serial log prints a `mem` line
-  every 10 s; reference table in `docs/hardware-bringup.md` §1.
+  95 KB), and 7.5 MB of the 8 MB PSRAM. With `SERIAL_LOG 1` the serial log
+  prints a `mem` line every 10 s; reference table in `docs/hardware-bringup.md` §1.
 
 ## Credits
 

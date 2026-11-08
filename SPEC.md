@@ -83,7 +83,7 @@ two servers, 10-line buffers weren't enough (§2.9). With 20, the image now
 and then stayed shifted after boot until a reset (§2.10); 40 lines
 (v0.1.3) and starting Wi-Fi before the display (v0.1.4, so its boot-time
 flash work is done before the RGB stream runs) fixed it, though it may
-come back (next steps in §2.10). The serial log prints free memory every 10 s (`mem …`).
+come back (next steps in §2.10). With `SERIAL_LOG 1` the serial log prints free memory every 10 s (`mem …`).
 Reference (v0.1.4, idle): internal RAM 101 of 285 KB free (lowest 95 KB,
 largest block 57 KB), PSRAM 7692 of 8192 KB free; the full table is in
 bring-up §1.
@@ -675,6 +675,7 @@ Settings action) for checking touch targets.
 #define CONNECT_MS  800
 #define READ_MS     1500
 #define BRIGHTNESS_PCT 100        // first-boot backlight, % (then set in Settings)
+#define SERIAL_LOG  0             // 1 = log to USB serial (115200) for troubleshooting; 0 = silent
 ```
 
 `src/app_config.h` turns `SERVERS` into `kServers[]` (1–4 entries,
@@ -682,7 +683,14 @@ checked at compile time). `HOSTNAME` defaults to `system-d-monitor` and is
 checked at compile time too: 1–31 letters, digits or hyphens, no hyphen at
 either end (the core keeps 31 characters and silently drops the rest). It is
 set with `WiFi.setHostname()` before `WiFi.mode()`, which is where the core
-applies it. An older single-server config with
+applies it. `SERIAL_LOG` defaults to 0 (user, 2026-11-08: "release
+firmware should not be writing to serial"): every log call goes through
+`LOGF()` / `LOGLN()` in `src/serial_log.h`, which compile to nothing,
+`Serial.begin()` is skipped, and `esp_log_level_set("*", ESP_LOG_NONE)`
+silences ESP-IDF and driver logs. Only the chip's ROM boot lines
+(`ESP-ROM:esp32s3…`, 9 lines) still appear; firmware can't turn those off.
+`1` restores the full log (polls, values, taps, switches, saves, `mem`).
+Logging off is 12 KB less flash. An older single-server config with
 `SERVER_HOST`/`SERVER_PORT` still works. It uses `config.h` if it exists. Otherwise it builds from
 the example with Wi-Fi off, the footer reads `no include/config.h`, and the
 compiler prints a `#warning`.

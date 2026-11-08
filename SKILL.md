@@ -36,7 +36,8 @@ and check the screen.
 Optional, with defaults: refresh `POLL_MS` (2000), auto-rotate between
 servers `ROTATE_S` (0 = off), first-boot `BRIGHTNESS_PCT` (100), network
 name `HOSTNAME` (`system-d-monitor`; 1–31 letters, digits or hyphens, no
-hyphen at either end, or the build fails). Refresh,
+hyphen at either end, or the build fails), serial log `SERIAL_LOG` (0 =
+silent, the default; 1 = for troubleshooting). Refresh,
 brightness and theme can also be changed later on the board's Settings screen.
 
 ## 2. Check the servers from this computer
@@ -150,7 +151,9 @@ Touch: left / right third = previous / next server, centre = overview ↔
 graphs, bottom-left corner `≡` = Settings, hold about 3 s = screen off.
 
 If you need the serial log (115200 baud; it shows each poll, taps, and a
-`mem …` free-memory line every 10 s): `pio device monitor` only runs in
+`mem …` free-memory line every 10 s): the firmware is silent by default, so
+first set `#define SERIAL_LOG 1` in `include/config.h` and flash again (set
+it back to 0 afterwards; release firmware shouldn't log). Then: `pio device monitor` only runs in
 an interactive terminal, so ask the user to run it themselves (in Claude
 Code: `! pio device monitor`), and to quit it (Ctrl-C) before you flash
 again, because it holds the port.

@@ -22,6 +22,12 @@ jobs:
         run: pio test -e native
       - name: "Firmware build (no config.h: builds from the template)"
         run: pio run -e board
+      - name: "Firmware build with SERIAL_LOG 1 (the troubleshooting log)"
+        run: |
+          sed 's/^#define SERIAL_LOG  *0/#define SERIAL_LOG  1/' include/config.example.h > include/config.h
+          grep -q '^#define SERIAL_LOG  1' include/config.h
+          pio run -e board
+          rm include/config.h
       - name: Generated files are up to date
         run: |
           python3 tools/font/mkfont.py

@@ -40,6 +40,11 @@ static_assert(kServerCount >= 1 && kServerCount <= 4, "SERVERS: 1 to 4 entries")
 #define ROTATE_S 0  // auto-advance to the next server every N s (0 = off)
 #endif
 
+#ifndef SERIAL_LOG
+#define SERIAL_LOG 0  // 1 = log to USB serial for troubleshooting; 0 = silent (release)
+#endif
+static_assert(SERIAL_LOG == 0 || SERIAL_LOG == 1, "SERIAL_LOG: 0 or 1");
+
 #ifndef HOSTNAME
 #define HOSTNAME "system-d-monitor"  // name the board gives the router (DHCP)
 #endif

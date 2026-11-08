@@ -16,8 +16,10 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <esp_heap_caps.h>
+#include <esp_log.h>
 
 #include "app_config.h"
+#include "serial_log.h"
 #include "board_pins.h"
 #include "gfx/grid.h"
 #include "gfx/theme.h"
@@ -72,12 +74,12 @@ void saveIfSettled(uint32_t now) {
   if (server != saved_server) {
     prefs.putUChar("server", (uint8_t)server);
     saved_server = (uint8_t)server;
-    Serial.printf("saved server %d\n", server);
+    LOGF("saved server %d\n", server);
   }
   if (p != saved_page) {
     prefs.putUChar("page", p);
     saved_page = p;
-    Serial.printf("saved page %u\n", p);
+    LOGF("saved page %u\n", p);
   }
 }
 uint32_t last_rotate = 0, last_touch_ms = 0;
@@ -135,7 +137,7 @@ void openSettings() {
 void setTheme(int index) {
   theme_index = index;
   prefs.putString("theme", theme::get(theme_index).name);
-  Serial.printf("theme -> %s\n", theme::get(theme_index).name);
+  LOGF("theme -> %s\n", theme::get(theme_index).name);
   screen::invalidate();
   redraw();
 }
@@ -147,7 +149,7 @@ void stepPoll(int dir) {
   if (i < 0 || i >= pages::POLL_OPTION_COUNT) return;
   poller::setPollMs(pages::POLL_OPTIONS_MS[i]);
   prefs.putUInt("poll_ms", pages::POLL_OPTIONS_MS[i]);
-  Serial.printf("poll -> %u ms\n", (unsigned)pages::POLL_OPTIONS_MS[i]);
+  LOGF("poll -> %u ms\n", (unsigned)pages::POLL_OPTIONS_MS[i]);
   redraw();
 }
 
@@ -159,15 +161,15 @@ void stepBrightness(int dir) {
   brightness_pct = pages::BRIGHTNESS_OPTIONS_PCT[i];
   backlight::set(pages::brightnessDuty(brightness_pct));
   prefs.putUChar("bright_pct", brightness_pct);
-  Serial.printf("brightness -> %u%% (duty %u)\n", brightness_pct, pages::brightnessDuty(brightness_pct));
+  LOGF("brightness -> %u%% (duty %u)\n", brightness_pct, pages::brightnessDuty(brightness_pct));
   redraw();
 }
 
 void onSettingsTap(int x, int y) {
   pages::SettingsHit h = pages::settingsHit(x, y, settingsState());
-  static const char* const KIND[] = {"none",  "refresh -", "refresh +", "brightness -", "brightness +",
+  [[maybe_unused]] static const char* const KIND[] = {"none",  "refresh -", "refresh +", "brightness -", "brightness +",
                                      "theme", "page -",    "page +",    "done"};
-  Serial.printf("  -> %s%s\n", KIND[h.kind], h.kind == pages::SettingsHit::THEME ? theme::get(h.theme).name : "");
+  LOGF("  -> %s%s\n", KIND[h.kind], h.kind == pages::SettingsHit::THEME ? theme::get(h.theme).name : "");
   switch (h.kind) {
     case pages::SettingsHit::POLL_PREV: return stepPoll(-1);
     case pages::SettingsHit::POLL_NEXT: return stepPoll(+1);
@@ -191,13 +193,13 @@ void showServer(int index) {
   server = (index + kServerCount) % kServerCount;
   poller::setActive(server);
   markChanged();
-  Serial.printf("server -> %d (%s)\n", server, kServers[server].host);
+  LOGF("server -> %d (%s)\n", server, kServers[server].host);
   redraw();
 }
 
 void onTap(int x, int y) {
-  Serial.printf("tap x=%d y=%d (col %d, row %d) on %s\n", x, y, x / 10, y / 24,
-                page == pages::Page::SETTINGS ? "settings" : "dashboard");
+  LOGF("tap x=%d y=%d (col %d, row %d) on %s\n", x, y, x / 10, y / 24,
+       page == pages::Page::SETTINGS ? "settings" : "dashboard");
   if (page == pages::Page::SETTINGS) return onSettingsTap(x, y);
   if (pages::isSettingsCorner(x, y)) return openSettings();
   if (kServerCount > 1 && x < SCREEN_W / 3) return showServer(server - 1);
@@ -210,14 +212,14 @@ void onTap(int x, int y) {
 void sleepScreen() {
   asleep = true;
   backlight::set(0);
-  Serial.println("screen -> off");
+  LOGLN("screen -> off");
 }
 
 void wakeScreen() {
   asleep = false;
   redraw();  // catch up first, so the backlight comes on over a fresh frame
   backlight::set(pages::brightnessDuty(brightness_pct));
-  Serial.println("screen -> on");
+  LOGLN("screen -> on");
 }
 
 // Free memory on the serial log. Internal RAM is shared by Wi-Fi, the LCD
@@ -226,14 +228,15 @@ void wakeScreen() {
 constexpr uint32_t MEM_LOG_MS = 10000;
 constexpr uint32_t WIFI_START_WAIT_MS = 2000;  // cap on the wait before the display starts
 void logMemory(const char* when) {
-  const auto kb = [](size_t b) { return (unsigned)(b / 1024); };
-  Serial.printf("mem %s: internal %u of %u KB free (min %u, largest block %u), dma %u KB, psram %u of %u KB free\n",
-                when, kb(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),
-                kb(heap_caps_get_total_size(MALLOC_CAP_INTERNAL)),
-                kb(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL)),
-                kb(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)),
-                kb(heap_caps_get_free_size(MALLOC_CAP_DMA)), kb(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)),
-                kb(heap_caps_get_total_size(MALLOC_CAP_SPIRAM)));
+  if (!SERIAL_LOG) return;
+  [[maybe_unused]] const auto kb = [](size_t b) { return (unsigned)(b / 1024); };
+  LOGF("mem %s: internal %u of %u KB free (min %u, largest block %u), dma %u KB, psram %u of %u KB free\n",
+       when, kb(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),
+       kb(heap_caps_get_total_size(MALLOC_CAP_INTERNAL)),
+       kb(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL)),
+       kb(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)),
+       kb(heap_caps_get_free_size(MALLOC_CAP_DMA)), kb(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)),
+       kb(heap_caps_get_total_size(MALLOC_CAP_SPIRAM)));
 }
 
 void pollTouch(uint32_t now) {
@@ -270,12 +273,16 @@ void pollTouch(uint32_t now) {
 }  // namespace
 
 void setup() {
+#if SERIAL_LOG
   Serial.begin(115200);
   delay(200);
-  Serial.printf("\n\nsystem-d monitor — %d server(s), poll %u ms%s\n", kServerCount,
-                (unsigned)POLL_MS, CONFIG_PRESENT ? "" : " (no config.h: Wi-Fi off)");
+#else
+  esp_log_level_set("*", ESP_LOG_NONE);  // silent release: no ESP-IDF / driver logs either
+#endif
+  LOGF("\n\nsystem-d monitor — %d server(s), poll %u ms%s\n", kServerCount,
+       (unsigned)POLL_MS, CONFIG_PRESENT ? "" : " (no config.h: Wi-Fi off)");
   for (int i = 0; i < kServerCount; i++)
-    Serial.printf("  [%d] %s:%u\n", i, kServers[i].host, (unsigned)kServers[i].port);
+    LOGF("  [%d] %s:%u\n", i, kServers[i].host, (unsigned)kServers[i].port);
 
   logMemory("at boot");
   prefs.begin("sysd", false);
@@ -289,7 +296,7 @@ void setup() {
 
   touch::Info tinfo;
   touch_ok = touch::begin(&tinfo);
-  Serial.printf("touch %s\n", touch_ok ? "ok" : "not found");
+  LOGF("touch %s\n", touch_ok ? "ok" : "not found");
 
   // Wi-Fi before the display: its start-up reads and writes flash (PHY
   // calibration, saved config), and a long flash operation while the RGB
@@ -298,11 +305,11 @@ void setup() {
   net::begin(WIFI_SSID, WIFI_PASS, TZ_POSIX, HOSTNAME);
   const uint32_t wait_from = millis();
   while (!net::started() && millis() - wait_from < WIFI_START_WAIT_MS) delay(10);
-  Serial.printf("wifi: started after %u ms\n", (unsigned)(millis() - wait_from));
+  LOGF("wifi: started after %u ms\n", (unsigned)(millis() - wait_from));
 
   gfx = panel::begin();
   if (!gfx) {
-    Serial.println("FATAL panel begin failed (psram / RGB bus)");
+    LOGLN("FATAL panel begin failed (psram / RGB bus)");
     return;
   }
   screen::begin(gfx);
