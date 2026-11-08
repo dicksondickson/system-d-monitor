@@ -290,6 +290,9 @@ Board quirks to know before you change anything (details in
 - **Flash writes:** keep them away from screen updates. A flash write
   holds off the display's interrupts; page and server are saved 9 s after
   the last switch.
+- **Memory:** about 101 KB of the 285 KB internal RAM stays free (lowest
+  95 KB), and 7.5 MB of the 8 MB PSRAM. The serial log prints a `mem` line
+  every 10 s; reference table in `docs/hardware-bringup.md` §1.
 
 ## Credits
 

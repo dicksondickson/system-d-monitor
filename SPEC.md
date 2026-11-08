@@ -83,8 +83,10 @@ two servers, 10-line buffers weren't enough (§2.9). With 20, the image now
 and then stayed shifted after boot until a reset (§2.10); 40 lines
 (v0.1.3) and starting Wi-Fi before the display (v0.1.4, so its boot-time
 flash work is done before the RGB stream runs) fixed it, though it may
-come back (next steps in §2.10). The serial log prints free memory every 10 s (`mem …`):
-101 KB internal free with 40-line buffers.
+come back (next steps in §2.10). The serial log prints free memory every 10 s (`mem …`).
+Reference (v0.1.4, idle): internal RAM 101 of 285 KB free (lowest 95 KB,
+largest block 57 KB), PSRAM 7692 of 8192 KB free; the full table is in
+bring-up §1.
 With bounce buffers the framebuffer is read through the CPU cache, so
 `screen::present()` does **no** cache writeback.
 

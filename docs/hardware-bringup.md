@@ -30,6 +30,31 @@ dot lands under the finger.
 | **Backlight** | GPIO38, LEDC **1 kHz**, 8-bit, attached after `panel::begin()` | `src/hw/backlight.cpp` |
 | Touch | GT911 at I²C **0x5D**, SDA 19 / SCL 45, 400 kHz, polled ~30 Hz, product id "911", 480×480; raw coordinates match the display at rotation 0 with no transform | `src/hw/touch_gt911.cpp` |
 
+**Memory reference (v0.1.4, 2026-11-08).** From the serial `mem` line,
+idle, dgx042 on screen (dick6000 configured but down and not polled, since
+only the server on screen is polled). Use it to spot a leak or a change that
+eats RAM. The 10 test boots and the 1–2 minute captures on 2026-11-08
+all matched to within 1–2 KB; no long soak yet.
+
+| Point (serial line) | Internal RAM free of 285 KB (used) | Largest free block | DMA-capable free | PSRAM free of 8192 KB (used) |
+|---|---|---|---|---|
+| `mem at boot` (before Wi-Fi) | 246 KB (39) | 183 KB | 238 KB | 8188 KB (4) |
+| `mem after panel` (Wi-Fi started + panel) | 122 KB (163) | 79 KB | 114 KB | 7726 KB (466) |
+| `mem after setup` (+ poller tasks, first frame) | 99 KB (186) | 57 KB | 92 KB | 7693 KB (499) |
+| `mem now`, steady while polling | **101 KB (184)** | 57 KB | 94 KB | 7692 KB (500) |
+| lowest since boot (`min`) | **95 KB (190)** | | | |
+
+- The biggest users: the two 40-line bounce buffers (77 KB internal), Wi-Fi
+  and the 10 KB stack per poller task (one per configured server) in
+  internal RAM; the 450 KB framebuffer in PSRAM. 20-line buffers left
+  139 KB / 133 KB internal free (§2.10).
+- Idle and busy read the same (measured 2026-11-08 with two concurrent
+  requests): everything is allocated at start-up and `/metrics` is parsed
+  as it streams in.
+- Not measured yet: with dick6000 (67 KB `/metrics`) up and on screen.
+- Build size (`pio run`): static RAM 104,204 of 327,680 B (31.8 %); app
+  1,072,006 of 6,553,600 B flash (16.4 %).
+
 Boot log of a healthy board:
 
 ```

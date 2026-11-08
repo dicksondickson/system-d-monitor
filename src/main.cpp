@@ -227,11 +227,13 @@ constexpr uint32_t MEM_LOG_MS = 10000;
 constexpr uint32_t WIFI_START_WAIT_MS = 2000;  // cap on the wait before the display starts
 void logMemory(const char* when) {
   const auto kb = [](size_t b) { return (unsigned)(b / 1024); };
-  Serial.printf("mem %s: internal %u KB free (min %u, largest block %u), dma %u KB, psram %u KB free\n",
+  Serial.printf("mem %s: internal %u of %u KB free (min %u, largest block %u), dma %u KB, psram %u of %u KB free\n",
                 when, kb(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),
+                kb(heap_caps_get_total_size(MALLOC_CAP_INTERNAL)),
                 kb(heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL)),
                 kb(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)),
-                kb(heap_caps_get_free_size(MALLOC_CAP_DMA)), kb(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)));
+                kb(heap_caps_get_free_size(MALLOC_CAP_DMA)), kb(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)),
+                kb(heap_caps_get_total_size(MALLOC_CAP_SPIRAM)));
 }
 
 void pollTouch(uint32_t now) {
