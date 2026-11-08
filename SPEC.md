@@ -40,7 +40,8 @@ totals, engine-time totals, multi-prefill, kept prompts, spill tier,
 latency percentiles, model card, process/VRAM memory.
 
 **Later:** an all-servers summary page, web config, OTA, p50/p99
-from histogram buckets, auto-dim on idle. (vLLM support and multiple
+from histogram buckets, auto-dim on idle, 90° screen rotation (on hold,
+§12). (vLLM support and multiple
 servers with left/right navigation and optional auto-rotate were "later"
 items; both landed 2026-11-01.) §10 keeps
 the code shaped so these can be added without rewrites.
@@ -753,6 +754,29 @@ third_party/terminus/  ter-u20n.bdf ter-u20b.bdf OFL.TXT
 - Renderer: custom char grid on Arduino_GFX, no LVGL.
 - Density: 48 × 20 cells of 10 × 24 px (Terminus 10 × 20 + 4 px leading; was 48 × 24 until the user asked for more line spacing).
 - Orientation: native (rotation 0).
+- **90° rotation: on hold (user, 2026-11-08)** for a possible performance
+  hit. Wanted: `SCREEN_ROTATION` in `config.h` only (not in Settings), `0`
+  = USB-C on the right (today), `90` = USB-C at the bottom with the screen
+  facing the user; `180`/`270` would cost a few lines more. It has to be
+  software: the ST7701 on the RGB bus can only mirror, and Arduino_GFX's
+  rotation only applies to its own drawing calls, which the renderer
+  bypasses. Planned shape:
+  - `screen::present()` walks cell columns instead of cell rows when
+    rotated: each cell is rasterised as now, transposed into a 480 × 10
+    band in internal SRAM (10 × 24 temp), and a column becomes 10 full,
+    sequential framebuffer lines, so PSRAM writes stay long like today.
+  - Touch: one transform in `pollTouch()` (`lx = 479 − py`, `ly = px`
+    for USB-C at the bottom, derived on paper, not verified). The 48 × 20
+    grid is square, so no page layout changes.
+  - Rotation is compile-time, so a `0` build is unchanged.
+  - Estimated cost at `90`: ~1–2 µs per cell for the transpose (~1–2 ms on
+    the 28 ms full repaint), and partial updates split into more, shorter
+    PSRAM writes (an 8-digit number: 80 × 48 B instead of 24 × 160 B).
+  - **Why on hold:** PSRAM is shared by the framebuffer, the LCD bounce
+    refills and Wi-Fi, and the extra write bursts could bring back the
+    §2.9 glitches with two servers (bring-up notes). If resumed: log
+    redraw time per present, compare `0` and `90`, and soak with both
+    servers polling.
 - **Header shows the server's name** (`dgx042`), not the monitor's IP.
 - **PP on both engines:** no live prefill rate. The PP row shows `PP last
   <rate>` plus `prefilling Ns` while a prefill runs, and the PP
