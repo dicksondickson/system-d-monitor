@@ -31,7 +31,9 @@ and check the screen.
 | Time zone | only if you can't read it from their computer (step 3) |
 
 Optional, with defaults: refresh `POLL_MS` (2000), auto-rotate between
-servers `ROTATE_S` (0 = off), first-boot `BRIGHTNESS_PCT` (100). Refresh,
+servers `ROTATE_S` (0 = off), first-boot `BRIGHTNESS_PCT` (100), network
+name `HOSTNAME` (`system-d-monitor`; 1–31 letters, digits or hyphens, no
+hyphen at either end, or the build fails). Refresh,
 brightness and theme can also be changed later on the board's Settings screen.
 
 ## 2. Check the servers from this computer

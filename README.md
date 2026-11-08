@@ -34,7 +34,7 @@ are btop's. See [Credits](#credits).
 
 ## Changelog
 
-v0.1.1 - 2026-11-03 - Support for the later TensorFold build; PP counts only computed prompt tokens
+v0.1.2 - 2026-11-08 - Set the board's network hostname with `HOSTNAME`
 
 All releases: [`CHANGELOG.md`](CHANGELOG.md)
 
@@ -103,6 +103,9 @@ Then edit `include/config.h`:
 - Use a host name your router's DNS resolves (`gpu-box.lan`) or an IP
   address. The ESP32 has no DNS search domain, so a bare `gpu-box` won't
   resolve.
+- `HOSTNAME` (optional, default `system-d-monitor`) is the name the board
+  gives your router. Many routers then resolve it, e.g. `system-d-monitor.lan`.
+  Up to 31 letters, digits or hyphens; anything else fails the build.
 - **Time zone:** the last line of `/usr/share/zoneinfo/<Area>/<City>` on
   macOS or Linux, or see this
   [list of POSIX TZ strings](https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv).

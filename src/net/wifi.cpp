@@ -15,19 +15,20 @@ bool g_ever_up = false;
 uint32_t g_begin_ms = 0;
 }
 
-void begin(const char* ssid, const char* pass, const char* tz) {
+void begin(const char* ssid, const char* pass, const char* tz, const char* hostname) {
   if (!ssid || !ssid[0]) {
     Serial.println("wifi: no SSID configured (include/config.h), staying offline");
     return;
   }
   g_enabled = true;
+  WiFi.setHostname(hostname);  // must come before mode(): that's where the core applies it
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
   WiFi.setSleep(false);  // lower latency for 2 s polls; we're on USB power
   WiFi.begin(ssid, pass);
   g_begin_ms = millis();
   configTzTime(tz, "pool.ntp.org", "time.cloudflare.com");
-  Serial.printf("wifi: connecting to \"%s\"\n", ssid);
+  Serial.printf("wifi: connecting to \"%s\" as %s\n", ssid, hostname);
 }
 
 bool up() { return g_enabled && WiFi.status() == WL_CONNECTED; }

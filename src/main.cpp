@@ -30,7 +30,7 @@
 
 namespace {
 
-constexpr char FW_VERSION[] = "v0.1.1";  // shown top-right in Settings; keep in step with CHANGELOG.md
+constexpr char FW_VERSION[] = "v0.1.2";  // shown top-right in Settings; keep in step with CHANGELOG.md
 constexpr uint32_t TOUCH_POLL_MS = 33;  // ~30 Hz
 constexpr uint32_t TAP_MAX_MS = 500;    // SPEC.md §9
 constexpr uint32_t HOLD_MS = 700;
@@ -248,7 +248,7 @@ void setup() {
   touch_ok = touch::begin(&tinfo);
   Serial.printf("touch %s\n", touch_ok ? "ok" : "not found");
 
-  net::begin(WIFI_SSID, WIFI_PASS, TZ_POSIX);
+  net::begin(WIFI_SSID, WIFI_PASS, TZ_POSIX, HOSTNAME);
   poller::begin(kServers, kServerCount, poll_ms, CONNECT_MS, READ_MS);
 
   redraw();

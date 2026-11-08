@@ -640,6 +640,7 @@ Settings action) for checking touch targets.
 #define WIFI_SSID   ""          // 2.4 GHz network (the ESP32-S3 has no 5 GHz)
 #define WIFI_PASS   ""
 #define TZ_POSIX    "PST8PDT,M3.2.0,M11.1.0"   // header clock; POSIX TZ string
+#define HOSTNAME    "system-d-monitor"         // name on the router (DHCP); up to 31 letters, digits, hyphens
 
 // Servers to monitor, 1–4: { name, host, port }. name nullptr = host up to
 // the first dot. Use host names the router's DNS knows ("dgx042.lan"): the
@@ -656,7 +657,11 @@ Settings action) for checking touch targets.
 ```
 
 `src/app_config.h` turns `SERVERS` into `kServers[]` (1–4 entries,
-checked at compile time). An older single-server config with
+checked at compile time). `HOSTNAME` defaults to `system-d-monitor` and is
+checked at compile time too: 1–31 letters, digits or hyphens, no hyphen at
+either end (the core keeps 31 characters and silently drops the rest). It is
+set with `WiFi.setHostname()` before `WiFi.mode()`, which is where the core
+applies it. An older single-server config with
 `SERVER_HOST`/`SERVER_PORT` still works. It uses `config.h` if it exists. Otherwise it builds from
 the example with Wi-Fi off, the footer reads `no include/config.h`, and the
 compiler prints a `#warning`.

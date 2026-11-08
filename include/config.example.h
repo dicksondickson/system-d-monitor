@@ -10,6 +10,7 @@
 #define WIFI_SSID   ""          // 2.4 GHz network (the ESP32-S3 has no 5 GHz)
 #define WIFI_PASS   ""
 #define TZ_POSIX    "PST8PDT,M3.2.0,M11.1.0"   // header clock; POSIX TZ string
+#define HOSTNAME    "system-d-monitor"         // name on the router (DHCP); up to 31 letters, digits, hyphens
 
 // Servers to monitor, 1–4: { name, host, port }. name nullptr = host up to
 // the first dot. Use a host name your router's DNS knows (e.g. "gpu-box.lan")

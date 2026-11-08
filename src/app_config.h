@@ -39,3 +39,21 @@ static_assert(kServerCount >= 1 && kServerCount <= 4, "SERVERS: 1 to 4 entries")
 #ifndef ROTATE_S
 #define ROTATE_S 0  // auto-advance to the next server every N s (0 = off)
 #endif
+
+#ifndef HOSTNAME
+#define HOSTNAME "system-d-monitor"  // name the board gives the router (DHCP)
+#endif
+
+// RFC 1123 label: letters, digits and hyphens, no hyphen at either end. The
+// core keeps 31 characters and silently cuts the rest, so longer is an error.
+constexpr bool validHostname(const char* s, int n) {
+  if (n < 1 || n > 31 || s[0] == '-' || s[n - 1] == '-') return false;
+  for (int i = 0; i < n; i++) {
+    const char c = s[i];
+    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-'))
+      return false;
+  }
+  return true;
+}
+static_assert(validHostname(HOSTNAME, sizeof(HOSTNAME) - 1),
+              "HOSTNAME: 1-31 letters, digits or hyphens, no hyphen at either end");

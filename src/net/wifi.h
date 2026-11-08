@@ -9,8 +9,9 @@
 namespace net {
 
 // Station mode with auto-reconnect, plus SNTP for the header clock.
-// An empty SSID leaves Wi-Fi off.
-void begin(const char* ssid, const char* pass, const char* tz);
+// hostname is the name sent to the router over DHCP. An empty SSID leaves
+// Wi-Fi off.
+void begin(const char* ssid, const char* pass, const char* tz, const char* hostname);
 
 bool up();
 
