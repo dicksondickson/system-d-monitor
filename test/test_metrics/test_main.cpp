@@ -426,6 +426,23 @@ static void test_tf_health_build_values() {
   TEST_ASSERT_EQUAL_STRING("1.1.8", old.version);
 }
 
+// dgx042, 2026-11-08: /health grew to 2710 B (kv spill, kept-prompt and
+// per-conversation details). Over the old 2048 B buffer it was truncated and
+// failed to parse; see Buffer in src/net/poller.cpp.
+static void test_tf_health_large() {
+  std::string h = readFixtureIn("tensorfold-2026-11-08-idle", "health.json");
+  TEST_ASSERT_GREATER_THAN(2048, (int)h.size());
+  ServerInfo info;
+  TEST_ASSERT_TRUE(parseHealth(h.data(), h.size(), info));
+  TEST_ASSERT_TRUE(info.health_ok);
+  TEST_ASSERT_TRUE(info.tf_backend);
+  TEST_ASSERT_EQUAL_FLOAT(4, info.max_batch);
+  TEST_ASSERT_EQUAL_FLOAT(1048576, info.context_length);  // last key: only seen if nothing is cut
+
+  ServerInfo cut;  // what the 2048 B buffer passed on
+  TEST_ASSERT_FALSE(parseHealth(h.data(), 2047, cut));
+}
+
 static void test_tf_health_build_live_tg_and_pp() {
   Sample base = parse(readTfNew("metrics.txt"));
   ServerInfo info = tfNewInfo();
@@ -608,6 +625,7 @@ int main() {
   RUN_TEST(test_not_an_engine);
   RUN_TEST(test_prefilling_and_per_request_pp);
   RUN_TEST(test_tf_health_build_values);
+  RUN_TEST(test_tf_health_large);
   RUN_TEST(test_tf_health_build_live_tg_and_pp);
   RUN_TEST(test_vllm_fixture_values);
   RUN_TEST(test_vllm_identified_and_confirmed);

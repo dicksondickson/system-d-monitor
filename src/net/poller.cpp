@@ -27,15 +27,20 @@ struct Timing {
   uint32_t connect_ms, read_ms;
 } g_timing;
 
-// Collects a small JSON body.
+// Collects a small JSON body. TensorFold's /health grew to 2.7 KB on the
+// 2026-11 build (per-stream details), so 8 KB leaves headroom.
 struct Buffer {
-  char data[2048];
+  char data[8192];
   size_t len = 0;
+  bool truncated = false;
 };
 void toBuffer(const char* d, size_t n, void* ctx) {
   Buffer* b = (Buffer*)ctx;
   size_t room = sizeof b->data - 1 - b->len;
-  if (n > room) n = room;
+  if (n > room) {
+    n = room;
+    b->truncated = true;
+  }
   memcpy(b->data + b->len, d, n);
   b->len += n;
 }
@@ -62,11 +67,13 @@ std::atomic<uint32_t> g_generation[4];
 
 bool fetchJson(Slot& s, const char* path, bool (*parse)(const char*, size_t, ServerInfo&)) {
   s.json.len = 0;
+  s.json.truncated = false;
   http::Result r = http::get(s.cfg.host, s.cfg.port, path, toBuffer, &s.json, g_timing.connect_ms,
                              g_timing.read_ms);
   bool ok = r.err == http::Err::OK && parse(s.json.data, s.json.len, s.info);
-  Serial.printf("[%s] %-11s %s, %u B, %u ms\n", s.label, path, ok ? "ok" : "failed",
-                (unsigned)r.bytes, (unsigned)r.ms);
+  Serial.printf("[%s] %-11s %s, %u B, %u ms%s\n", s.label, path, ok ? "ok" : "failed",
+                (unsigned)r.bytes, (unsigned)r.ms,
+                s.json.truncated ? " (truncated: over the JSON buffer)" : "");
   return ok;
 }
 

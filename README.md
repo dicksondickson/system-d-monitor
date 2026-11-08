@@ -34,7 +34,7 @@ are btop's. See [Credits](#credits).
 
 ## Changelog
 
-v0.1.2 - 2026-11-08 - Set the board's network hostname with `HOSTNAME`
+v0.1.2 - 2026-11-08 - Set the board's network hostname with `HOSTNAME`; read TensorFold's larger `/health`
 
 All releases: [`CHANGELOG.md`](CHANGELOG.md)
 
