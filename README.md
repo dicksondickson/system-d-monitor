@@ -12,6 +12,13 @@ Inspired by [btop](https://github.com/aristocratos/btop),
 [nv-monitor](https://github.com/wentbackward/nv-monitor). The colour themes
 are btop's. See [Credits](#credits).
 
+<p>
+  <img src="docs/images/dock-front.jpeg" width="56%" alt="SYSTEM-D Monitor on its 3D-printed desk dock, showing a TensorFold server's throughput, streams and averages">
+  <img src="docs/images/dock-side.jpeg" width="42%" alt="Side view of the board tilted back on the 3D-printed dock">
+</p>
+
+<sub>The board on its 3D-printed dock. Get it on [MakerWorld](https://makerworld.com/en/models/3580337-dock-for-esp32-4-inch-touch-screen-guition-esp32#profileId-4099538).</sub>
+
 ![SYSTEM-D Monitor running on the board: switching pages, opening Settings and changing theme](docs/images/demo.gif)
 
 ![Overview](docs/images/overview.png) ![Graphs](docs/images/graphs.png)
@@ -50,6 +57,7 @@ All releases: [`CHANGELOG.md`](CHANGELOG.md)
 | **Board** | **Guition ESP32-S3-4848S040** (also listed as "JCZN" / "ESP32-4848S040" / "4 inch 86 box smart display"): ESP32-S3-WROOM-1 **N16R8** (16 MB flash, 8 MB PSRAM), 480×480 ST7701 IPS panel, GT911 touch. The variants with or without relays and the bottom shell all work. The one used here was bought on **AliExpress** for about **CA$37**: search for "ESP32-S3 4.0 Inch Smart Display Development Board" or "ESP32-4848S040" |
 | **Cable** | USB-C **data** cable (a charge-only cable won't show up as a serial port) |
 | **Power** | 5 V USB, about **210 mA (≈ 1 W)** measured while running this firmware on Wi-Fi. Any USB port or phone charger will do; Wi-Fi bursts briefly draw more, so avoid weak hubs |
+| **Dock** (optional) | 3D-printed desk stand that holds the board tilted back, on [MakerWorld](https://makerworld.com/en/models/3580337-dock-for-esp32-4-inch-touch-screen-guition-esp32#profileId-4099538) |
 | **Computer** | macOS, Linux or Windows, with Python 3.9+ for PlatformIO |
 | **Wi-Fi** | a **2.4 GHz** network (the ESP32-S3 has no 5 GHz radio) on the same LAN as your servers |
 | **Servers** | vLLM (V1 metrics; tested with 0.33) or TensorFold (tested with 1.1.8 and a later build that exports `tensorfold_health:*`), reachable over plain HTTP with no auth on `/metrics` |
