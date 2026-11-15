@@ -1,5 +1,12 @@
 # Changelog
 
+**v0.1.8 - 2026-11-15**
+
+- Clock sync never overlaps a metrics request: the NTP query is sent in the gap after a poll
+- `NTP_SERVERS` and `NTP_SYNC_H` in `config.h` (defaults: `pool.ntp.org`, `time.cloudflare.com`, every 12 hours); use a local NTP server on a network without internet
+- If NTP doesn't answer, retry after 1 minute, doubling up to 1 hour
+- Comments on `CONNECT_MS` and `READ_MS` in `config.h`
+
 **v0.1.7 - 2026-11-15**
 
 - Header clock re-syncs with NTP every 12 hours (was the SDK default of 3 hours)
