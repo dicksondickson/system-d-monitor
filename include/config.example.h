@@ -22,7 +22,12 @@
 #define ROTATE_S    0             // auto-advance to the next server every N s (0 = off)
 
 #define POLL_MS     2000          // /metrics every 2 s
-#define CONNECT_MS  800
-#define READ_MS     1500
+#define CONNECT_MS  800           // max wait for a server to accept the connection; longer = "refused"
+#define READ_MS     1500          // max silence from the server while reading a reply; longer = "timeout"
 #define BRIGHTNESS_PCT 100        // first-boot backlight, % (then set in Settings)
 #define SERIAL_LOG  0             // 1 = log to USB serial (115200) for troubleshooting; 0 = silent
+
+// Time sync for the header clock. Servers are tried in turn (1–4, names or
+// IPs); on a network without internet, point this at a local NTP server.
+#define NTP_SERVERS { "pool.ntp.org", "time.cloudflare.com" }
+#define NTP_SYNC_H  12            // re-sync every N hours (1–168)

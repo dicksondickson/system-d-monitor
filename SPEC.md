@@ -114,7 +114,7 @@ Unused: SD (41/42), I²S (1/2/40).
 | Touch | Minimal GT911 polling driver (or TAMC_GT911), ~30 Hz |
 | Network | `WiFi` + `WiFiClient`, hand-written HTTP/1.0 GET with a streaming line parser |
 | JSON | ArduinoJson with a filter document (`/health`, `/v1/models`, both < 1 KB) |
-| Time | SNTP + POSIX TZ string (header clock only); re-syncs every 12 h |
+| Time | Own SNTP query + POSIX TZ string (header clock only). The poller sends it in the gap after a poll, so it never overlaps a metrics request: right after the first poll, then every `NTP_SYNC_H` hours (default 12; after a failure: 1 min, doubling up to 1 h, moving on to the next of `NTP_SERVERS`, default `pool.ntp.org`, `time.cloudflare.com`) |
 | Persistence | `Preferences` (NVS): theme, last page |
 
 Versions: pin the exact Arduino_GFX release, the matching ESP32 Arduino core,
@@ -672,10 +672,15 @@ Settings action) for checking touch targets.
 #define ROTATE_S    0             // auto-advance to the next server every N s (0 = off)
 
 #define POLL_MS     2000          // /metrics every 2 s
-#define CONNECT_MS  800
-#define READ_MS     1500
+#define CONNECT_MS  800           // max wait for a server to accept the connection; longer = "refused"
+#define READ_MS     1500          // max silence from the server while reading a reply; longer = "timeout"
 #define BRIGHTNESS_PCT 100        // first-boot backlight, % (then set in Settings)
 #define SERIAL_LOG  0             // 1 = log to USB serial (115200) for troubleshooting; 0 = silent
+
+// Time sync for the header clock. Servers are tried in turn (1–4, names or
+// IPs); on a network without internet, point this at a local NTP server.
+#define NTP_SERVERS { "pool.ntp.org", "time.cloudflare.com" }
+#define NTP_SYNC_H  12            // re-sync every N hours (1–168)
 ```
 
 `src/app_config.h` turns `SERVERS` into `kServers[]` (1–4 entries,

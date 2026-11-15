@@ -112,6 +112,9 @@ Then edit `include/config.h`:
 - Optional settings further down `config.h`: `ROTATE_S`, `POLL_MS`,
   `BRIGHTNESS_PCT` and `SERIAL_LOG` (0 = silent, the default; 1 = serial log
   for troubleshooting).
+- The header clock is set over NTP: `NTP_SERVERS` (default `pool.ntp.org`,
+  then `time.cloudflare.com`) every `NTP_SYNC_H` hours (default 12). On a
+  network without internet, put a local NTP server there.
 - Each entry in `SERVERS` is `{label, host, port}`, and there can be 1–4.
   A `nullptr` label shows the host up to its first dot.
 - Use a host name your router's DNS resolves (`gpu-box.lan`) or an IP

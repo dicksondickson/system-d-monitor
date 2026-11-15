@@ -8,7 +8,7 @@
 
 namespace net {
 
-// Station mode with auto-reconnect, plus SNTP for the header clock.
+// Station mode with auto-reconnect; sets the timezone for the header clock.
 // hostname is the name sent to the router over DHCP. An empty SSID leaves
 // Wi-Fi off.
 void begin(const char* ssid, const char* pass, const char* tz, const char* hostname);
@@ -32,8 +32,18 @@ void info(char* ip, size_t ip_len, int8_t* bars);
 // Raw signal strength in dBm (0 when down).
 int rssi();
 
+// Time sync, driven by the poller so it never overlaps a metrics request.
+// syncTimeIfDue(): call between two polls. Does nothing unless a sync is due
+// (right after boot, then every NTP_SYNC_H hours; after a failure 1 min,
+// doubling up to 1 h, moving on to the next of NTP_SERVERS); then it sends
+// one SNTP query and blocks until the answer (DNS lookup
+// + up to 0.8 s). waitTimeSync(): call before a poll; blocks while another
+// task's query is still in progress.
+void syncTimeIfDue();
+void waitTimeSync();
+
 // Date and 12-hour time, "11-02-26 2:47:33 PM" (MM-DD-YY, user request), or
-// "" until SNTP has set the time.
+// "" until the first time sync.
 void clock(char* out, size_t len);
 
 }  // namespace net

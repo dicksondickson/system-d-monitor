@@ -181,7 +181,8 @@ ready — touch the screen
   v0.1.4; see §2.10 for why Wi-Fi now comes first):
   1. Preferences read from NVS, then touch;
   2. `net::begin()`: Wi-Fi starts (PHY calibration and config save happen
-     inside this call), non-blocking join, plus SNTP;
+     inside this call), non-blocking join, timezone set (the time
+     sync itself is sent later by the poller, after its first poll);
   3. wait for `net::started()` (capped at 2 s; measured 0 ms, since the
      driver has started when `net::begin()` returns);
   4. `panel::begin()`: ST7701 init, RGB bus, framebuffer and bounce

@@ -120,6 +120,7 @@ void task(void* arg) {
       nap(hold);
       continue;
     }
+    net::waitTimeSync();  // another task's time sync still on the air: let it finish
     const uint32_t start = millis();
     if (!net::up()) {
       nap(500);
@@ -186,6 +187,7 @@ void task(void* arg) {
     xSemaphoreGive(s.lock);
     gen++;
 
+    net::syncTimeIfDue();  // in the gap between polls; a slow answer delays the next poll
     const uint32_t elapsed = millis() - start;
     if (elapsed < wait) nap(wait - elapsed);
   }

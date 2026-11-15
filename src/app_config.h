@@ -45,6 +45,18 @@ static_assert(kServerCount >= 1 && kServerCount <= 4, "SERVERS: 1 to 4 entries")
 #endif
 static_assert(SERIAL_LOG == 0 || SERIAL_LOG == 1, "SERIAL_LOG: 0 or 1");
 
+// Time sync for the header clock (src/net/wifi.h).
+#ifndef NTP_SERVERS
+#define NTP_SERVERS {"pool.ntp.org", "time.cloudflare.com"}  // tried in turn; names or IPs
+#endif
+#ifndef NTP_SYNC_H
+#define NTP_SYNC_H 12  // re-sync every N hours
+#endif
+static const char* const kNtpServers[] = NTP_SERVERS;
+constexpr int kNtpServerCount = sizeof kNtpServers / sizeof kNtpServers[0];
+static_assert(kNtpServerCount >= 1 && kNtpServerCount <= 4, "NTP_SERVERS: 1 to 4 entries");
+static_assert(NTP_SYNC_H >= 1 && NTP_SYNC_H <= 168, "NTP_SYNC_H: 1 to 168 hours");
+
 #ifndef HOSTNAME
 #define HOSTNAME "system-d-monitor"  // name the board gives the router (DHCP)
 #endif

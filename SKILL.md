@@ -37,7 +37,9 @@ Optional, with defaults: refresh `POLL_MS` (2000), auto-rotate between
 servers `ROTATE_S` (0 = off), first-boot `BRIGHTNESS_PCT` (100), network
 name `HOSTNAME` (`system-d-monitor`; 1–31 letters, digits or hyphens, no
 hyphen at either end, or the build fails), serial log `SERIAL_LOG` (0 =
-silent, the default; 1 = for troubleshooting). Refresh,
+silent, the default; 1 = for troubleshooting), clock sync `NTP_SERVERS`
+(`pool.ntp.org`, `time.cloudflare.com`; a local NTP server if the network
+has no internet) every `NTP_SYNC_H` hours (12). Refresh,
 brightness and theme can also be changed later on the board's Settings screen.
 
 ## 2. Check the servers from this computer
