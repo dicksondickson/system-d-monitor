@@ -1,5 +1,9 @@
 # Changelog
 
+**v0.1.7 - 2026-11-15**
+
+- Header clock re-syncs with NTP every 12 hours (was the SDK default of 3 hours)
+
 **v0.1.6 - 2026-11-08**
 
 - Release firmware is silent on serial; `SERIAL_LOG 1` in `config.h` turns the log back on for troubleshooting

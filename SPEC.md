@@ -114,7 +114,7 @@ Unused: SD (41/42), I²S (1/2/40).
 | Touch | Minimal GT911 polling driver (or TAMC_GT911), ~30 Hz |
 | Network | `WiFi` + `WiFiClient`, hand-written HTTP/1.0 GET with a streaming line parser |
 | JSON | ArduinoJson with a filter document (`/health`, `/v1/models`, both < 1 KB) |
-| Time | SNTP + POSIX TZ string (header clock only) |
+| Time | SNTP + POSIX TZ string (header clock only); re-syncs every 12 h |
 | Persistence | `Preferences` (NVS): theme, last page |
 
 Versions: pin the exact Arduino_GFX release, the matching ESP32 Arduino core,

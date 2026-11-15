@@ -14,6 +14,8 @@ namespace {
 bool g_enabled = false;
 bool g_ever_up = false;
 uint32_t g_begin_ms = 0;
+// How often SNTP re-syncs after the first fix (the SDK default is 3 h).
+constexpr uint32_t NTP_SYNC_MS = 12u * 60 * 60 * 1000;
 }
 
 void begin(const char* ssid, const char* pass, const char* tz, const char* hostname) {
@@ -28,6 +30,7 @@ void begin(const char* ssid, const char* pass, const char* tz, const char* hostn
   WiFi.setSleep(false);  // lower latency for 2 s polls; we're on USB power
   WiFi.begin(ssid, pass);
   g_begin_ms = millis();
+  sntp_set_sync_interval(NTP_SYNC_MS);  // before configTzTime(): read when SNTP starts
   configTzTime(tz, "pool.ntp.org", "time.cloudflare.com");
   LOGF("wifi: connecting to \"%s\" as %s\n", ssid, hostname);
 }
